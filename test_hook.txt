@@ -1,2 +1,0 @@
-This is a test file to verify the post-commit hook is working.
-Created to test automatic GitHub sync.

@@ -14,11 +14,11 @@
 
 ## Project Mission & Purpose
 
-**FastPass** is a command-line tool that provides universal file encryption and decryption capabilities across multiple file formats. It serves as a unified front-end wrapper for specialized crypto tools (msoffcrypto-tool, PyPDF2/pikepdf, 7zip CLI) to add or remove password protection from Microsoft Office documents, PDF files, and ZIP archives.
+**FastPass** is a command-line tool that provides universal file encryption and decryption capabilities across multiple file formats. It serves as a unified front-end wrapper for specialized crypto tools (msoffcrypto-tool, PyPDF2, pyzipper) to add or remove password protection from Microsoft Office documents, PDF files, and ZIP archives.
 
 **Core Problem Solved:** Eliminates the need to learn and manage multiple separate tools for file encryption/decryption across different formats. Provides a consistent, secure interface for password protection operations while maintaining file integrity and implementing enterprise-grade security practices.
 
-**Key Differentiator:** Unified CLI interface with enterprise security patterns including automatic backup creation, file isolation, magic number validation, and secure password handling. Follows proven architecture patterns from the FastRedline project for reliability and security.
+**Key Differentiator:** Unified CLI interface with enterprise security patterns including automatic backup creation, file isolation, magic number validation, password reuse algorithms, password list support, and secure password handling. Follows proven architecture patterns from the FastRedline project for reliability and security.
 
 ---
 
@@ -29,7 +29,7 @@
 - **Project Name:** FastPass
 - **Version:** v1.0
 - **Target Platform:** Windows Desktop (CLI) with cross-platform Python support
-- **Technology Stack:** Python, msoffcrypto-tool, PyPDF2/pikepdf, 7zip CLI, filetype library, pathlib
+- **Technology Stack:** Python, msoffcrypto-tool, PyPDF2, pyzipper, filetype library, pathlib
 - **Timeline:** Development in progress
 - **Team Size:** Single developer maintained
 
@@ -46,11 +46,11 @@
 - [x] Universal file encryption/decryption interface
 - [x] Microsoft Office document password protection (modern and legacy formats)
 - [x] PDF password protection and removal  
-- [x] ZIP archive password protection using 7zip
+- [x] ZIP archive password protection using pyzipper
 - [x] Batch processing for multiple files
 - [x] Recursive directory processing with in-place or copy modes
 - [x] Automatic file format detection using filetype library
-- [x] Lazy import strategy for optimal performance
+- [x] Direct import strategy for simplified code management
 
 #### Security & File Safety
 - [x] Automatic backup creation before any modification
@@ -62,11 +62,12 @@
 - [x] Legacy Office format protection (decrypt-only limitation documented)
 
 #### Password Management
-- [x] Command-line password input with secure handling
+- [x] Per-file password specification with automatic pairing
+- [x] Password reuse algorithm with disable option
+- [x] Password list file support for batch operations
 - [x] JSON password input via stdin for GUI integration
-- [x] Interactive password prompts with hidden input
-- [x] Secure random password generation
-- [x] Password verification and strength validation
+- [x] Secure password handling and memory cleanup
+- [x] Password validation before file processing
 
 #### File Operations
 - [x] In-place modification with automatic backup
@@ -91,8 +92,8 @@
 
 ### Constraints & Assumptions
 
-- **Technical Constraints:** Requires underlying crypto tools (msoffcrypto-tool, 7zip) to be available
-- **Platform Constraints:** Some features may be Windows-specific due to 7zip CLI integration
+- **Technical Constraints:** Requires underlying crypto libraries (msoffcrypto-tool, pyzipper, PyPDF2) to be available
+- **Platform Constraints:** Cross-platform compatible with pure Python dependencies
 - **Security Constraints:** Must maintain file confidentiality and integrity throughout operations
 - **User Constraints:** Must have appropriate file permissions for input and output directories
 - **Assumptions:** Users understand file encryption concepts and password management practices
@@ -109,22 +110,24 @@ fast_pass/
 │   ├── crypto_handlers/          # Crypto tool integrations
 │   │   ├── __init__.py
 │   │   ├── office_handler.py     # msoffcrypto-tool integration
-│   │   ├── pdf_handler.py        # PyPDF2/pikepdf integration
-│   │   └── zip_handler.py        # 7zip CLI integration
+│   │   ├── pdf_handler.py        # PyPDF2 integration
+│   │   └── zip_handler.py        # pyzipper integration
 │   ├── security/                 # Security validation modules
 │   │   ├── __init__.py
 │   │   ├── file_validator.py     # File format and path validation
 │   │   └── backup_manager.py     # Backup creation and management
+│   ├── password/                 # Password handling modules
+│   │   ├── __init__.py
+│   │   ├── password_manager.py   # Password reuse and validation
+│   │   └── password_list.py      # Password list file handling
 │   └── utils/                    # Utility modules
 │       ├── __init__.py
-│       ├── lazy_imports.py       # Lazy import management
 │       └── recursive_processor.py # Directory recursion logic
-├── bin/                          # External tool binaries
-│   └── 7z.exe                    # 7-Zip standalone executable
 ├── tests/                        # Test suite
 │   ├── __init__.py
 │   ├── test_crypto_handlers.py
 │   ├── test_security.py
+│   ├── test_password_handling.py
 │   └── test_integration.py
 ├── dev/                          # Development documentation
 │   └── fast_pass_specification.md
@@ -133,54 +136,48 @@ fast_pass/
 └── README.md                     # User documentation
 ```
 
-### **External Tool Management**
+### **Python Dependencies**
 
-**bin/ Directory Contents:**
-- **7z.exe**: Standalone 7-Zip command-line executable
-  - Download from: https://www.7-zip.org/download.html
-  - Use "7-Zip Extra: standalone console version"
-  - No installation required, just copy 7z.exe to bin/
-
-**Python Dependencies (requirements.txt):**
+**Requirements (requirements.txt):**
 ```
 msoffcrypto-tool>=5.0.0    # Office document encryption/decryption
-pikepdf>=8.0.0             # Preferred PDF processing (AES-256 support)
-PyPDF2>=3.0.0              # Fallback PDF processing
+PyPDF2>=3.0.0              # PDF processing and encryption
+pyzipper>=0.3.6            # ZIP file encryption/decryption with AES support
 filetype>=1.2.0            # File type detection (replaces python-magic)
 ```
 
 **PyInstaller Integration Notes:**
 - All Python packages will be bundled into executable
-- bin/7z.exe must be included as data file in PyInstaller spec
-- Use lazy imports to reduce startup time and memory usage
+- No external binaries required - pure Python dependencies
+- Direct imports for simplified code management
 
-### **Lazy Import Strategy**
+### **Password Handling Architecture**
 
-**Principle:** Import crypto tool libraries only when needed, but validate availability early for fail-fast behavior.
+**Following FastRedline precedent patterns:**
 
 ```python
-# Example lazy import pattern
-class OfficeHandler:
+# Password reuse algorithm
+class PasswordManager:
     def __init__(self):
-        self._msoffcrypto = None
-        self._available = None
-    
-    def is_available(self):
-        """Check if msoffcrypto-tool is available (fail-fast)"""
-        if self._available is None:
-            try:
-                import msoffcrypto
-                self._available = True
-            except ImportError:
-                self._available = False
-        return self._available
-    
-    def _get_msoffcrypto(self):
-        """Lazy import msoffcrypto only when actually needed"""
-        if self._msoffcrypto is None:
-            import msoffcrypto
-            self._msoffcrypto = msoffcrypto
-        return self._msoffcrypto
+        self.password_pool = []  # Stores successful passwords for reuse
+        self.password_reuse_enabled = True  # Can be disabled via --no-password-reuse
+        
+    def try_password_on_file(self, file_path, password):
+        """Try password on file, add to pool if successful"""
+        if self.validate_password(file_path, password):
+            if password not in self.password_pool:
+                self.password_pool.append(password)
+            return True
+        return False
+        
+    def get_passwords_for_file(self, file_path, provided_password=None):
+        """Get list of passwords to try: provided + pool + list file"""
+        passwords = []
+        if provided_password:
+            passwords.append(provided_password)
+        if self.password_reuse_enabled:
+            passwords.extend(reversed(self.password_pool))  # Most recent first
+        return passwords
 ```
 
 ---
@@ -188,31 +185,36 @@ class OfficeHandler:
 ## Command Line Reference
 
 ```
-Usage: fast_pass {-e|-d|--encrypt|--decrypt} {-f FILE | -r DIR} [options]
+Usage: fast_pass {encrypt|decrypt} [options] file1 [file2 file3...]
 
 Required Arguments:
-  -e, --encrypt            Add password protection to files
-  -d, --decrypt            Remove password protection from files
-  -f, --file FILE          Path to file to process (can be repeated for batch)
-  -r, --recursive DIR      Process all supported files in directory recursively
+  encrypt                  Add password protection to files
+  decrypt                  Remove password protection from files
+  file1 [file2...]         Files to process (supports mixed file types)
 
 Password Options:
-  -p, --password PASSWORD  Password for encryption/decryption
-  -p stdin                Read password from JSON via stdin (secure GUI integration)
-  --check-password [FILE]  Check if file requires password, or validate provided password
+  -p, --password PASS      Password for file (can be specified per file)
+  --password-list FILE     Text file with passwords to try (one per line)
+  --no-password-reuse      Disable automatic password reuse across files
+  -p stdin                 Read passwords from JSON via stdin (GUI integration)
+  --check-password [FILE]  Check if file requires password (dry-run mode)
+
+Directory Options:
+  -r, --recursive DIR      Process all supported files in directory recursively
+  --include-pattern GLOB   Include files matching pattern (with -r)
+  --exclude-pattern GLOB   Exclude files matching pattern (with -r)
 
 Output Options:
-  -o, --output-dir DIR     Output directory (default: in-place for files, required for recursive)
-  --in-place              Modify file in-place (creates backup first)
-  --backup-suffix SUFFIX  Backup file suffix (default: _backup_YYYYMMDD_HHMMSS)
+  -o, --output-dir DIR     Output directory (default: in-place modification)
+  --backup                 Create backup before modifying files
 
 Utility Options:
   --dry-run               Show what would be done without making changes
-  --verify                Verify file integrity after operation
+  --verify                Deep verification of processed files
   --list-supported        List supported file formats
   --debug                 Enable detailed logging and debug output
-  --version               Show version information
-  --help                  Show this help message
+  -h, --help              Show this help message
+  -v, --version           Show version information
 
 Supported File Formats:
   Modern Office:     .docx, .xlsx, .pptx, .docm, .xlsm, .pptm, .dotx, .xltx, .potx
@@ -222,28 +224,35 @@ Supported File Formats:
 
 Examples:
   # Encrypt single file with password
-  fast_pass -e -f contract.docx -p "mypassword"
+  fast_pass encrypt contract.docx -p "mypassword"
   
-  # Decrypt file with password from stdin (GUI integration)
-  fast_pass -d -f protected.pdf -p stdin < passwords.json
+  # Decrypt multiple files with same password
+  fast_pass decrypt file1.pdf file2.docx file3.zip -p "shared_pwd"
   
-  # Batch encrypt multiple files
-  fast_pass --encrypt -f file1.xlsx -f file2.pptx -p "shared_pwd" -o ./encrypted/
+  # Per-file passwords (GUI integration pattern)
+  fast_pass decrypt protected.pdf -p "pdf_pwd" document.docx -p "doc_pwd"
   
-  # Recursively encrypt all files in directory (in-place)
-  fast_pass -e -r ./documents/ -p "password123"
+  # Use password list file for batch operations
+  fast_pass decrypt archive_folder/*.pdf --password-list common_passwords.txt
   
-  # Recursively decrypt to different directory (copy mode)
-  fast_pass -d -r ./encrypted_docs/ -p "password123" -o ./decrypted_docs/
+  # Passwords from stdin JSON (GUI integration)
+  fast_pass decrypt file1.pdf file2.docx -p stdin < passwords.json
+  # JSON format: {"file1.pdf": "secret1", "file2.docx": "secret2"}
   
-  # Check if file requires password
-  fast_pass --check-password document.pdf
+  # Recursively process directory with password reuse
+  fast_pass decrypt -r ./encrypted_docs/ -p "main_password"
   
-  # Check if provided password is correct
-  fast_pass --check-password protected.docx -p "testpass"
+  # Recursive with password list and backup
+  fast_pass decrypt -r ./archive/ --password-list passwords.txt --backup
   
-  # Dry run recursive operation
-  fast_pass -e -r ./folder/ -p "test123" --dry-run
+  # Check password protection status (dry-run)
+  fast_pass --check-password -r ./documents/ --password-list test_passwords.txt
+  
+  # Mixed file types with output directory
+  fast_pass encrypt report.pdf data.xlsx presentation.pptx -p "secret" -o ./secured/
+  
+  # Disable password reuse for security
+  fast_pass decrypt file1.pdf file2.pdf -p "pwd1" --no-password-reuse
 
 Exit Codes:
   0  Success
@@ -261,7 +270,7 @@ Exit Codes:
 
 ```mermaid
 flowchart TD
-    Start([User executes: fast_pass encrypt/decrypt -f FILE]) --> A[A: CLI Parsing & Initialization]
+    Start([User executes: fast_pass encrypt/decrypt file1 file2]) --> A[A: CLI Parsing & Initialization]
     A --> ACheck{A_Exit: Special modes?}
     ACheck -->|--help, --version, --list-supported| AExit[A_Exit: Display info and exit 0]
     ACheck -->|Normal operation| B[B: Security & File Validation]
@@ -306,10 +315,10 @@ flowchart TD
     A1[A1: Parse command line arguments] --> A1a[A1a: Import sys, argparse, pathlib]
     A1a --> A1b[A1b: Create ArgumentParser with description]
     A1b --> A1c[A1c: Add -e/--encrypt and -d/--decrypt arguments]
-    A1c --> A1d[A1d: Add -f/--file and -r/--recursive arguments]
-    A1d --> A1e[A1e: Add password options -p and --check-password]
-    A1e --> A1f[A1f: Add output options -o, --in-place, --backup-suffix]
-    A1f --> A1g[A1g: Add utility options --dry-run, --verify, --debug]
+    A1c --> A1d[A1d: Add positional file arguments and -r/--recursive]
+    A1d --> A1e[A1e: Add -p password, --password-list, --no-password-reuse]
+    A1e --> A1f[A1f: Add output options -o, --backup]
+    A1f --> A1g[A1g: Add utility options --dry-run, --verify, --debug, -h, -v]
     A1g --> A1h[A1h: Parse sys.argv and handle parse errors]
     A1h --> A1i{A1i: Special mode check?}
     A1i -->|--help| A1_help[A1_help: Display help, sys.exit 0]
@@ -319,9 +328,9 @@ flowchart TD
     A1i -->|Normal operation| A2
     
     A2[A2: Validate operation mode and required arguments] --> A2a[A2a: Check encrypt XOR decrypt flag set]
-    A2a --> A2b[A2b: Ensure file or recursive option provided]
-    A2b --> A2c[A2c: Validate conflicting options in-place + output-dir]
-    A2c --> A2d[A2d: Check password requirements vs operation mode]
+    A2a --> A2b[A2b: Ensure files provided or recursive option set]
+    A2b --> A2c[A2c: Validate conflicting options backup + output-dir]
+    A2c --> A2d[A2d: Parse per-file passwords and validate pairing]
     A2d --> A2e{A2e: Validation passed?}
     A2e -->|No| A2_error[A2_error: Print usage error, sys.exit 2]
     A2e -->|Yes| A3
@@ -335,8 +344,8 @@ flowchart TD
     
     A4[A4: Initialize crypto tool availability detection] --> A4a[A4a: Import subprocess, shutil]
     A4a --> A4b[A4b: Test msoffcrypto-tool availability]
-    A4b --> A4c[A4c: Test 7zip executable availability]
-    A4c --> A4d[A4d: Test PyPDF2/pikepdf import availability]
+    A4b --> A4c[A4c: Test pyzipper library availability]
+    A4c --> A4d[A4d: Test PyPDF2 import availability]
     A4d --> A4e[A4e: Create crypto_tools availability dict]
     A4e --> A4f{A4f: Required tools missing?}
     A4f -->|Yes| A4_error[A4_error: Tool missing error, sys.exit 1]
@@ -354,10 +363,11 @@ flowchart TD
     A6a --> A6b[A6b: Set operation_mode from args]
     A6b --> A6c[A6c: Initialize empty file_processors dict]
     A6c --> A6d[A6d: Create temp_files_created tracking list]
-    A6d --> A6e[A6e: Create backup_files_created tracking list]
-    A6e --> A6f[A6f: Record operation start time]
-    A6f --> A6g[A6g: Set state flags ready_for_processing = True]
-    A6g --> SectionB[Continue to Section B: Security Validation]
+    A6d --> A6e[A6e: Initialize password manager with reuse settings]
+    A6e --> A6f[A6f: Create backup_files_created tracking list]
+    A6f --> A6g[A6g: Record operation start time]
+    A6g --> A6h[A6h: Set state flags ready_for_processing = True]
+    A6h --> SectionB[Continue to Section B: Security Validation]
     
     classDef processBox fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
     classDef subProcess fill:#f3e5f5,stroke:#9c27b0,stroke-width:1px
@@ -372,23 +382,25 @@ flowchart TD
 
 **What's Actually Happening:**
 - **A1: Command Line Argument Processing**
-  - `sys.argv` contains raw command like `['fast_pass', '-e', '-f', 'document.docx', '-p', 'password123']`
-  - `argparse.ArgumentParser()` creates parser with custom action classes for file tracking
-  - `args.encrypt` and `args.decrypt` boolean flags (mutually exclusive)
-  - `args.files` becomes list of file paths like `['document.docx', 'spreadsheet.xlsx']`
+  - `sys.argv` contains raw command like `['fast_pass', 'decrypt', 'file1.docx', '-p', 'pwd1', 'file2.pdf', '-p', 'pwd2']`
+  - `argparse.ArgumentParser()` creates parser with custom action classes for per-file password pairing
+  - `args.operation` contains 'encrypt' or 'decrypt' as positional argument
+  - `args.files` becomes list of file paths with associated passwords
   - `args.recursive` contains directory path if recursive mode specified
-  - `args.password` contains password string or `'stdin'` for JSON input
-  - `args.output_dir` defaults to `None` (same directory as input files)
-  - `args.debug` boolean flag for verbose logging
+  - `args.password_list` contains path to password list file if specified
+  - `args.password_reuse_enabled` boolean flag (default True, disabled via --no-password-reuse)
+  - `args.output_dir` defaults to `None` (in-place modification)
+  - `args.backup` boolean flag for backup creation
 
 - **A2: Operation Mode & File Path Validation**
-  - Validate operation: exactly one of `args.encrypt` or `args.decrypt` must be True
-  - Input validation: exactly one of `args.files` or `args.recursive` must be provided
+  - Validate operation: `args.operation` must be 'encrypt' or 'decrypt'
+  - Input validation: must have `args.files` or `args.recursive` (not both unless combining)
   - File existence check: `os.path.exists(file_path)` for each input file or directory
   - Path normalization: `os.path.abspath(os.path.expanduser(file_path))`
-  - Conflict detection: if `--in-place` and `--output-dir` both specified, show error
-  - Build file list: `self.input_files = [{'path': normalized_path, 'exists': bool, 'is_directory': bool}]`
-  - Special modes: `--check-password`, `--list-supported` bypass normal file requirements
+  - Per-file password pairing: associate each file with its -p password argument
+  - Password source validation: ensure passwords available from CLI, list file, or stdin
+  - Build file list: `self.input_files = [{'path': Path, 'password': str, 'source': str}]`
+  - Special modes: `--check-password`, `--list-supported` bypass normal password requirements
 
 - **A3: Logging System Configuration**
   - `logging.basicConfig()` with `level=logging.DEBUG` if `args.debug` enabled
@@ -398,12 +410,12 @@ flowchart TD
   - Memory logger: `self.operation_log = []` for operation history
   - Debug flag: `self.debug_mode = args.debug`
 
-- **A4: Crypto Tool Availability Detection**
-  - Test msoffcrypto-tool: `subprocess.run(['python', '-m', 'msoffcrypto.cli', '--version'])`
-  - Test 7zip availability: `subprocess.run(['7z'])` or check common install paths
-  - Test PyPDF2/pikepdf: `import PyPDF2; import pikepdf` with fallback handling
-  - Store availability: `self.crypto_tools = {'msoffcrypto': bool, '7zip': bool, 'pdf': str}`
-  - If required tools missing: log warning, may exit with helpful error message
+- **A4: Crypto Library Availability Detection**
+  - Test msoffcrypto-tool: `import msoffcrypto` with ImportError handling
+  - Test pyzipper availability: `import pyzipper` with version check
+  - Test PyPDF2: `import PyPDF2` with version compatibility check
+  - Store availability: `self.crypto_tools = {'msoffcrypto': bool, 'pyzipper': bool, 'pypdf2': bool}`
+  - If required libraries missing: exit with helpful installation instructions
 
 - **A5: Configuration & Default Setup**
   - `self.config = {'backup_suffix': '_backup_{timestamp}', 'temp_dir_prefix': 'FastPass_'}`
@@ -416,6 +428,7 @@ flowchart TD
 - **A6: FastPass Application Object Creation**
   - Main `FastPass(args)` object instantiated with parsed arguments
   - `self.operation_mode = args.operation` ('encrypt' or 'decrypt')
+  - `self.password_manager = PasswordManager(reuse_enabled=args.password_reuse_enabled)`
   - `self.file_processors = {}` (will map files to appropriate crypto handlers)
   - `self.temp_files_created = []` (tracking for cleanup)
   - `self.backup_files_created = []` (tracking backups for rollback)
@@ -614,8 +627,8 @@ flowchart TD
     C1[C1: Analyze file formats and determine required tools] --> C1a[C1a: Loop through validated file_manifest]
     C1a --> C1b[C1b: Create tool_mapping extension dict]
     C1b --> C1c[C1c: Map .docx/.xlsx/.pptx to msoffcrypto]
-    C1c --> C1d[C1d: Map .pdf to pypdf2]
-    C1d --> C1e[C1e: Map .zip/.7z to 7zip]
+    C1c --> C1d[C1d: Map .pdf to PyPDF2]
+    C1d --> C1e[C1e: Map .zip/.7z to pyzipper]
     C1e --> C1f[C1f: Assign crypto_tool to each file entry]
     C1f --> C1g[C1g: Group files by tool into tool_groups dict]
     C1g --> C1h[C1h: Check required tools vs availability]
@@ -632,13 +645,13 @@ flowchart TD
     C2f --> C2d
     C2d -->|Yes| C2g[C2g: Initialize PDFHandler class]
     C2d -->|No| C2h{C2h: Need ZIP handler?}
-    C2g --> C2i[C2i: Check pikepdf vs PyPDF2 availability]
-    C2i --> C2j[C2j: Set PDFHandler.pdf_library preference]
+    C2g --> C2i[C2i: Initialize PyPDF2 library settings]
+    C2i --> C2j[C2j: Set PDFHandler encryption options]
     C2j --> C2h
-    C2h -->|Yes| C2k[C2k: Initialize ZipHandler class]
+    C2h -->|Yes| C2k[C2k: Initialize PyZipperHandler class]
     C2h -->|No| C3
-    C2k --> C2l[C2l: Find 7zip executable path]
-    C2l --> C2m[C2m: Set ZipHandler.compression_level default]
+    C2k --> C2l[C2l: Initialize pyzipper library settings]
+    C2l --> C2m[C2m: Set PyZipperHandler compression defaults]
     C2m --> C3
     
     C3[C3: Configure msoffcrypto tool handler] --> C3a{C3a: msoffcrypto needed?}
@@ -656,10 +669,10 @@ flowchart TD
     
     C4[C4: Configure PDF tool handler] --> C4a{C4a: PDF handler needed?}
     C4a -->|No| C5
-    C4a -->|Yes| C4b[C4b: Try import pikepdf library]
-    C4b --> C4c{C4c: pikepdf available?}
-    C4c -->|Yes| C4d[C4d: Set pdf_library = pikepdf]
-    C4c -->|No| C4e[C4e: Import PyPDF2 as fallback]
+    C4a -->|Yes| C4b[C4b: Initialize PyPDF2 library]
+    C4b --> C4c{C4c: PyPDF2 compatible version?}
+    C4c -->|Yes| C4d[C4d: Set pdf_library = PyPDF2]
+    C4c -->|No| C4e[C4e: Show PyPDF2 version warning]
     C4d --> C4f[C4f: Create pdf_config dict]
     C4e --> C4f
     C4f --> C4g[C4g: Set encryption_algorithm to AES-256]
@@ -669,22 +682,20 @@ flowchart TD
     C4j --> C4k[C4k: Store handler in crypto_handlers dict]
     C4k --> C5
     
-    C5[C5: Configure 7zip CLI handler] --> C5a{C5a: ZIP handler needed?}
+    C5[C5: Configure pyzipper library handler] --> C5a{C5a: ZIP handler needed?}
     C5a -->|No| C6
-    C5a -->|Yes| C5b[C5b: Create zip_paths search list]
-    C5b --> C5c[C5c: Loop through potential 7zip locations]
-    C5c --> C5d[C5d: Test subprocess.run for each path]
-    C5d --> C5e{C5e: Working 7zip found?}
-    C5e -->|No| C5f{C5f: More paths to try?}
-    C5f -->|Yes| C5c
-    C5f -->|No| C5_error[C5_error: 7zip unavailable, sys.exit 1]
-    C5e -->|Yes| C5g[C5g: Set zip_executable to working path]
-    C5g --> C5h[C5h: Create zip_config dict]
-    C5h --> C5i[C5i: Set compression_method to AES256]
-    C5i --> C5j[C5j: Set compression_level to 5]
-    C5j --> C5k[C5k: Set solid_archive to False]
-    C5k --> C5l[C5l: Initialize exclude_patterns empty list]
-    C5l --> C5m[C5m: Apply config to zip_handler]
+    C5a -->|Yes| C5b[C5b: Import pyzipper library]
+    C5b --> C5c[C5c: Test pyzipper.AESZipFile availability]
+    C5c --> C5d[C5d: Verify AES encryption support]
+    C5d --> C5e{C5e: pyzipper fully functional?}
+    C5e -->|No| C5_error[C5_error: pyzipper unavailable, sys.exit 1]
+    C5e -->|Yes| C5g[C5g: Create pyzipper_config dict]
+    C5g --> C5h[C5h: Set encryption_method to AES256]
+    C5h --> C5i[C5i: Set compression_type to ZIP_DEFLATED]
+    C5i --> C5j[C5j: Set compression_level to 6]
+    C5j --> C5k[C5k: Set AES key length to 256 bits]
+    C5k --> C5l[C5l: Configure compression settings]
+    C5l --> C5m[C5m: Apply config to pyzipper_handler]
     C5m --> C5n[C5n: Store handler in crypto_handlers dict]
     C5n --> C6
     
@@ -736,13 +747,13 @@ flowchart TD
     ```python
     tool_mapping = {
         '.docx': 'msoffcrypto', '.xlsx': 'msoffcrypto', '.pptx': 'msoffcrypto',
-        '.doc': 'msoffcrypto', '.xls': 'msoffcrypto', '.ppt': 'msoffcrypto',
-        '.pdf': 'pypdf2',
-        '.zip': '7zip', '.7z': '7zip'
+        '.doc': 'msoffcrypto', '.xls': 'msoffcrypto', '.ppt': 'msoffcrypto',  
+        '.pdf': 'PyPDF2',
+        '.zip': 'pyzipper', '.7z': 'pyzipper'
     }
     ```
   - Assign crypto tool: `file_entry['crypto_tool'] = tool_mapping[file_entry['extension']]`
-  - Group by tool: `self.tool_groups = {'msoffcrypto': [], 'pypdf2': [], '7zip': []}`
+  - Group by tool: `self.tool_groups = {'msoffcrypto': [], 'PyPDF2': [], 'pyzipper': []}`
   - Availability check: ensure required tools are available for file types present
   - If tool missing: `sys.exit(1)` with "Required crypto tool not available: {tool_name}"
 
@@ -764,17 +775,17 @@ flowchart TD
     ```python
     class PDFHandler:
         def __init__(self):
-            self.use_pikepdf = self._check_pikepdf_availability()
+            self.pdf_library = 'PyPDF2'
         
         def encrypt(self, input_path, output_path, password):
-            # Implementation using PyPDF2 or pikepdf
+            # Implementation using PyPDF2 library
     ```
-  - **7zip Handler**:
+  - **pyzipper Handler**:
     ```python
-    class ZipHandler:
+    class PyZipperHandler:
         def __init__(self):
-            self.zip_path = self._find_7zip_executable()
-            self.compression_level = 5
+            self.compression_level = 6
+            self.encryption_method = 'AES-256'
     ```
 
 - **C4: msoffcrypto-tool Configuration**
@@ -790,15 +801,16 @@ flowchart TD
   - Set handler methods: `self.office_handler.set_config(office_config)`
   - Store in pipeline: `self.crypto_handlers['msoffcrypto'] = office_handler`
 
-- **C5: PyPDF2/pikepdf Configuration** 
-  - Detect available PDF library:
+- **C5: PyPDF2 Configuration** 
+  - Initialize PDF library:
     ```python
-    try:
-        import pikepdf
-        self.pdf_library = 'pikepdf'  # Preferred for better encryption
-    except ImportError:
-        import PyPDF2
-        self.pdf_library = 'pypdf2'
+    import PyPDF2
+    self.pdf_library = 'PyPDF2'
+    # Verify version compatibility for encryption features
+    if hasattr(PyPDF2, 'PdfWriter'):  # Check for newer API
+        self.writer_class = PyPDF2.PdfWriter
+    else:
+        self.writer_class = PyPDF2.PdfFileWriter  # Legacy API
     ```
   - Configure PDF encryption settings:
     ```python
@@ -810,23 +822,27 @@ flowchart TD
     }
     ```
 
-- **C6: 7zip CLI Configuration**
-  - Locate 7zip executable:
+- **C6: pyzipper Library Configuration**
+  - Configure pyzipper options:
     ```python
-    zip_paths = ['7z', 'C:\\Program Files\\7-Zip\\7z.exe', 'C:\\Program Files (x86)\\7-Zip\\7z.exe']
-    for path in zip_paths:
-        if subprocess.run([path], capture_output=True).returncode != 1:  # 1 = no args, but tool works
-            self.zip_executable = path
-            break
-    ```
-  - Configure 7zip options:
-    ```python
-    zip_config = {
-        'compression_method': 'AES256',  # Strong encryption
-        'compression_level': 5,         # Balanced speed/size
-        'solid_archive': False,         # Better for individual file access
-        'exclude_patterns': []          # No exclusions by default
+    import pyzipper
+    
+    pyzipper_config = {
+        'compression_method': pyzipper.ZIP_DEFLATED,  # Standard compression
+        'compression_level': 6,                      # Good compression ratio
+        'encryption_method': pyzipper.WZ_AES,        # AES encryption
+        'aes_key_length': 256,                       # 256-bit AES keys
+        'allow_zip64': True                          # Support large files
     }
+    
+    # Test AES functionality
+    try:
+        with pyzipper.AESZipFile('test.zip', 'w') as zf:
+            zf.setencryption(pyzipper.WZ_AES, nbits=256)
+            # AES encryption confirmed available
+    except Exception:
+        # Fallback to traditional ZIP encryption if needed
+        pass
     ```
 
 - **C7: Tool-Specific Option Configuration**
@@ -924,14 +940,14 @@ flowchart TD
     D3d11 --> D4
     
     D3e --> D3e1{D3e1: Operation is decrypt?}
-    D3e1 -->|Yes| D3e2[D3e2: Build 7z extract command with password]
-    D3e1 -->|No| D3e6[D3e6: Build 7z archive command with password]
-    D3e2 --> D3e3[D3e3: Set command: 7z x file -pPASSWORD -oOUTPUT]
-    D3e3 --> D3e4[D3e4: Execute subprocess.run with capture_output]
-    D3e4 --> D3e5[D3e5: Check subprocess return code]
+    D3e1 -->|Yes| D3e2[D3e2: Open encrypted ZIP with pyzipper]
+    D3e1 -->|No| D3e6[D3e6: Create encrypted ZIP with pyzipper]
+    D3e2 --> D3e3[D3e3: Set password and extract files to temp dir]
+    D3e3 --> D3e4[D3e4: Read files from encrypted ZIP archive]
+    D3e4 --> D3e5[D3e5: Validate extraction success]
     D3e5 --> D3e9
-    D3e6 --> D3e7[D3e7: Set command: 7z a -pPASSWORD output input]
-    D3e7 --> D3e8[D3e8: Execute subprocess.run with capture_output]
+    D3e6 --> D3e7[D3e7: Create new ZIP with AES encryption]
+    D3e7 --> D3e8[D3e8: Add files to encrypted ZIP archive]
     D3e8 --> D3e5
     D3e9 --> D4
     
@@ -1063,37 +1079,56 @@ flowchart TD
                 office_file.encrypt(password=password, output_file=temp_output)
     ```
   
-  - **PDF Processing (PyPDF2/pikepdf)**:
+  - **PDF Processing (PyPDF2)**:
     ```python
     def process_pdf_file(self, file_path, operation, password):
-        if self.pdf_library == 'pikepdf':
-            import pikepdf
-            if operation == 'decrypt':
-                with pikepdf.open(file_path, password=password) as pdf:
-                    pdf.save(temp_output)
-            elif operation == 'encrypt':
-                with pikepdf.open(file_path) as pdf:
-                    pdf.save(temp_output, encryption=pikepdf.Encryption(
-                        user=password, owner=password))
+        import PyPDF2
+        if operation == 'decrypt':
+            with open(file_path, 'rb') as input_file:
+                reader = PyPDF2.PdfReader(input_file)
+                if reader.is_encrypted:
+                    reader.decrypt(password)
+                writer = PyPDF2.PdfWriter()
+                for page in reader.pages:
+                    writer.add_page(page)
+                with open(temp_output, 'wb') as output_file:
+                    writer.write(output_file)
+        elif operation == 'encrypt':
+            with open(file_path, 'rb') as input_file:
+                reader = PyPDF2.PdfReader(input_file) 
+                writer = PyPDF2.PdfWriter()
+                for page in reader.pages:
+                    writer.add_page(page)
+                writer.encrypt(password)
+                with open(temp_output, 'wb') as output_file:
+                    writer.write(output_file)
     ```
   
-  - **ZIP Processing (7zip CLI)**:
+  - **ZIP Processing (pyzipper)**:
     ```python
     def process_zip_file(self, file_path, operation, password):
         if operation == 'decrypt':
-            cmd = [self.zip_executable, 'x', str(file_path), f'-p{password}', f'-o{temp_output_dir}']
+            with pyzipper.AESZipFile(file_path) as zf:
+                zf.setpassword(password.encode('utf-8'))
+                # Extract to unencrypted ZIP
+                with zipfile.ZipFile(temp_output, 'w') as new_zf:
+                    for file_info in zf.infolist():
+                        file_data = zf.read(file_info.filename)
+                        new_zf.writestr(file_info.filename, file_data)
         elif operation == 'encrypt':
-            cmd = [self.zip_executable, 'a', f'-p{password}', str(temp_output), str(file_path)]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise CryptoProcessingError(f"7zip error: {result.stderr}")
+            with pyzipper.AESZipFile(temp_output, 'w', compression=pyzipper.ZIP_DEFLATED) as zf:
+                zf.setpassword(password.encode('utf-8'))
+                zf.setencryption(pyzipper.WZ_AES, nbits=256)
+                # Add files from input ZIP or directory
+                zf.write(file_path, file_path.name)
     ```
 
 - **D4: Processing Success Validation**
-  - Check subprocess return codes: `if result.returncode != 0:`
+  - Check for exceptions during crypto operations: `try/except` blocks around library calls
   - Verify output file creation: `if not temp_output_path.exists():`
   - Basic file size validation: ensure output file has reasonable size (> 0, not suspiciously different)
   - Format validation: run magic number check on output to ensure proper format
+  - Library-specific validation: test file can be opened by respective crypto library
   - If any validation fails: log error details, increment `self.processing_errors`
   - Success tracking: `self.successful_operations.append(file_path)`
 
@@ -1102,7 +1137,7 @@ flowchart TD
   - **Accessibility test**: Try to open file with appropriate tool/library
   - **Office documents**: Test with `python-docx` or `openpyxl` for basic structure
   - **PDF files**: Test with PyPDF2 to ensure readable PDF structure
-  - **ZIP archives**: Test with 7zip list command to verify archive integrity
+  - **ZIP archives**: Test with pyzipper library to verify archive integrity
   - **Password verification**: For encrypt operations, test that password is required
   - **For decrypt operations**: Test that file opens without password
   - Store verification results: `self.verification_results[file_path] = {'format_ok': bool, 'accessible': bool, 'password_status_correct': bool}`

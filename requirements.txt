@@ -1,0 +1,4 @@
+msoffcrypto-tool>=5.0.0    # Office document encryption/decryption
+PyPDF2>=3.0.0              # PDF processing and encryption
+pyzipper>=0.3.6            # ZIP file encryption/decryption with AES support
+filetype>=1.2.0            # File type detection (replaces python-magic)

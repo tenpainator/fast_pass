@@ -312,10 +312,10 @@ flowchart TD
     A1f --> A1g[A1g: Add utility options --dry-run, --verify, --debug]
     A1g --> A1h[A1h: Parse sys.argv and handle parse errors]
     A1h --> A1i{A1i: Special mode check?}
-    A1i -->|--help| A1_help[A1_help: Display help, sys.exit(0)]
-    A1i -->|--version| A1_version[A1_version: Display version, sys.exit(0)]
-    A1i -->|--list-supported| A1_list[A1_list: Display formats, sys.exit(0)]
-    A1i -->|--check-password| A1_check[A1_check: Check file password or validate password, sys.exit(0/1)]
+    A1i -->|--help| A1_help[A1_help: Display help, sys.exit 0]
+    A1i -->|--version| A1_version[A1_version: Display version, sys.exit 0]
+    A1i -->|--list-supported| A1_list[A1_list: Display formats, sys.exit 0]
+    A1i -->|--check-password| A1_check[A1_check: Check file password or validate password, sys.exit 0 or 1]
     A1i -->|Normal operation| A2
     
     A2[A2: Validate operation mode and required arguments] --> A2a[A2a: Check encrypt XOR decrypt flag set]
@@ -323,7 +323,7 @@ flowchart TD
     A2b --> A2c[A2c: Validate conflicting options in-place + output-dir]
     A2c --> A2d[A2d: Check password requirements vs operation mode]
     A2d --> A2e{A2e: Validation passed?}
-    A2e -->|No| A2_error[A2_error: Print usage error, sys.exit(2)]
+    A2e -->|No| A2_error[A2_error: Print usage error, sys.exit 2]
     A2e -->|Yes| A3
     
     A3[A3: Setup logging and debug infrastructure] --> A3a[A3a: Import logging, datetime]
@@ -339,12 +339,12 @@ flowchart TD
     A4c --> A4d[A4d: Test PyPDF2/pikepdf import availability]
     A4d --> A4e[A4e: Create crypto_tools availability dict]
     A4e --> A4f{A4f: Required tools missing?}
-    A4f -->|Yes| A4_error[A4_error: Tool missing error, sys.exit(1)]
+    A4f -->|Yes| A4_error[A4_error: Tool missing error, sys.exit 1]
     A4f -->|No| A5
     
     A5[A5: Load default configuration settings] --> A5a[A5a: Create config dict with hardcoded defaults]
     A5a --> A5b[A5b: Set backup_suffix pattern with timestamp]
-    A5b --> A5c[A5c: Set secure file permissions 0o600]
+    A5b --> A5c[A5c: Set secure file permissions]
     A5c --> A5d[A5d: Set max_file_size limit 500MB]
     A5d --> A5e[A5e: Create supported_formats mapping dict]
     A5e --> A5f[A5f: Set cleanup and security policies]
@@ -355,7 +355,7 @@ flowchart TD
     A6b --> A6c[A6c: Initialize empty file_processors dict]
     A6c --> A6d[A6d: Create temp_files_created tracking list]
     A6d --> A6e[A6e: Create backup_files_created tracking list]
-    A6e --> A6f[A6f: Record operation_start_time = datetime.now()]
+    A6e --> A6f[A6f: Record operation start time]
     A6f --> A6g[A6g: Set state flags ready_for_processing = True]
     A6g --> SectionB[Continue to Section B: Security Validation]
     
@@ -443,11 +443,11 @@ flowchart TD
     B1i -->|Yes| B2
     B1_missing --> B1j{B1j: More files to process?}
     B1j -->|Yes| B1c
-    B1j -->|No| B1_error[B1_error: Missing files error, sys.exit(2)]
+    B1j -->|No| B1_error[B1_error: Missing files error, sys.exit 2]
     
     B2[B2: Path traversal security analysis] --> B2a[B2a: Extract path.parts for component analysis]
-    B2a --> B2b[B2b: Check for dangerous patterns ../, /, \\]
-    B2b --> B2c[B2c: Define forbidden paths Windows/, System32/]
+    B2a --> B2b[B2b: Check for dangerous patterns]
+    B2b --> B2c[B2c: Define forbidden system paths]
     B2c --> B2d[B2d: Get allowed directories user_home, cwd]
     B2d --> B2e[B2e: Use os.path.commonpath for boundary check]
     B2e --> B2f[B2f: Verify path within allowed boundaries]
@@ -455,7 +455,7 @@ flowchart TD
     B2g -->|Yes| B2_security[B2_security: Add to security_violations list]
     B2g -->|No| B3
     B2_security --> B2h[B2h: Sanitize error message]
-    B2h --> B2_exit[B2_exit: Security error, sys.exit(3)]
+    B2h --> B2_exit[B2_exit: Security error, sys.exit 3]
     
     B3[B3: File format validation using filetype library] --> B3a[B3a: Import filetype library]
     B3a --> B3b[B3b: Call filetype.guess for format detection]
@@ -465,9 +465,9 @@ flowchart TD
     B3e --> B3f{B3f: Format mismatch detected?}
     B3f -->|Yes| B3_format[B3_format: Add to format_violations list]
     B3f -->|No| B4
-    B3_format --> B3j[B3j: Format mismatch error, sys.exit(3)]
+    B3_format --> B3j[B3j: Format mismatch error, sys.exit 3]
     
-    B4[B4: File access and permission verification] --> B4a[B4a: Test file read access with open(rb)]
+    B4[B4: File access and permission verification] --> B4a[B4a: Test file read access with open in rb mode]
     B4a --> B4b[B4b: Read sample 1024 bytes for accessibility]
     B4b --> B4c[B4c: Check file size with os.path.getsize]
     B4c --> B4d[B4d: Validate size limits vs max_file_size]
@@ -477,13 +477,13 @@ flowchart TD
     B4g -->|Yes| B4_access[B4_access: Add to access_violations list]
     B4g -->|No| B4h[B4h: Store file_metadata with size, accessibility]
     B4h --> B5
-    B4_access --> B4_exit[B4_exit: Permission error, sys.exit(1)]
+    B4_access --> B4_exit[B4_exit: Permission error, sys.exit 1]
     
     B5[B5: Password protection status detection] --> B5a[B5a: Check file extension for crypto tool routing]
     B5a --> B5b{B5b: Office document?}
     B5b -->|Yes| B5c[B5c: Use msoffcrypto.OfficeFile to check encryption]
     B5b -->|No| B5d{B5d: PDF file?}
-    B5c --> B5e[B5e: Call office_file.is_encrypted()]
+    B5c --> B5e[B5e: Call office file is_encrypted method]
     B5e --> B5f[B5f: Store encryption status in password_status dict]
     B5f --> B6
     B5d -->|Yes| B5g[B5g: Use PyPDF2.PdfReader to check encryption]
@@ -493,7 +493,7 @@ flowchart TD
     B5h -->|Yes| B5j[B5j: Test 7zip list command for password detection]
     B5h -->|No| B5k[B5k: Unsupported format error]
     B5j --> B5f
-    B5k --> B5_exit[B5_exit: Unsupported format, sys.exit(3)]
+    B5k --> B5_exit[B5_exit: Unsupported format, sys.exit 3]
     
     B6[B6: Build validated file manifest] --> B6a[B6a: Initialize empty file_manifest list]
     B6a --> B6b[B6b: Loop through all validated files]
@@ -506,7 +506,7 @@ flowchart TD
     B6h -->|Yes| B6b
     B6h -->|No| B6i[B6i: Calculate validation summary counts]
     B6i --> B6j{B6j: Any critical errors detected?}
-    B6j -->|Yes| B6_error[B6_error: Validation summary error, sys.exit(3)]
+    B6j -->|Yes| B6_error[B6_error: Validation summary error, sys.exit 3]
     B6j -->|No| B6k[B6k: Set validation_complete = True]
     B6k --> SectionC[Continue to Section C: Crypto Tool Selection]
     
@@ -517,8 +517,8 @@ flowchart TD
     classDef securityBox fill:#fce4ec,stroke:#e91e63,stroke-width:2px
     
     class B1,B2,B3,B4,B5,B6 processBox
-    class B1a,B1b,B1c,B1d,B1e,B1f,B1g,B1h,B2a,B2b,B2c,B2d,B2e,B2f,B3a,B3b,B3c,B3d,B3e,B3g,B3h,B4a,B4b,B4c,B4d,B4e,B4f,B4h,B5a,B5c,B5e,B5f,B5g,B5i,B5j,B5k,B6a,B6b,B6c,B6d,B6e,B6f,B6g,B6i,B6k subProcess
-    class B1i,B1j,B2g,B3f,B3i,B4g,B5b,B5d,B5h,B6h,B6j decisionBox
+    class B1a,B1b,B1c,B1d,B1e,B1f,B1g,B1h,B2a,B2b,B2c,B2d,B2e,B2f,B3a,B3b,B3c,B3d,B3e,B4a,B4b,B4c,B4d,B4e,B4f,B4h,B5a,B5c,B5e,B5f,B5g,B5i,B5j,B5k,B6a,B6b,B6c,B6d,B6e,B6f,B6g,B6i,B6k subProcess
+    class B1i,B1j,B2g,B3f,B4g,B5b,B5d,B5h,B6h,B6j decisionBox
     class B1_missing,B1_error,B2_security,B2h,B2_exit,B3_format,B3j,B4_access,B4_exit,B5_exit,B6_error exitBox
     class B2,B3 securityBox
 ```
@@ -620,7 +620,7 @@ flowchart TD
     C1f --> C1g[C1g: Group files by tool into tool_groups dict]
     C1g --> C1h[C1h: Check required tools vs availability]
     C1h --> C1i{C1i: Required tools missing?}
-    C1i -->|Yes| C1_error[C1_error: Tool availability error, sys.exit(1)]
+    C1i -->|Yes| C1_error[C1_error: Tool availability error, sys.exit 1]
     C1i -->|No| C2
     
     C2[C2: Initialize crypto tool handler classes] --> C2a[C2a: Create crypto_handlers empty dict]
@@ -645,7 +645,7 @@ flowchart TD
     C3a -->|No| C4
     C3a -->|Yes| C3b[C3b: Test subprocess msoffcrypto.cli --version]
     C3b --> C3c{C3c: Tool test successful?}
-    C3c -->|No| C3_error[C3_error: msoffcrypto unavailable, sys.exit(1)]
+    C3c -->|No| C3_error[C3_error: msoffcrypto unavailable, sys.exit 1]
     C3c -->|Yes| C3d[C3d: Create office_config dict]
     C3d --> C3e[C3e: Set password_method to standard]
     C3e --> C3f[C3f: Set temp_dir to temp_working_dir]
@@ -677,7 +677,7 @@ flowchart TD
     C5d --> C5e{C5e: Working 7zip found?}
     C5e -->|No| C5f{C5f: More paths to try?}
     C5f -->|Yes| C5c
-    C5f -->|No| C5_error[C5_error: 7zip unavailable, sys.exit(1)]
+    C5f -->|No| C5_error[C5_error: 7zip unavailable, sys.exit 1]
     C5e -->|Yes| C5g[C5g: Set zip_executable to working path]
     C5g --> C5h[C5h: Create zip_config dict]
     C5h --> C5i[C5i: Set compression_method to AES256]
@@ -713,7 +713,7 @@ flowchart TD
     C7l -->|No| C7m[C7m: Sort queue by file size for optimal processing]
     C7m --> C7n[C7n: Validate all tasks have required inputs]
     C7n --> C7o[C7o: Set pipeline_ready = True]
-    C7o --> C7p[C7p: Set total_tasks = len(processing_queue)]
+    C7o --> C7p[C7p: Set total tasks count]
     C7p --> SectionD[Continue to Section D: File Processing]
     
     classDef processBox fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
@@ -881,8 +881,8 @@ flowchart TD
     D2e --> D2f[D2f: Use shutil.copy2 to preserve metadata]
     D2f --> D2g[D2g: Verify backup file size matches original]
     D2g --> D2h{D2h: Backup creation successful?}
-    D2h -->|No| D2_error[D2_error: Backup failed, sys.exit(1)]
-    D2h -->|Yes| D2i[D2i: Set backup permissions to 0o600]
+    D2h -->|No| D2_error[D2_error: Backup failed, sys.exit 1]
+    D2h -->|Yes| D2i[D2i: Set backup permissions to owner only]
     D2i --> D2j[D2j: Store backup info in backup_files dict]
     D2j --> D2k{D2k: More files to backup?}
     D2k -->|Yes| D2b
@@ -894,7 +894,7 @@ flowchart TD
     D3b -->|pypdf2| D3d[D3d: PDF processing branch]
     D3b -->|7zip| D3e[D3e: ZIP archive processing branch]
     
-    D3c --> D3c1[D3c1: Open file with open(rb) mode]
+    D3c --> D3c1[D3c1: Open file with open in rb mode]
     D3c1 --> D3c2[D3c2: Create msoffcrypto.OfficeFile object]
     D3c2 --> D3c3{D3c3: Operation is decrypt?}
     D3c3 -->|Yes| D3c4[D3c4: Call office_file.load_key with password]
@@ -997,9 +997,9 @@ flowchart TD
     D8a --> D8b[D8b: Restore all files from backups if requested]
     D8b --> D8c[D8c: Generate comprehensive error report]
     D8c --> D8d[D8d: Set exit code to 1 for processing errors]
-    D8d --> D8_exit[D8_exit: sys.exit(1)]
+    D8d --> D8_exit[D8_exit: sys.exit 1]
     
-    D9[D9: Update file permissions and metadata] --> D9a[D9a: Set output file permissions to 0o644 or 0o600]
+    D9[D9: Update file permissions and metadata] --> D9a[D9a: Set output file permissions appropriately]
     D9a --> D9b[D9b: Preserve original timestamps where appropriate]
     D9b --> D9c[D9c: Update file metadata creation/modification times]
     D9c --> D9d[D9d: Generate file checksums using hashlib.sha256]
@@ -1202,7 +1202,7 @@ flowchart TD
     E4a -->|No| E4j[E4j: Keep backups for failed operations]
     E4b -->|No| E4c[E4c: Loop through backup_files values]
     E4b -->|Yes| E4i[E4i: Keep all backups, inform user of location]
-    E4c --> E4d[E4d: Call unlink() on each backup_path]
+    E4c --> E4d[E4d: Call unlink on each backup path]
     E4d --> E4e[E4e: Remove backup from backup_files dict]
     E4e --> E4f{E4f: More backups to remove?}
     E4f -->|Yes| E4c
@@ -1222,7 +1222,7 @@ flowchart TD
     E5d --> E5e{E5e: More passwords to clear?}
     E5e -->|Yes| E5b
     E5e -->|No| E5f
-    E5f --> E5g[E5g: Force garbage collection with gc.collect()]
+    E5f --> E5g[E5g: Force garbage collection]
     E5g --> E5h[E5h: Clear command-line arg references with passwords]
     E5h --> E5i[E5i: Log security cleanup completion]
     E5i --> E6
@@ -1264,14 +1264,14 @@ flowchart TD
     E8c -->|No| E8e[E8e: Provide usage tips or next steps]
     E8d --> E8e
     E8e --> E8f[E8f: Final log entry: FastPass completed successfully]
-    E8f --> E8g[E8g: sys.exit(0)]
+    E8f --> E8g[E8g: sys.exit 0]
     
     E9[E9: Handle error exit with troubleshooting guidance] --> E9a[E9a: Display error summary with specific failure details]
     E9a --> E9b[E9b: Show troubleshooting guidance based on error types]
     E9b --> E9c[E9c: Indicate backup file locations for recovery]
     E9c --> E9d[E9d: Suggest command corrections if applicable]
     E9d --> E9e[E9e: Final log entry: FastPass completed with errors code]
-    E9e --> E9f[E9f: sys.exit(exit_code)]
+    E9e --> E9f[E9f: sys.exit with exit_code]
     
     classDef processBox fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
     classDef subProcess fill:#f3e5f5,stroke:#9c27b0,stroke-width:1px

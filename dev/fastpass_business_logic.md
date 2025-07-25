@@ -26,10 +26,30 @@ flowchart TD
 
 **Input Processing:**
 ```python
-# From: fast_pass decrypt file1.pdf -p "pwd1" file2.docx -p "pwd2"
+# Multiple password approaches supported:
+
+# 1. Per-file passwords: fast_pass decrypt file1.pdf -p "pwd1" file2.docx -p "pwd2"
 file_processing_list = [
-    {'path': Path('file1.pdf'), 'password': 'pwd1', 'format': 'pdf'},
-    {'path': Path('file2.docx'), 'password': 'pwd2', 'format': 'office'}
+    {'path': Path('file1.pdf'), 'specific_password': 'pwd1', 'format': 'pdf'},
+    {'path': Path('file2.docx'), 'specific_password': 'pwd2', 'format': 'office'}
+]
+
+# 2. Multiple passwords: fast_pass decrypt files*.pdf -p "pwd1" -p "pwd2" -p "pwd3"
+password_candidates = ['pwd1', 'pwd2', 'pwd3']  # Try all on each file
+
+# 3. Password list file: fast_pass decrypt files*.pdf --password-list passwords.txt
+# passwords.txt contains:
+# password123
+# secret456
+# admin789
+
+# 4. Combined: fast_pass decrypt files*.pdf -p "urgent" --password-list common.txt
+password_priority = [
+    'urgent',           # CLI passwords first
+    'password123',      # Then password list file
+    'secret456', 
+    'admin789',
+    'previous_success'  # Finally password reuse pool
 ]
 ```
 
@@ -42,43 +62,57 @@ tool_mapping = {
 }
 ```
 
-### 2. Temporary Directory Structure
+### 2. File Layout Structure
 
-**Directory Setup:**
+**Backup Location (Optional --backup flag):**
+```
+/documents/                    # Original file location
+├── report.pdf                 # Original file
+├── report_backup_20250125_143022.pdf    # In-place backup (if --backup)
+└── spreadsheet.xlsx
+└── spreadsheet_backup_20250125_143022.xlsx
+```
+
+**Temporary Directory Structure:**
 ```
 /temp/FastPass_20250125_143022_1234/
-├── backups/           # Original file backups
-│   ├── file1_backup_20250125_143022.pdf
-│   └── file2_backup_20250125_143022.docx
-├── processing/        # Intermediate processing files
-│   ├── file1_temp.pdf
-│   └── file2_temp.docx
-└── output/           # Final processed files before move
-    ├── file1_decrypted.pdf
-    └── file2_decrypted.docx
+├── processing/        # Input files copied here FIRST before any crypto operations
+│   ├── temp_abc123_report.pdf
+│   ├── temp_def456_spreadsheet.xlsx
+│   └── temp_ghi789_archive.zip
+└── output/           # Final processed files before move back
+    ├── report_decrypted.pdf
+    ├── spreadsheet_decrypted.xlsx  
+    └── archive_decrypted.zip
 ```
 
 ### 3. File Processing Workflow
 
 ```mermaid
 flowchart TD
-    FileInput[Input File] --> CreateBackup[Create Backup in temp/backups/]
-    CreateBackup --> DetectFormat[Detect File Format]
+    FileInput[Input File] --> CheckBackup{--backup flag set?}
+    CheckBackup -->|Yes| CreateBackup[Create In-Place Backup]
+    CheckBackup -->|No| MoveToTemp[Copy Input File to temp/processing/]
+    CreateBackup --> MoveToTemp
+    
+    MoveToTemp --> DetectFormat[Detect File Format from temp copy]
     DetectFormat --> RouteToHandler{Route to Crypto Handler}
     
-    RouteToHandler -->|PDF| PDFProcess[PyPDF2 Processing]
-    RouteToHandler -->|Office| OfficeProcess[msoffcrypto Processing]
-    RouteToHandler -->|ZIP| ZipProcess[pyzipper Processing]
+    RouteToHandler -->|PDF| PDFProcess[PyPDF2 Processing on temp file]
+    RouteToHandler -->|Office| OfficeProcess[msoffcrypto Processing on temp file]
+    RouteToHandler -->|ZIP| ZipProcess[pyzipper Processing on temp file]
     
-    PDFProcess --> TempOutput[Write to temp/processing/]
+    PDFProcess --> TempOutput[Write result to temp/output/]
     OfficeProcess --> TempOutput
     ZipProcess --> TempOutput
     
     TempOutput --> ValidateOutput[Validate Processing Success]
-    ValidateOutput --> FinalLocation[Move to Final Output Location]
+    ValidateOutput --> FinalLocation[Move from temp/output/ to original location]
     
     classDef processStep fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
-    class CreateBackup,DetectFormat,TempOutput,ValidateOutput,FinalLocation processStep
+    classDef backupStep fill:#fff3e0,stroke:#ff9800,stroke-width:2px
+    class DetectFormat,TempOutput,ValidateOutput,FinalLocation processStep
+    class CreateBackup,MoveToTemp backupStep
 ```
 
 ### 4. Crypto Processing Details
@@ -155,10 +189,12 @@ def process_zip_file(input_path, temp_output, password, operation):
 #### In-Place Modification (Default)
 ```python
 # Original: /documents/report.pdf
-# Backup:   /temp/backups/report_backup_20250125_143022.pdf  
-# Process:  /temp/processing/report_temp.pdf
+# Backup:   /documents/report_backup_20250125_143022.pdf (if --backup)
+# Temp:     /temp/processing/temp_abc123_report.pdf (input copy)
+# Process:  /temp/output/report_decrypted.pdf (processed result)
 # Final:    /documents/report.pdf (overwrites original)
 
+# All operations are temp-based, then moved back
 final_path = original_file_path
 shutil.move(temp_processed_file, final_path)
 ```
@@ -215,7 +251,44 @@ class FileTracker:
             record['final_path'] = Path(final_path)
 ```
 
-### 7. Batch Processing Flow
+### 7. Password Selection Algorithm
+
+```python
+def get_passwords_for_file(file_path, specific_password=None):
+    """Get prioritized list of passwords to try for a file"""
+    candidates = []
+    
+    # Priority 1: Per-file specific password (highest priority)
+    if specific_password and specific_password != 'stdin':
+        candidates.append(specific_password)
+        
+    # Priority 2: CLI -p passwords (in order provided)  
+    candidates.extend(cli_passwords)  # From multiple -p flags
+    
+    # Priority 3: Password list file (line by line)
+    if password_list_file:
+        candidates.extend(load_password_list())
+        
+    # Priority 4: Password reuse pool (successful passwords from previous files)
+    if password_reuse_enabled:
+        candidates.extend(reversed(password_pool))  # Most recent first
+        
+    # Remove duplicates while preserving order
+    return list(dict.fromkeys(candidates))
+
+# Example usage:
+# fast_pass decrypt file1.pdf -p "specific" -p "common1" -p "common2" --password-list list.txt
+#
+# For file1.pdf, password order will be:
+# 1. "specific" (per-file)
+# 2. "common1" (CLI)  
+# 3. "common2" (CLI)
+# 4. "password123" (from list.txt)
+# 5. "secret456" (from list.txt)
+# 6. "previous_success" (from password reuse pool if enabled)
+```
+
+### 8. Batch Processing Flow
 
 ```mermaid
 flowchart TD
@@ -255,13 +328,18 @@ final_results = {
     'successful': 3,
     'failed': 0,
     'output_files': [
-        '/documents/report.pdf',
-        '/documents/spreadsheet.xlsx',
-        '/documents/archive.zip'
+        '/documents/report.pdf',           # Processed file (overwrote original)
+        '/documents/spreadsheet.xlsx',      # Processed file  
+        '/documents/archive.zip'            # Processed file
+    ],
+    'backups_created': [                    # In-place backups (if --backup used)
+        '/documents/report_backup_20250125_143022.pdf',
+        '/documents/spreadsheet_backup_20250125_143022.xlsx',
+        '/documents/archive_backup_20250125_143022.zip'
     ]
 }
 
-# Cleanup: Remove temp directory and backups (if successful)
+# Cleanup: Remove temp directory (originals restored from temp processing)
 shutil.rmtree(temp_working_dir)
 ```
 
@@ -274,20 +352,27 @@ final_results = {
     'failed': 1,
     'successful_files': ['/documents/report.pdf', '/documents/archive.zip'],
     'failed_files': [{'file': '/documents/spreadsheet.xlsx', 'error': 'Wrong password'}],
-    'backups_retained': ['/temp/backups/spreadsheet_backup_20250125_143022.xlsx']
+    'backups_available': [
+        '/documents/report_backup_20250125_143022.pdf',      # Successful processing, backup remains
+        '/documents/spreadsheet_backup_20250125_143022.xlsx', # Failed processing, original unchanged
+        '/documents/archive_backup_20250125_143022.zip'       # Successful processing, backup remains
+    ]
 }
 
-# Cleanup: Remove temp directory but keep backups for failed files
+# Cleanup: Remove temp directory, failed files remain unchanged, backups remain in-place
+shutil.rmtree(temp_working_dir)
 ```
 
 ## Key Design Principles
 
-1. **File Isolation**: All processing happens in secure temporary directories
-2. **Backup First**: Always create backups before any modification
-3. **Atomic Operations**: Each file is processed completely or not at all
-4. **Progress Continuation**: Failures on one file don't stop processing of others
-5. **Clean Recovery**: Failed operations can be rolled back using backups
-6. **Predictable Output**: Output file locations follow consistent patterns
-7. **Resource Cleanup**: Temporary files are always cleaned up after processing
+1. **File Isolation**: All processing happens in secure temporary directories, never on originals
+2. **Backup Visibility**: Optional in-place backups are created in same directory as originals for easy access
+3. **Temp-First Processing**: Files are copied to temp directory BEFORE any crypto operations
+4. **Atomic Operations**: Each file is processed completely in temp, then moved to final location
+5. **Progress Continuation**: Failures on one file don't stop processing of others  
+6. **Password Flexibility**: Multiple password sources with clear priority algorithm
+7. **Clean Recovery**: Failed operations leave originals unchanged, backups provide recovery
+8. **Predictable Output**: Output file locations follow consistent patterns
+9. **Resource Cleanup**: Temporary files are always cleaned up after processing
 
-This workflow ensures data safety while providing efficient batch processing of mixed file types with individual password handling.
+This workflow ensures data safety while providing efficient batch processing of mixed file types with flexible password handling and visible backup management.

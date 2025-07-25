@@ -156,28 +156,63 @@ filetype>=1.2.0            # File type detection (replaces python-magic)
 **Following FastRedline precedent patterns:**
 
 ```python
-# Password reuse algorithm
+# Password handling with multiple sources and priority algorithm
 class PasswordManager:
     def __init__(self):
         self.password_pool = []  # Stores successful passwords for reuse
         self.password_reuse_enabled = True  # Can be disabled via --no-password-reuse
+        self.cli_passwords = []  # Multiple -p passwords from CLI
+        self.password_list_file = None  # Path to password list file
         
+    def load_password_sources(self, args):
+        """Load passwords from all sources"""
+        # Multiple -p flags from CLI
+        if hasattr(args, 'passwords') and args.passwords:
+            self.cli_passwords = [p for p in args.passwords if p != 'stdin']
+            
+        # Password list file
+        if args.password_list:
+            self.password_list_file = args.password_list
+            
+    def get_password_candidates(self, file_path, specific_password=None):
+        """Get prioritized list of passwords to try for a file"""
+        candidates = []
+        
+        # Priority 1: Per-file specific password (highest priority)
+        if specific_password and specific_password != 'stdin':
+            candidates.append(specific_password)
+            
+        # Priority 2: CLI -p passwords (in order provided)
+        candidates.extend(self.cli_passwords)
+        
+        # Priority 3: Password list file (line by line)
+        if self.password_list_file:
+            candidates.extend(self._load_password_list())
+            
+        # Priority 4: Password reuse pool (successful passwords from previous files)
+        if self.password_reuse_enabled:
+            candidates.extend(reversed(self.password_pool))  # Most recent first
+            
+        # Remove duplicates while preserving order
+        return list(dict.fromkeys(candidates))
+        
+    def _load_password_list(self):
+        """Load passwords from text file, one per line"""
+        try:
+            with open(self.password_list_file, 'r', encoding='utf-8') as f:
+                return [line.strip() for line in f if line.strip()]
+        except FileNotFoundError:
+            self.log_error(f"Password list file not found: {self.password_list_file}")
+            return []
+            
     def try_password_on_file(self, file_path, password):
         """Try password on file, add to pool if successful"""
         if self.validate_password(file_path, password):
             if password not in self.password_pool:
                 self.password_pool.append(password)
+                self.log_debug(f"Added password to reuse pool for future files")
             return True
         return False
-        
-    def get_passwords_for_file(self, file_path, provided_password=None):
-        """Get list of passwords to try: provided + pool + list file"""
-        passwords = []
-        if provided_password:
-            passwords.append(provided_password)
-        if self.password_reuse_enabled:
-            passwords.extend(reversed(self.password_pool))  # Most recent first
-        return passwords
 ```
 
 ---
@@ -193,7 +228,7 @@ Required Arguments:
   file1 [file2...]         Files to process (supports mixed file types)
 
 Password Options:
-  -p, --password PASS      Password for file (can be specified per file)
+  -p, --password PASS      Password for file (can be specified multiple times)
   --password-list FILE     Text file with passwords to try (one per line)
   --no-password-reuse      Disable automatic password reuse across files
   -p stdin                 Read passwords from JSON via stdin (GUI integration)
@@ -232,8 +267,14 @@ Examples:
   # Per-file passwords (GUI integration pattern)
   fast_pass decrypt protected.pdf -p "pdf_pwd" document.docx -p "doc_pwd"
   
-  # Use password list file for batch operations
+  # Multiple passwords via CLI (tries all passwords on all files)
+  fast_pass decrypt file1.pdf file2.docx -p "password123" -p "secret456" -p "admin789"
+  
+  # Password list file for batch operations
   fast_pass decrypt archive_folder/*.pdf --password-list common_passwords.txt
+  
+  # Combined approach: specific password + password list fallback
+  fast_pass decrypt urgent.pdf archive*.pdf -p "urgent_pwd" --password-list common_passwords.txt
   
   # Passwords from stdin JSON (GUI integration)
   fast_pass decrypt file1.pdf file2.docx -p stdin < passwords.json
@@ -889,111 +930,118 @@ flowchart TD
     D1f --> D1g[D1g: Log temp directory creation with path]
     D1g --> D2
     
-    D2[D2: Generate backup files for all input files] --> D2a[D2a: Initialize backup_files empty dict]
-    D2a --> D2b[D2b: Loop through each file in processing_queue]
+    D2[D2: Create in-place backup files if --backup flag set] --> D2a{D2a: Backup flag enabled?}
+    D2a -->|No| D3[D3: Move input files to temp processing directory]
+    D2a -->|Yes| D2b[D2b: Loop through each input file]
     D2b --> D2c[D2c: Generate timestamp for backup filename]
     D2c --> D2d[D2d: Create backup_name with _backup_timestamp pattern]
-    D2d --> D2e[D2e: Set backup_path in temp_working_dir/backups/]
-    D2e --> D2f[D2f: Use shutil.copy2 to preserve metadata]
-    D2f --> D2g[D2g: Verify backup file size matches original]
-    D2g --> D2h{D2h: Backup creation successful?}
-    D2h -->|No| D2_error[D2_error: Backup failed, sys.exit 1]
-    D2h -->|Yes| D2i[D2i: Set backup permissions to owner only]
-    D2i --> D2j[D2j: Store backup info in backup_files dict]
-    D2j --> D2k{D2k: More files to backup?}
-    D2k -->|Yes| D2b
-    D2k -->|No| D3
+    D2d --> D2e[D2e: Check if backup filename conflicts in same directory]
+    D2e --> D2f{D2f: Backup filename already exists?}
+    D2f -->|Yes| D2g[D2g: Append counter to filename]
+    D2f -->|No| D2h[D2h: Use generated backup filename]
+    D2g --> D2h
+    D2h --> D2i[D2i: Use shutil.copy2 to create backup in same directory]
+    D2i --> D2j[D2j: Verify backup file creation and size]
+    D2j --> D2k{D2k: Backup creation successful?}
+    D2k -->|No| D2_error[D2_error: Backup failed, sys.exit 1]
+    D2k -->|Yes| D2l[D2l: Store backup info in backup_files dict]
+    D2l --> D2m{D2m: More files to backup?}
+    D2m -->|Yes| D2b
+    D2m -->|No| D3
     
-    D3[D3: Process each file through appropriate crypto pipeline] --> D3a[D3a: Loop through processing_queue tasks]
-    D3a --> D3b{D3b: What crypto tool for this file?}
-    D3b -->|msoffcrypto| D3c[D3c: Office document processing branch]
-    D3b -->|pypdf2| D3d[D3d: PDF processing branch]
-    D3b -->|7zip| D3e[D3e: ZIP archive processing branch]
+    D3[D3: Move input files to temp processing directory] --> D3a[D3a: Create temp/processing/ subdirectory]
+    D3a --> D3b[D3b: Loop through each input file]
+    D3b --> D3c[D3c: Generate unique temp filename]
+    D3c --> D3d[D3d: Copy input file to temp/processing/ with shutil.copy2]
+    D3d --> D3e[D3e: Store temp path mapping in processing_files dict]
+    D3e --> D3f{D3f: More files to copy?}
+    D3f -->|Yes| D3b
+    D3f -->|No| D4
     
-    D3c --> D3c1[D3c1: Open file with open in rb mode]
-    D3c1 --> D3c2[D3c2: Create msoffcrypto.OfficeFile object]
-    D3c2 --> D3c3{D3c3: Operation is decrypt?}
-    D3c3 -->|Yes| D3c4[D3c4: Call office_file.load_key with password]
-    D3c3 -->|No| D3c8[D3c8: Encrypt operation branch]
-    D3c4 --> D3c5[D3c5: Open temp output file in wb mode]
-    D3c5 --> D3c6[D3c6: Call office_file.decrypt to output]
-    D3c6 --> D3c7[D3c7: Close input and output files]
-    D3c7 --> D4
-    D3c8 --> D3c9[D3c9: Call office_file.encrypt with password]
-    D3c9 --> D3c10[D3c10: Write encrypted output to temp file]
-    D3c10 --> D3c7
+    D4[D4: Process each temp file through appropriate crypto pipeline] --> D4a[D4a: Loop through temp processing files]
+    D4a --> D4b{D4b: What crypto tool for this temp file?}
+    D4b -->|msoffcrypto| D4c[D4c: Office document processing branch]
+    D4b -->|pypdf2| D4d[D4d: PDF processing branch]
+    D4b -->|pyzipper| D4e[D4e: ZIP archive processing branch]
     
-    D3d --> D3d1{D3d1: Using pikepdf library?}
-    D3d1 -->|Yes| D3d2[D3d2: Import pikepdf, use pikepdf.open]
-    D3d1 -->|No| D3d6[D3d6: Import PyPDF2, use PdfReader]
-    D3d2 --> D3d3{D3d3: Operation is decrypt?}
-    D3d3 -->|Yes| D3d4[D3d4: Open with password parameter]
-    D3d3 -->|No| D3d5[D3d5: Save with encryption parameter]
-    D3d4 --> D3d10[D3d10: Save decrypted to temp output]
-    D3d5 --> D3d11[D3d11: Apply pikepdf.Encryption with password]
-    D3d6 --> D3d7{D3d7: Operation is decrypt?}
-    D3d7 -->|Yes| D3d8[D3d8: Check is_encrypted, decrypt with password]
-    D3d7 -->|No| D3d9[D3d9: Use PdfWriter to encrypt with password]
-    D3d8 --> D3d10
-    D3d9 --> D3d11
-    D3d10 --> D4
-    D3d11 --> D4
+    D4c --> D4c1[D4c1: Open temp file with open in rb mode]
+    D4c1 --> D4c2[D4c2: Create msoffcrypto.OfficeFile object]
+    D4c2 --> D4c3{D4c3: Operation is decrypt?}
+    D4c3 -->|Yes| D4c4[D4c4: Call office_file.load_key with password]
+    D4c3 -->|No| D4c8[D4c8: Encrypt operation branch]
+    D4c4 --> D4c5[D4c5: Open temp output file in wb mode]
+    D4c5 --> D4c6[D4c6: Call office_file.decrypt to output]
+    D4c6 --> D4c7[D4c7: Close input and output files]
+    D4c7 --> D5
+    D4c8 --> D4c9[D4c9: Call office_file.encrypt with password]
+    D4c9 --> D4c10[D4c10: Write encrypted output to temp file]
+    D4c10 --> D4c7
     
-    D3e --> D3e1{D3e1: Operation is decrypt?}
-    D3e1 -->|Yes| D3e2[D3e2: Open encrypted ZIP with pyzipper]
-    D3e1 -->|No| D3e6[D3e6: Create encrypted ZIP with pyzipper]
-    D3e2 --> D3e3[D3e3: Set password and extract files to temp dir]
-    D3e3 --> D3e4[D3e4: Read files from encrypted ZIP archive]
-    D3e4 --> D3e5[D3e5: Validate extraction success]
-    D3e5 --> D3e9
-    D3e6 --> D3e7[D3e7: Create new ZIP with AES encryption]
-    D3e7 --> D3e8[D3e8: Add files to encrypted ZIP archive]
-    D3e8 --> D3e5
-    D3e9 --> D4
+    D4d --> D4d1[D4d1: Import PyPDF2, use PdfReader on temp file]
+    D4d1 --> D4d2{D4d2: Operation is decrypt?}
+    D4d2 -->|Yes| D4d3[D4d3: Check is_encrypted, decrypt with password]
+    D4d2 -->|No| D4d4[D4d4: Use PdfWriter to encrypt with password]
+    D4d3 --> D4d5[D4d5: Save decrypted to temp output]
+    D4d4 --> D4d6[D4d6: Save encrypted to temp output]
+    D4d5 --> D5
+    D4d6 --> D5
     
-    D4[D4: Validate processing success for each operation] --> D4a[D4a: Check subprocess return codes != 0]
-    D4a --> D4b[D4b: Verify temp output file exists]
-    D4b --> D4c[D4c: Check output file size > 0 and reasonable]
-    D4c --> D4d[D4d: Run magic number check on output file]
-    D4d --> D4e{D4e: All validations passed?}
-    D4e -->|No| D4f[D4f: Log detailed error information]
-    D4f --> D4g[D4g: Add file to processing_errors list]
-    D4g --> D6
-    D4e -->|Yes| D4h[D4h: Add file to successful_operations list]
-    D4h --> D5
+    D4e --> D4e1{D4e1: Operation is decrypt?}
+    D4e1 -->|Yes| D4e2[D4e2: Open encrypted ZIP with pyzipper]
+    D4e1 -->|No| D4e6[D4e6: Create encrypted ZIP with pyzipper]
+    D4e2 --> D4e3[D4e3: Set password and extract files to temp dir]
+    D4e3 --> D4e4[D4e4: Read files from encrypted ZIP archive]
+    D4e4 --> D4e5[D4e5: Validate extraction success]
+    D4e5 --> D4e9
+    D4e6 --> D4e7[D4e7: Create new ZIP with AES encryption]
+    D4e7 --> D4e8[D4e8: Add files to encrypted ZIP archive]
+    D4e8 --> D4e5
+    D4e9 --> D5
     
-    D5[D5: Verify file integrity and accessibility] --> D5a[D5a: Run magic number check on processed file]
-    D5a --> D5b{D5b: Office document?}
-    D5b -->|Yes| D5c[D5c: Test with python-docx or openpyxl basic structure]
-    D5b -->|No| D5d{D5d: PDF file?}
-    D5c --> D5f
-    D5d -->|Yes| D5e[D5e: Test with PyPDF2 for readable PDF structure]
-    D5d -->|No| D5g{D5g: ZIP archive?}
-    D5e --> D5f
-    D5g -->|Yes| D5h[D5h: Test with 7zip list command for integrity]
-    D5g -->|No| D5f
-    D5h --> D5f
-    D5f --> D5i{D5i: Operation was encrypt?}
-    D5i -->|Yes| D5j[D5j: Test that password is now required]
-    D5i -->|No| D5k[D5k: Test that file opens without password]
-    D5j --> D5l[D5l: Store verification results in dict]
-    D5k --> D5l
-    D5l --> D5m{D5m: Verification successful?}
-    D5m -->|No| D6
-    D5m -->|Yes| D7
+    D5[D5: Validate processing success for each operation] --> D5a[D5a: Check for exceptions during crypto operations]
+    D5a --> D5b[D5b: Verify temp output file exists]
+    D5b --> D5c[D5c: Check output file size > 0 and reasonable]
+    D5c --> D5d[D5d: Run magic number check on output file]
+    D5d --> D5e{D5e: All validations passed?}
+    D5e -->|No| D5f[D5f: Log detailed error information]
+    D5f --> D5g[D5g: Add file to processing_errors list]
+    D5g --> D7
+    D5e -->|Yes| D5h[D5h: Add file to successful_operations list]
+    D5h --> D6
     
-    D6[D6: Handle processing errors and restore from backup] --> D6a[D6a: Restore original from backup using shutil.copy2]
-    D6a --> D6b[D6b: Preserve original timestamps with copy2]
-    D6b --> D6c[D6c: Remove any partial temp outputs created]
-    D6c --> D6d[D6d: Collect detailed error information for reporting]
-    D6d --> D6e[D6e: Log restoration with filename]
-    D6e --> D6f{D6f: Continue with next file or exit?}
-    D6f -->|Continue| D6g{D6g: More files in queue?}
-    D6f -->|Exit| D8
-    D6g -->|Yes| D3a
-    D6g -->|No| D8
+    D6[D6: Verify file integrity and accessibility] --> D6a[D6a: Run magic number check on processed file]
+    D6a --> D6b{D6b: Office document?}
+    D6b -->|Yes| D6c[D6c: Test with python-docx or openpyxl basic structure]
+    D6b -->|No| D6d{D6d: PDF file?}
+    D6c --> D6f
+    D6d -->|Yes| D6e[D6e: Test with PyPDF2 for readable PDF structure]
+    D6d -->|No| D6g{D6g: ZIP archive?}
+    D6e --> D6f
+    D6g -->|Yes| D6h[D6h: Test with pyzipper library to verify archive integrity]
+    D6g -->|No| D6f
+    D6h --> D6f
+    D6f --> D6i{D6i: Operation was encrypt?}
+    D6i -->|Yes| D6j[D6j: Test that password is now required]
+    D6i -->|No| D6k[D6k: Test that file opens without password]
+    D6j --> D6l[D6l: Store verification results in dict]
+    D6k --> D6l
+    D6l --> D6m{D6m: Verification successful?}
+    D6m -->|No| D7
+    D6m -->|Yes| D8
     
-    D7[D7: Move processed files to final destination] --> D7a{D7a: In-place modification requested?}
+    D7[D7: Handle processing errors and restore from backup] --> D7a[D7a: Restore original from backup using shutil.copy2]
+    D7a --> D7b[D7b: Preserve original timestamps with copy2]
+    D7b --> D7c[D7c: Remove any partial temp outputs created]
+    D7c --> D7d[D7d: Collect detailed error information for reporting]
+    D7d --> D7e[D7e: Log restoration with filename]
+    D7e --> D7f{D7f: Continue with next file or exit?}
+    D7f -->|Continue| D7g{D7g: More files in queue?}
+    D7f -->|Exit| D9
+    D7g -->|Yes| D4a
+    D7g -->|No| D9
+    
+    D8[D8: Move processed temp files to final destination] --> D8a[D8a: Loop through successfully processed temp files]
+    D8a --> D8b{D8b: In-place modification requested?}
     D7a -->|Yes| D7b[D7b: Set final_path = original_file_path]
     D7a -->|No| D7c{D7c: Output directory specified?}
     D7b --> D7e
@@ -1050,19 +1098,35 @@ flowchart TD
   - Create subdirectories: `backups/`, `processing/`, `output/` within temp directory
   - Log creation: `"Created secure temp directory: {self.temp_working_dir}"`
 
-- **D2: Backup File Creation**
-  - For each file in processing queue:
-  - Generate backup filename: 
+- **D2: In-Place Backup File Creation**
+  - If `--backup` flag is set, for each input file:
+  - Generate backup filename in same directory as original:
     ```python
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     backup_name = f"{file_path.stem}_backup_{timestamp}{file_path.suffix}"
-    backup_path = self.temp_working_dir / 'backups' / backup_name
+    backup_path = file_path.parent / backup_name
+    
+    # Handle filename conflicts with disambiguation
+    counter = 1
+    while backup_path.exists():
+        backup_name = f"{file_path.stem}_backup_{timestamp}_{counter:03d}{file_path.suffix}"
+        backup_path = file_path.parent / backup_name
+        counter += 1
     ```
   - Create backup: `shutil.copy2(file_path, backup_path)` (preserves metadata)
   - Verify backup: check file size matches, basic accessibility test
-  - Set backup permissions: `os.chmod(backup_path, 0o600)` (read/write owner only)
   - Store backup info: `self.backup_files[file_path] = {'backup_path': backup_path, 'created': datetime.now()}`
   - If backup fails: `sys.exit(1)` with "Failed to create backup for: {filename}"
+
+- **D3: Move Files to Temporary Processing Directory**
+  - Before any crypto operations, copy all input files to temp directory:
+    ```python
+    temp_file_path = self.temp_working_dir / 'processing' / f"temp_{uuid.uuid4().hex}_{file_path.name}"
+    shutil.copy2(file_path, temp_file_path)  # Preserve metadata
+    self.processing_files[file_path] = temp_file_path
+    ```
+  - All crypto operations happen on temp copies, never on original files
+  - This ensures complete isolation and atomic operations
 
 - **D3: Crypto Processing Pipeline Execution**
   - **Office Document Processing (msoffcrypto)**:

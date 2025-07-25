@@ -29,8 +29,8 @@
 - **Project Name:** FastPass
 - **Version:** v1.0
 - **Target Platform:** Windows Desktop (CLI) with cross-platform Python support
-- **Technology Stack:** Python, msoffcrypto-tool, PyPDF2/pikepdf, 7zip CLI, python-magic, pathlib
-- **Timeline:** 4-6 weeks development
+- **Technology Stack:** Python, msoffcrypto-tool, PyPDF2/pikepdf, 7zip CLI, filetype library, pathlib
+- **Timeline:** Development in progress
 - **Team Size:** Single developer maintained
 
 ### Target Users
@@ -44,19 +44,22 @@
 
 #### Core Functionality
 - [x] Universal file encryption/decryption interface
-- [x] Microsoft Office document password protection (.docx, .xlsx, .pptx, .doc, .xls, .ppt)
-- [x] PDF password protection and removal
+- [x] Microsoft Office document password protection (modern and legacy formats)
+- [x] PDF password protection and removal  
 - [x] ZIP archive password protection using 7zip
 - [x] Batch processing for multiple files
-- [x] Automatic file format detection and routing to appropriate crypto tool
+- [x] Recursive directory processing with in-place or copy modes
+- [x] Automatic file format detection using filetype library
+- [x] Lazy import strategy for optimal performance
 
 #### Security & File Safety
 - [x] Automatic backup creation before any modification
-- [x] File format validation using magic number checking
-- [x] Path traversal attack prevention
+- [x] File format validation using filetype library (simplified magic number checking)
+- [x] Path traversal attack prevention with whitelist approach
 - [x] Secure temporary file creation with proper permissions (0o600)
 - [x] Password memory clearing and secure handling
 - [x] Error message sanitization to prevent information disclosure
+- [x] Legacy Office format protection (decrypt-only limitation documented)
 
 #### Password Management
 - [x] Command-line password input with secure handling
@@ -96,23 +99,110 @@
 
 ---
 
+## Project Directory Structure
+
+```
+fast_pass/
+├── src/                          # Main source code
+│   ├── __init__.py
+│   ├── main.py                   # Entry point and CLI parsing
+│   ├── crypto_handlers/          # Crypto tool integrations
+│   │   ├── __init__.py
+│   │   ├── office_handler.py     # msoffcrypto-tool integration
+│   │   ├── pdf_handler.py        # PyPDF2/pikepdf integration
+│   │   └── zip_handler.py        # 7zip CLI integration
+│   ├── security/                 # Security validation modules
+│   │   ├── __init__.py
+│   │   ├── file_validator.py     # File format and path validation
+│   │   └── backup_manager.py     # Backup creation and management
+│   └── utils/                    # Utility modules
+│       ├── __init__.py
+│       ├── lazy_imports.py       # Lazy import management
+│       └── recursive_processor.py # Directory recursion logic
+├── bin/                          # External tool binaries
+│   └── 7z.exe                    # 7-Zip standalone executable
+├── tests/                        # Test suite
+│   ├── __init__.py
+│   ├── test_crypto_handlers.py
+│   ├── test_security.py
+│   └── test_integration.py
+├── dev/                          # Development documentation
+│   └── fast_pass_specification.md
+├── requirements.txt              # Python dependencies
+├── setup.py                      # Package setup
+└── README.md                     # User documentation
+```
+
+### **External Tool Management**
+
+**bin/ Directory Contents:**
+- **7z.exe**: Standalone 7-Zip command-line executable
+  - Download from: https://www.7-zip.org/download.html
+  - Use "7-Zip Extra: standalone console version"
+  - No installation required, just copy 7z.exe to bin/
+
+**Python Dependencies (requirements.txt):**
+```
+msoffcrypto-tool>=5.0.0    # Office document encryption/decryption
+pikepdf>=8.0.0             # Preferred PDF processing (AES-256 support)
+PyPDF2>=3.0.0              # Fallback PDF processing
+filetype>=1.2.0            # File type detection (replaces python-magic)
+```
+
+**PyInstaller Integration Notes:**
+- All Python packages will be bundled into executable
+- bin/7z.exe must be included as data file in PyInstaller spec
+- Use lazy imports to reduce startup time and memory usage
+
+### **Lazy Import Strategy**
+
+**Principle:** Import crypto tool libraries only when needed, but validate availability early for fail-fast behavior.
+
+```python
+# Example lazy import pattern
+class OfficeHandler:
+    def __init__(self):
+        self._msoffcrypto = None
+        self._available = None
+    
+    def is_available(self):
+        """Check if msoffcrypto-tool is available (fail-fast)"""
+        if self._available is None:
+            try:
+                import msoffcrypto
+                self._available = True
+            except ImportError:
+                self._available = False
+        return self._available
+    
+    def _get_msoffcrypto(self):
+        """Lazy import msoffcrypto only when actually needed"""
+        if self._msoffcrypto is None:
+            import msoffcrypto
+            self._msoffcrypto = msoffcrypto
+        return self._msoffcrypto
+```
+
+---
+
 ## Command Line Reference
 
 ```
-Usage: fast_pass [encrypt|decrypt] -f FILE [options]
+Usage: fast_pass {-e|-d|--encrypt|--decrypt} {-f FILE | -r DIR} [options]
 
 Required Arguments:
-  encrypt|decrypt           Operation mode: add or remove password protection
-  -f, --file               Path to file to encrypt/decrypt (can be repeated for batch)
+  -e, --encrypt            Add password protection to files
+  -d, --decrypt            Remove password protection from files
+  -f, --file FILE          Path to file to process (can be repeated for batch)
+  -r, --recursive DIR      Process all supported files in directory recursively
 
 Password Options:
-  -p, --password PASSWORD   Password for encryption/decryption
-  -p stdin                 Read password from JSON via stdin (secure GUI integration)
-  --generate-password      Generate secure random password (encryption only)
-  --check-password         Check if file requires password (utility mode)
+  -p, --password PASSWORD  Password for encryption/decryption
+  -p stdin                Read password from JSON via stdin (secure GUI integration)
+  --check-password [FILE]  Check if file requires password, or validate provided password
 
 Output Options:
-  -o, --output-dir DIR     Output directory (default: same as input file)
+  -o, --output-dir DIR     Output directory (default: in-place for files, required for recursive)
   --in-place              Modify file in-place (creates backup first)
   --backup-suffix SUFFIX  Backup file suffix (default: _backup_YYYYMMDD_HHMMSS)
 
@@ -125,31 +215,35 @@ Utility Options:
   --help                  Show this help message
 
 Supported File Formats:
-  Office Documents:  .docx, .xlsx, .pptx, .doc, .xls, .ppt
+  Modern Office:     .docx, .xlsx, .pptx, .docm, .xlsm, .pptm, .dotx, .xltx, .potx
+  Legacy Office:     .doc, .xls, .ppt (DECRYPTION ONLY - cannot add passwords)
   PDF Files:         .pdf
   Archives:          .zip, .7z
 
 Examples:
   # Encrypt single file with password
-  fast_pass encrypt -f contract.docx -p "mypassword"
+  fast_pass -e -f contract.docx -p "mypassword"
   
   # Decrypt file with password from stdin (GUI integration)
-  fast_pass decrypt -f protected.pdf -p stdin < passwords.json
-  
-  # Encrypt with auto-generated password
-  fast_pass encrypt -f document.docx --generate-password
+  fast_pass -d -f protected.pdf -p stdin < passwords.json
   
   # Batch encrypt multiple files
-  fast_pass encrypt -f file1.xlsx -f file2.pptx -p "shared_pwd" -o ./encrypted/
+  fast_pass --encrypt -f file1.xlsx -f file2.pptx -p "shared_pwd" -o ./encrypted/
   
-  # Decrypt ZIP archive with verification
-  fast_pass decrypt -f archive.zip -p "zippass" --verify
+  # Recursively encrypt all files in directory (in-place)
+  fast_pass -e -r ./documents/ -p "password123"
+  
+  # Recursively decrypt to different directory (copy mode)
+  fast_pass -d -r ./encrypted_docs/ -p "password123" -o ./decrypted_docs/
   
   # Check if file requires password
   fast_pass --check-password document.pdf
   
-  # Dry run to test operation
-  fast_pass encrypt -f document.docx -p "test123" --dry-run
+  # Check if provided password is correct
+  fast_pass --check-password protected.docx -p "testpass"
+  
+  # Dry run recursive operation
+  fast_pass -e -r ./folder/ -p "test123" --dry-run
 
 Exit Codes:
   0  Success
@@ -211,9 +305,9 @@ flowchart TD
 flowchart TD
     A1[A1: Parse command line arguments] --> A1a[A1a: Import sys, argparse, pathlib]
     A1a --> A1b[A1b: Create ArgumentParser with description]
-    A1b --> A1c[A1c: Add positional encrypt/decrypt argument]
-    A1c --> A1d[A1d: Add -f/--file argument with action=append]
-    A1d --> A1e[A1e: Add password options -p, --generate-password]
+    A1b --> A1c[A1c: Add -e/--encrypt and -d/--decrypt arguments]
+    A1c --> A1d[A1d: Add -f/--file and -r/--recursive arguments]
+    A1d --> A1e[A1e: Add password options -p and --check-password]
     A1e --> A1f[A1f: Add output options -o, --in-place, --backup-suffix]
     A1f --> A1g[A1g: Add utility options --dry-run, --verify, --debug]
     A1g --> A1h[A1h: Parse sys.argv and handle parse errors]
@@ -221,11 +315,11 @@ flowchart TD
     A1i -->|--help| A1_help[A1_help: Display help, sys.exit(0)]
     A1i -->|--version| A1_version[A1_version: Display version, sys.exit(0)]
     A1i -->|--list-supported| A1_list[A1_list: Display formats, sys.exit(0)]
-    A1i -->|--check-password| A1_check[A1_check: Check file password, sys.exit(0/1)]
+    A1i -->|--check-password| A1_check[A1_check: Check file password or validate password, sys.exit(0/1)]
     A1i -->|Normal operation| A2
     
-    A2[A2: Validate operation mode and required arguments] --> A2a[A2a: Check args.operation in encrypt/decrypt]
-    A2a --> A2b[A2b: Ensure args.files list is not empty]
+    A2[A2: Validate operation mode and required arguments] --> A2a[A2a: Check encrypt XOR decrypt flag set]
+    A2a --> A2b[A2b: Ensure file or recursive option provided]
     A2b --> A2c[A2c: Validate conflicting options in-place + output-dir]
     A2c --> A2d[A2d: Check password requirements vs operation mode]
     A2d --> A2e{A2e: Validation passed?}
@@ -278,28 +372,29 @@ flowchart TD
 
 **What's Actually Happening:**
 - **A1: Command Line Argument Processing**
-  - `sys.argv` contains raw command like `['fast_pass', 'encrypt', '-f', 'document.docx', '-p', 'password123']`
+  - `sys.argv` contains raw command like `['fast_pass', '-e', '-f', 'document.docx', '-p', 'password123']`
   - `argparse.ArgumentParser()` creates parser with custom action classes for file tracking
-  - `args.operation` becomes `'encrypt'` or `'decrypt'` (required positional argument)
+  - `args.encrypt` and `args.decrypt` boolean flags (mutually exclusive)
   - `args.files` becomes list of file paths like `['document.docx', 'spreadsheet.xlsx']`
+  - `args.recursive` contains directory path if recursive mode specified
   - `args.password` contains password string or `'stdin'` for JSON input
   - `args.output_dir` defaults to `None` (same directory as input files)
   - `args.debug` boolean flag for verbose logging
-  - Password handling: `args.generate_password` for auto-generation mode
 
 - **A2: Operation Mode & File Path Validation**
-  - Validate operation: `args.operation in ['encrypt', 'decrypt']`
-  - File existence check: `os.path.exists(file_path)` for each input file
+  - Validate operation: exactly one of `args.encrypt` or `args.decrypt` must be True
+  - Input validation: exactly one of `args.files` or `args.recursive` must be provided
+  - File existence check: `os.path.exists(file_path)` for each input file or directory
   - Path normalization: `os.path.abspath(os.path.expanduser(file_path))`
   - Conflict detection: if `--in-place` and `--output-dir` both specified, show error
-  - Build file list: `self.input_files = [{'path': normalized_path, 'exists': bool}]`
+  - Build file list: `self.input_files = [{'path': normalized_path, 'exists': bool, 'is_directory': bool}]`
   - Special modes: `--check-password`, `--list-supported` bypass normal file requirements
 
 - **A3: Logging System Configuration**
   - `logging.basicConfig()` with `level=logging.DEBUG` if `args.debug` enabled
   - Log format: `'%(asctime)s - %(levelname)s - %(message)s'`
   - Handler: `sys.stderr` for console output, doesn't interfere with stdout
-  - First log entry: `"FastPass v1.0 starting - operation: {args.operation}"`
+  - First log entry: `"FastPass v1.0 starting - operation: {'encrypt' if args.encrypt else 'decrypt'}"`
   - Memory logger: `self.operation_log = []` for operation history
   - Debug flag: `self.debug_mode = args.debug`
 
@@ -362,17 +457,13 @@ flowchart TD
     B2_security --> B2h[B2h: Sanitize error message]
     B2h --> B2_exit[B2_exit: Security error, sys.exit(3)]
     
-    B3[B3: File format validation using magic numbers] --> B3a[B3a: Import magic library]
-    B3a --> B3b[B3b: Call magic.from_file for MIME detection]
-    B3b --> B3c[B3c: Create expected_mimes mapping dict]
+    B3[B3: File format validation using filetype library] --> B3a[B3a: Import filetype library]
+    B3a --> B3b[B3b: Call filetype.guess for format detection]
+    B3b --> B3c[B3c: Create expected_extensions mapping dict]
     B3c --> B3d[B3d: Get actual file extension from path.suffix]
-    B3d --> B3e[B3e: Compare detected vs expected MIME]
-    B3e --> B3f{B3f: MIME mismatch detected?}
-    B3f -->|Yes| B3g[B3g: Read file signature first 8 bytes]
-    B3g --> B3h[B3h: Verify magic bytes PK for Office, %PDF for PDF]
-    B3h --> B3i{B3i: Magic bytes confirm mismatch?}
-    B3i -->|Yes| B3_format[B3_format: Add to format_violations list]
-    B3i -->|No| B4
+    B3d --> B3e[B3e: Compare detected vs expected extension]
+    B3e --> B3f{B3f: Format mismatch detected?}
+    B3f -->|Yes| B3_format[B3_format: Add to format_violations list]
     B3f -->|No| B4
     B3_format --> B3j[B3j: Format mismatch error, sys.exit(3)]
     
@@ -451,24 +542,20 @@ flowchart TD
   - Security violation: `self.security_violations.append({'file': filename, 'violation': 'path_traversal'})`
   - If violations found: sanitize error message, `sys.exit(3)` with security error
 
-- **B3: File Format Validation Using Magic Numbers**
-  - Import `magic` library: `import magic`
-  - For each file: `detected_mime = magic.from_file(str(file_path), mime=True)`
-  - Expected MIME mappings:
+- **B3: File Format Validation Using Filetype Library**
+  - Import `filetype` library: `import filetype`
+  - For each file: `kind = filetype.guess(str(file_path))`
+  - Expected extension mapping:
     ```python
-    expected_mimes = {
-        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        '.pdf': 'application/pdf',
-        '.zip': 'application/zip'
+    expected_extensions = {
+        '.docx': 'docx', '.xlsx': 'xlsx', '.pptx': 'pptx',
+        '.docm': 'docm', '.xlsm': 'xlsm', '.pptm': 'pptm',
+        '.pdf': 'pdf', '.zip': 'zip', '.7z': '7z'
     }
     ```
   - Compare: `actual_extension = file_path.suffix.lower()`
-  - Validation: `if detected_mime != expected_mimes.get(actual_extension):`
-  - Read file signature: `with open(file_path, 'rb') as f: signature = f.read(8)`
-  - DOCX/Office: should start with `PK` (ZIP signature: `50 4B 03 04`)
-  - PDF: should start with `%PDF` (25 50 44 46)
-  - Format mismatch: `self.format_violations.append({'file': filename, 'expected': expected, 'detected': detected})`
+  - Validation: `if kind is None or kind.extension != expected_extensions.get(actual_extension):`
+  - Format mismatch: `self.format_violations.append({'file': filename, 'expected': expected_extensions.get(actual_extension), 'detected': kind.extension if kind else 'unknown'})`
 
 - **B4: File Access & Permission Verification**
   - Test read access: `with open(file_path, 'rb') as test: sample = test.read(1024)`

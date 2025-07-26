@@ -238,8 +238,6 @@ Password Options:
 
 Directory Options:
   -r, --recursive DIR      Process all supported files in directory recursively
-  --include-pattern GLOB   Include files matching pattern (with -r)
-  --exclude-pattern GLOB   Exclude files matching pattern (with -r)
 
 Output Options:
   -o, --output-dir DIR     Output directory (default: in-place modification)
@@ -271,10 +269,10 @@ Examples:
   fast_pass decrypt file1.pdf file2.docx -p "password123" -p "secret456" -p "admin789"
   
   # Password list file for batch operations
-  fast_pass decrypt archive_folder/*.pdf --password-list common_passwords.txt
+  fast_pass decrypt "archive_folder/report1.pdf" "archive_folder/report2.pdf" --password-list common_passwords.txt
   
   # Combined approach: specific password + password list fallback
-  fast_pass decrypt urgent.pdf archive*.pdf -p "urgent_pwd" --password-list common_passwords.txt
+  fast_pass decrypt urgent.pdf "archive1.pdf" "archive2.pdf" -p "urgent_pwd" --password-list common_passwords.txt
   
   # Passwords from stdin JSON (GUI integration)
   fast_pass decrypt file1.pdf file2.docx -p stdin < passwords.json
@@ -486,7 +484,7 @@ def parse_command_line_arguments() -> argparse.Namespace:
 Examples:
   fast_pass encrypt file.docx -p mypassword
   fast_pass decrypt file.pdf --password-list passwords.txt
-  fast_pass encrypt *.xlsx -o ./encrypted/
+  fast_pass encrypt "file1.xlsx" "file2.xlsx" -o ./encrypted/
         '''
     )
     
@@ -497,15 +495,11 @@ Examples:
     operation_group.add_argument('-d', '--decrypt', action='store_true', 
                                 help='Decrypt files')
     
-    # A1c: File arguments with glob pattern support
-    parser.add_argument('files', nargs='*', type=str,  # Keep as string for glob processing
-                       help='Files to process (supports glob patterns like *.docx)')
+    # A1c: File arguments (explicit file specification required)
+    parser.add_argument('files', nargs='*', type=str,
+                       help='Files to process (use quotes for paths with spaces)')
     parser.add_argument('-r', '--recursive', type=Path, metavar='DIR',
                        help='Process directory recursively')
-    parser.add_argument('--include-pattern', type=str,
-                       help='Include files matching glob pattern (with -r)')
-    parser.add_argument('--exclude-pattern', type=str,
-                       help='Exclude files matching glob pattern (with -r)')
     
     # A1d: Password options with priority system and TTY handling
     parser.add_argument('-p', '--password', action='append', dest='cli_passwords',
@@ -561,23 +555,10 @@ def validate_operation_mode_and_arguments(args: argparse.Namespace) -> argparse.
     if args.files and args.recursive:
         raise ValueError("Cannot specify both files and --recursive")
     
-    # A2b: Process glob patterns and normalize file paths
+    # A2b: Process explicit file paths and normalize (no glob pattern support)
     if args.files:
-        expanded_files = []
-        for file_pattern in args.files:
-            if any(char in file_pattern for char in ['*', '?', '[', ']']):
-                # Handle glob pattern - need to expand before shell does
-                import glob
-                matches = glob.glob(file_pattern, recursive=False)
-                if not matches:
-                    raise ValueError(f"No files match pattern: {file_pattern}")
-                expanded_files.extend(matches)
-            else:
-                # Regular file path
-                expanded_files.append(file_pattern)
-        
-        # Convert to Path objects and resolve
-        args.files = [Path(f).expanduser().resolve() for f in expanded_files]
+        # Convert to Path objects and resolve (explicit file specification only)
+        args.files = [Path(f).expanduser().resolve() for f in args.files]
     
     if args.recursive:
         args.recursive = Path(args.recursive).expanduser().resolve()
@@ -738,13 +719,12 @@ class FastPassApplication:
 ```
 
 **What's Actually Happening:**
-- **A1: Command Line Argument Processing with Glob Support**
-  - `sys.argv` processing with glob pattern expansion before shell interference
-  - Glob patterns like `'*.docx'`, `'report*.pdf'` expanded using `glob.glob()`
-  - Quoted patterns preserved from shell expansion: `fast_pass encrypt '*.txt'`
+- **A1: Command Line Argument Processing**
+  - `sys.argv` processing with explicit file specification
+  - Individual file paths specified directly: `fast_pass encrypt "file1.docx" "file2.pdf"`
+  - Quoted paths for files with spaces: `fast_pass encrypt "my documents/file.txt"`
   - `args.operation` contains 'encrypt' or 'decrypt' as positional argument
-  - `args.files` becomes list of expanded file paths from glob patterns
-  - `args.include_pattern` and `args.exclude_pattern` for recursive filtering
+  - `args.files` becomes list of explicitly specified file paths
   - `args.password_reuse_enabled` boolean flag (default True, disabled via --no-password-reuse)
   - `args.stdin_password_mapping` contains JSON password mapping if '-p stdin' used
 

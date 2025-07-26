@@ -138,7 +138,7 @@
     
     A1c["A1c: Define Main Operation Choice\nUser must choose either encrypt OR decrypt\nCannot do both operations simultaneously"] --> A1d
     
-    A1d["A1d: Set Up File Input Options with Glob Support\nAccept individual files, glob patterns, or entire folder processing\nHandle quoted patterns like '*.docx' to prevent shell expansion"] --> A1e
+    A1d["A1d: Set Up File Input Options\nAccept individual files or entire folder processing\nRequire explicit file specification with quotes for spaced paths"] --> A1e
     
     A1e["A1e: Configure Password Options with TTY Detection\nAccept passwords from CLI, password file, or JSON stdin\nSupport TTY detection for secure password input"] --> A1f
     
@@ -159,7 +159,7 @@
     A1iCheck -->|"Show formats requested"| A1iList["A1i_List: Show Supported File Types\nDisplay list of file formats FastPass can handle\n(.docx, .xlsx, .pptx, .pdf, etc.)"]
     A1iCheck -->|"Normal operation"| A2a
     
-    %% ARGUMENT VALIDATION WITH GLOB PROCESSING
+    %% ARGUMENT VALIDATION WITH EXPLICIT FILE PROCESSING
     A2a["A2a: Check Input Requirements\nUser must specify either files or folder to process\nCannot proceed without something to work on"] --> A2aCheck
     
     A2aCheck{"A2a_Check: Valid Input Method Provided?\nUser must choose files OR folder processing\nBoth options together would be confusing"}
@@ -167,11 +167,9 @@
     A2aCheck -->|"Conflicting options"| A2aBothError["A2a_Both_Error: Conflicting Instructions\nUser specified both individual files AND folder processing\nExit with clarification about choosing one method"]
     A2aCheck -->|"Valid specification"| A2b
     
-    A2b["A2b: Process Glob Patterns and Prepare Paths\nExpand glob patterns like '*.docx' before shell processing\nHandle shortcuts like ~ for home directory"] --> A2bGlob
+    A2b["A2b: Process Explicit File Paths\nHandle user-specified file paths directly\nExpand shortcuts like ~ for home directory"] --> A2bLoop
     
-    A2bGlob["A2b_Glob: Expand Glob Patterns\nUse glob.glob() to expand patterns like '*.pdf'\nValidate that patterns match at least one file"] --> A2bLoop
-    
-    A2bLoop["A2b_Loop: Process Each Expanded File Path\nGo through expanded file list from glob processing\nHandle each file path one at a time"] --> A2bExpand
+    A2bLoop["A2b_Loop: Process Each Specified File Path\nGo through user-provided file list\nHandle each file path one at a time"] --> A2bExpand
     
     A2bExpand["A2b_Expand: Convert Path to Full Address\nTransform user shortcuts into complete file locations\nResolve any symbolic links to actual files"] --> A2bCheck
     
@@ -827,7 +825,7 @@
     class E3a,E3aSanitize,E3aLoop,E3aOverwrite,E3b,E3c,E3d securityBox
     
     %% APPLY STYLES - STANDARD PROCESSING (Green)
-    class Start,Main,A1a,A1b,A1c,A1d,A1e,A1f,A1g,A1h,A1i,A2a,A2b,A2bGlob,A2bLoop,A2bExpand,A2c,A2d,A2e processBox
+    class Start,Main,A1a,A1b,A1c,A1d,A1e,A1f,A1g,A1h,A1i,A2a,A2b,A2bLoop,A2bExpand,A2c,A2d,A2e processBox
     class A3a,A3b,A3c,A3d,A3e,A3f,A4a,A4b,A4bSuccess,A4c,A4cSuccess,A4d,A4dLoop,A4e processBox
     class A5a,A5b,A5c,A5d,A5e,A5f,A5g processBox
     class B1a,B1b,B1c,B1cFiles,B1cRecursive,B1d,B1e,B1f,B3a,B3b,B3c,B3d,B3e processBox

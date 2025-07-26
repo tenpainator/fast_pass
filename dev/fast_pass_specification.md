@@ -14,11 +14,11 @@
 
 ## Project Mission & Purpose
 
-**FastPass** is a command-line tool that provides universal file encryption and decryption capabilities across multiple file formats. It serves as a unified front-end wrapper for specialized crypto tools (msoffcrypto-tool, PyPDF2, pyzipper) to add or remove password protection from Microsoft Office documents, PDF files, and ZIP archives.
+**FastPass** is a command-line tool that provides universal file encryption and decryption capabilities across multiple file formats. It serves as a unified front-end wrapper for specialized crypto tools (msoffcrypto-tool, PyPDF2) to add or remove password protection from Microsoft Office documents and PDF files.
 
 **Core Problem Solved:** Eliminates the need to learn and manage multiple separate tools for file encryption/decryption across different formats. Provides a consistent, secure interface for password protection operations while maintaining file integrity and implementing enterprise-grade security practices.
 
-**Key Differentiator:** Unified CLI interface with enterprise security patterns including automatic backup creation, file isolation, magic number validation, password reuse algorithms, password list support, and secure password handling. Follows proven architecture patterns from the FastRedline project for reliability and security.
+**Key Differentiator:** Unified CLI interface with enterprise security patterns including file isolation, in-memory validation, password list support, and secure password handling. Follows proven architecture patterns with "it just works" simplicity for reliability and security.
 
 ---
 
@@ -29,7 +29,7 @@
 - **Project Name:** FastPass
 - **Version:** v1.0
 - **Target Platform:** Windows Desktop (CLI) with cross-platform Python support
-- **Technology Stack:** Python, msoffcrypto-tool, PyPDF2, pyzipper, filetype library, pathlib
+- **Technology Stack:** Python, msoffcrypto-tool, PyPDF2, filetype library, pathlib
 - **Timeline:** Development in progress
 - **Team Size:** Single developer maintained
 
@@ -38,7 +38,7 @@
 - **Primary Users:** IT administrators, security professionals, business users
 - **Secondary Users:** Developers, system integrators, automation script writers
 - **User Experience Level:** Intermediate (comfortable with command-line tools)
-- **Use Cases:** Batch file encryption, automated security workflows, document protection, archive security
+- **Use Cases:** Batch file encryption, automated security workflows, document protection
 
 ### Feature Specifications
 
@@ -46,14 +46,12 @@
 - [x] Universal file encryption/decryption interface
 - [x] Microsoft Office document password protection (modern and legacy formats)
 - [x] PDF password protection and removal  
-- [x] ZIP archive password protection using pyzipper
 - [x] Batch processing for multiple files
 - [x] Recursive directory processing with in-place or copy modes
 - [x] Automatic file format detection using filetype library
 - [x] Direct import strategy for simplified code management
 
 #### Security & File Safety
-- [x] Automatic backup creation before any modification
 - [x] File format validation using filetype library (simplified magic number checking)
 - [x] Path traversal attack prevention with whitelist approach
 - [x] Secure temporary file creation with proper permissions (0o600)
@@ -70,7 +68,7 @@
 - [x] Password validation before file processing
 
 #### File Operations
-- [x] In-place modification with automatic backup
+- [x] In-place modification with validation-based safety
 - [x] Output directory specification for batch operations
 - [x] File integrity verification after operations
 - [x] Duplicate filename handling and conflict resolution
@@ -86,7 +84,7 @@
 ### Success Metrics
 
 - **Performance Targets:** File processing < 10 seconds for typical business documents
-- **User Experience:** Zero data loss, automatic backup creation, clear error messages
+- **User Experience:** Zero data loss through validation, "it just works" simplicity, clear error messages
 - **Reliability:** 99.9% successful completion rate for valid inputs
 - **Security:** No password exposure in logs, secure temporary file handling
 
@@ -142,7 +140,6 @@ fast_pass/
 ```
 msoffcrypto-tool>=5.0.0    # Office document encryption/decryption
 PyPDF2>=3.0.0              # PDF processing and encryption
-pyzipper>=0.3.6            # ZIP file encryption/decryption with AES support
 filetype>=1.2.0            # File type detection (replaces python-magic)
 ```
 
@@ -255,14 +252,12 @@ Supported File Formats:
   Modern Office:     .docx, .xlsx, .pptx, .docm, .xlsm, .pptm, .dotx, .xltx, .potx
   Legacy Office:     .doc, .xls, .ppt (DECRYPTION ONLY - cannot add passwords)
   PDF Files:         .pdf
-  Archives:          .zip, .7z
-
 Examples:
   # Encrypt single file with password
   fast_pass encrypt contract.docx -p "mypassword"
   
   # Decrypt multiple files with same password
-  fast_pass decrypt file1.pdf file2.docx file3.zip -p "shared_pwd"
+  fast_pass decrypt file1.pdf file2.docx file3.xlsx -p "shared_pwd"
   
   # Per-file passwords (GUI integration pattern)
   fast_pass decrypt protected.pdf -p "pdf_pwd" document.docx -p "doc_pwd"

@@ -108,6 +108,7 @@
             <button onclick="printChart()">🖨️ Print</button>
             <button onclick="forceRender()">🔄 Force Render</button>
             <button onclick="loadPreRendered()">🎨 Load Pre-rendered SVG</button>
+            <button onclick="testSimple()">🧪 Test Simple Diagram</button>
         </div>
         
         <div class="zoom-info">
@@ -862,9 +863,11 @@ flowchart TD
         
         // Add debug logging
         console.log('Mermaid version:', mermaid.version || 'unknown');
+        console.log('Mermaid object:', mermaid);
         console.log('Initializing Mermaid with enhanced settings...');
         
-        mermaid.initialize({ 
+        try {
+            mermaid.initialize({ 
             startOnLoad: true,
             theme: 'default',
             flowchart: {
@@ -884,25 +887,51 @@ flowchart TD
             curve: 'basis'
         });
         
-        // Enhanced error handling with console logging
+        console.log('Mermaid initialization completed');
+        
+        } catch (initError) {
+            console.error('Mermaid initialization failed:', initError);
+            document.getElementById('diagram').innerHTML = `
+                <div style="padding: 20px; border: 2px solid #f44336; background: #ffebee; border-radius: 4px;">
+                    <h3 style="color: #d32f2f; margin-top: 0;">Mermaid Initialization Error</h3>
+                    <p>Failed to initialize Mermaid library.</p>
+                    <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px;">${initError.message || initError.toString()}</pre>
+                </div>
+            `;
+        }
+        
+        // Enhanced error handling with proper error stringification
         mermaid.parseError = function(err, hash) {
             console.error('Mermaid parse error:', err);
             console.error('Error details:', err.toString());
+            console.error('Error message:', err.message);
+            console.error('Error stack:', err.stack);
+            
+            // Properly stringify the error
+            let errorDetails = '';
+            if (err.message) {
+                errorDetails = err.message;
+            } else if (err.toString && err.toString() !== '[object Object]') {
+                errorDetails = err.toString();
+            } else {
+                errorDetails = JSON.stringify(err, Object.getOwnPropertyNames(err), 2);
+            }
             
             const diagramDiv = document.getElementById('diagram');
             diagramDiv.innerHTML = `
                 <div style="padding: 20px; border: 2px solid #f44336; background: #ffebee; border-radius: 4px; margin: 20px 0;">
                     <h3 style="color: #d32f2f; margin-top: 0;">WARNING: Mermaid Rendering Error</h3>
                     <p>The flowchart encountered a rendering issue.</p>
-                    <p><strong>Debug Information:</strong></p>
-                    <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${err.toString()}</pre>
+                    <p><strong>Error Message:</strong></p>
+                    <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap;">${errorDetails}</pre>
                     <p><strong>Workarounds:</strong></p>
                     <ul>
-                        <li>Check browser console for detailed error messages</li>
+                        <li>Check browser console (F12) for detailed error messages</li>
                         <li>Try the 'Force Render' button with different settings</li>
-                        <li>Download the SVG version (pre-rendered successfully)</li>
+                        <li>Click 'Load Pre-rendered SVG' for guaranteed display</li>
                         <li>View the source code directly in the HTML file</li>
                     </ul>
+                    <p><em>Note: The diagram was successfully validated with mmdc CLI, so the content is correct.</em></p>
                 </div>
             `;
         };
@@ -998,17 +1027,58 @@ flowchart TD
         
         function loadPreRendered() {
             // Load the successfully pre-rendered SVG
-            fetch('temp_output.svg')
-                .then(response => response.text())
+            const diagram = document.getElementById('diagram');
+            
+            // Show loading message
+            diagram.innerHTML = '<div style="text-align: center; padding: 20px;">Loading pre-rendered diagram...</div>';
+            
+            fetch('./temp_output.svg')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('SVG file not found');
+                    }
+                    return response.text();
+                })
                 .then(svgContent => {
-                    const diagram = document.getElementById('diagram');
                     diagram.innerHTML = svgContent;
                     console.log('Pre-rendered SVG loaded successfully');
+                    
+                    // Add zoom functionality to the loaded SVG
+                    const svg = diagram.querySelector('svg');
+                    if (svg) {
+                        svg.style.width = '100%';
+                        svg.style.height = 'auto';
+                    }
                 })
                 .catch(error => {
                     console.error('Could not load pre-rendered SVG:', error);
-                    alert('Pre-rendered SVG not available. The diagram was validated with mmdc CLI successfully.');
+                    diagram.innerHTML = `
+                        <div style="padding: 20px; border: 2px solid #ff9800; background: #fff3e0; border-radius: 4px;">
+                            <h3 style="color: #f57c00; margin-top: 0;">Pre-rendered SVG Not Available</h3>
+                            <p>The pre-rendered SVG could not be loaded, but the diagram was successfully validated with mmdc CLI.</p>
+                            <p><strong>Alternative:</strong> The Mermaid source code is valid and can be copied from the HTML file.</p>
+                        </div>
+                    `;
                 });
+        }
+        
+        function testSimple() {
+            // Test with a very simple diagram to isolate the issue
+            const diagram = document.getElementById('diagram');
+            diagram.innerHTML = '';
+            diagram.className = 'mermaid';
+            diagram.textContent = `
+flowchart TD
+    A[Start] --> B[End]
+            `;
+            
+            try {
+                mermaid.init(undefined, diagram);
+                console.log('Simple diagram test successful');
+            } catch (e) {
+                console.error('Simple diagram test failed:', e);
+                diagram.innerHTML = `<div style="color: red; padding: 20px;">Simple test failed: ${e.message || e.toString()}</div>`;
+            }
         }
         
         diagram.addEventListener('wheel', function(e) {

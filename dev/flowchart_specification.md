@@ -1,7 +1,7 @@
-# FastPass Flowchart Specification
+# Universal Flowchart Specification Template
 
 ## Overview
-This document defines the standardized template and specifications for creating detailed implementation flowcharts for software projects, based on the FastPass Complete Code-Level Implementation Flowchart.
+This document defines the standardized template and specifications for creating detailed implementation flowcharts for any software project. This template provides a comprehensive framework for visualizing complex code-level implementation flows.
 
 ## Design Philosophy
 - **Every code block represented**: Each flowchart element maps to specific code blocks that will be labeled in implementation
@@ -107,12 +107,12 @@ setTimeout(() => {
 
 #### Business Logic (Orange)
 - **Color**: `fill:#fff8e1,stroke:#f57c00,stroke-width:3px`
-- **Usage**: Password handling, crypto operations, temp files, core business functions
+- **Usage**: Core application logic, data processing, main workflows, domain-specific operations
 - **CSS Class**: `businessLogic`
 
 #### Security Operations (Pink)
 - **Color**: `fill:#fce4ec,stroke:#e91e63,stroke-width:2px`
-- **Usage**: Path validation, access control, sanitization, security checks
+- **Usage**: Input validation, access control, data sanitization, security checks
 - **CSS Class**: `securityBox`
 
 #### Standard Processing (Green)
@@ -153,7 +153,8 @@ setTimeout(() => {
 ```javascript
 function styleErrorPaths() {
     const errorNodes = [
-        'A1hError', 'A2aError', 'A2aBothError', /* ... all error node IDs ... */
+        'A1hError', 'A2aError', 'B1eError', 'C1dError', 'D2fError', 'E3aError'
+        /* ... all project-specific error node IDs ... */
     ];
     
     const svg = document.querySelector('#diagram svg');
@@ -179,7 +180,7 @@ function styleErrorPaths() {
 ### Node ID Format
 - **Pattern**: `[Section][Subsection][Step][Variant]`
 - **Example**: `A1hCheck`, `B2bDanger`, `D3cOffice`
-- **Sections**: A (CLI/Init), B (Security/Validation), C (Crypto Setup), D (Processing), E (Cleanup)
+- **Sections**: A (Initialization), B (Validation), C (Setup), D (Processing), E (Cleanup)
 
 ### Node Content Format
 ```
@@ -188,7 +189,7 @@ function styleErrorPaths() {
 
 **Example**:
 ```
-A1h["A1h: Read User's Commands\nProcess the command-line instructions user provided\nHandle cases where user asks for help or makes errors"]
+A1h["A1h: Process User Input\nValidate and parse incoming user requests\nHandle edge cases and error conditions"]
 ```
 
 ## Required Controls
@@ -233,10 +234,10 @@ diagram.addEventListener('wheel', function(e) {
 <div class="legend">
     <h3>🎯 Legend: Every Code Block Represented</h3>
     <ul>
-        <li class="business-logic"><strong>Business Logic (Orange):</strong> [Description]</li>
-        <li class="security">Security Operations (Pink): [Description]</li>
-        <li class="process">Standard Processing (Green): [Description]</li>
-        <li class="decision">Decision Points (Orange): [Description]</li>
+        <li class="business-logic"><strong>Business Logic (Orange):</strong> Core application logic, data processing, main workflows</li>
+        <li class="security">Security Operations (Pink): Input validation, access control, data sanitization</li>
+        <li class="process">Standard Processing (Green): I/O operations, parsing, validation, cleanup</li>
+        <li class="decision">Decision Points (Orange): All branching logic and conditionals</li>
     </ul>
     <p><strong>Note:</strong> Each box represents a specific code block that will be labeled in the final implementation.</p>
 </div>
@@ -270,11 +271,11 @@ mermaid.parseError = function(err, hash) {
 ## Content Guidelines
 
 ### Section Organization
-1. **Section A**: CLI parsing and argument validation
-2. **Section B**: Security validation and file format checking  
-3. **Section C**: Crypto tool setup and password management
-4. **Section D**: File processing pipeline
-5. **Section E**: Cleanup and reporting
+1. **Section A**: Application initialization and input processing
+2. **Section B**: Data validation and security checks  
+3. **Section C**: Core system setup and configuration
+4. **Section D**: Main processing pipeline
+5. **Section E**: Cleanup and result reporting
 
 ### Detail Level Requirements
 - **Complete implementation mapping**: Every code block must have corresponding flowchart element
@@ -287,7 +288,7 @@ mermaid.parseError = function(err, hash) {
 ### Required Files
 - `[project]_flowchart.html` - Main flowchart file
 - `flowchart_specification.md` - This specification document
-- `[project]_specification.md` - Source specification document
+- `[project]_specification.md` - Source specification document (optional)
 
 ### Version Control
 - Commit flowchart updates with specification changes
@@ -304,6 +305,7 @@ mermaid.parseError = function(err, hash) {
 - [ ] Diagram renders without errors
 - [ ] Maximum text size accommodates content
 - [ ] No experimental/debugging features in production
+- [ ] Browser automation testing completed with screenshot verification
 
 ### Testing Requirements
 - Test in multiple browsers (Chrome, Firefox, Safari)
@@ -311,6 +313,83 @@ mermaid.parseError = function(err, hash) {
 - Validate SVG export
 - Check print layout
 - Test error handling display
+
+### **CRITICAL: LLM Browser Automation Testing Protocol**
+
+#### **Mandatory Testing Before Completion**
+When an LLM is working on flowchart creation or modification, the following testing protocol is **REQUIRED** before reporting completion to the user:
+
+1. **Browser Automation Setup**
+   ```javascript
+   const puppeteer = require('puppeteer');
+   const browser = await puppeteer.launch({ headless: false }); // Use headless: false for debugging
+   const page = await browser.newPage();
+   await page.setViewport({ width: 1920, height: 1080 });
+   ```
+
+2. **Load and Validate Flowchart**
+   ```javascript
+   // Navigate to flowchart
+   await page.goto(`file://${absolutePathToFlowchartHTML}`, { 
+       waitUntil: 'networkidle0' 
+   });
+   
+   // Wait for Mermaid rendering
+   await page.waitForSelector('#diagram svg', { timeout: 10000 });
+   ```
+
+3. **Screenshot Verification**
+   ```javascript
+   // Take full-page screenshot for verification
+   await page.screenshot({ 
+       path: 'flowchart-test-verification.png', 
+       fullPage: true 
+   });
+   ```
+
+4. **Functional Testing**
+   ```javascript
+   // Test zoom controls
+   await page.click('button:has-text("Zoom In")');
+   await page.waitForTimeout(500);
+   await page.click('button:has-text("Reset Zoom")');
+   
+   // Test download functionality
+   await page.click('button:has-text("Download SVG")');
+   ```
+
+5. **Error Detection**
+   ```javascript
+   // Check for Mermaid rendering errors
+   const errorMessages = await page.$$eval('.error, [class*="error"]', 
+       els => els.map(el => el.textContent));
+   
+   if (errorMessages.length > 0) {
+       throw new Error(`Flowchart errors detected: ${errorMessages.join(', ')}`);
+   }
+   ```
+
+6. **Required Success Criteria**
+   - [ ] Flowchart loads without errors
+   - [ ] SVG diagram is visible and properly rendered
+   - [ ] All controls (zoom, download, etc.) function correctly
+   - [ ] Error paths display with red edges
+   - [ ] No JavaScript errors in console
+   - [ ] Screenshot shows complete, properly formatted flowchart
+
+#### **LLM Reporting Requirements**
+The LLM **MUST NOT** report flowchart work as complete until:
+1. All browser automation tests pass
+2. Screenshot verification confirms proper rendering
+3. No errors are detected in browser console
+4. All functional requirements are validated
+
+#### **Failure Protocol**
+If browser automation testing fails:
+1. LLM must diagnose and fix the issues
+2. Re-run the complete testing protocol
+3. Only report completion after all tests pass
+4. Include screenshot evidence of successful rendering in the response
 
 ## Implementation Notes
 
@@ -344,7 +423,8 @@ mermaid.parseError = function(err, hash) {
 
 ---
 
-**Version**: 1.0  
+**Version**: 2.0  
 **Last Updated**: 2025-07-26  
-**Based on**: FastPass Complete Code-Level Implementation Flowchart  
-**Author**: Claude Code Assistant
+**Based on**: Universal software project flowchart template  
+**Author**: Claude Code Assistant  
+**Template Type**: Generalized for any software project

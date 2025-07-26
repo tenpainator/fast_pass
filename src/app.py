@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Dict, Any, List
 import logging
 
-from utils.config import FastPassConfig
-from utils.logger import sanitize_error_message
+from src.utils.config import FastPassConfig
+from src.utils.logger import sanitize_error_message
 
 
 class FastPassApplication:
@@ -38,7 +38,7 @@ class FastPassApplication:
         self.operation_start_time = datetime.now()
         
         # A5e: Initialize Password Manager
-        from core.password.password_manager import PasswordManager
+        from src.core.password.password_manager import PasswordManager
         self.password_manager = PasswordManager(
             cli_passwords=getattr(args, 'password', []) or [],
             password_list_file=getattr(args, 'password_list', None),
@@ -139,12 +139,19 @@ class FastPassApplication:
         Section B: Security & File Validation
         Perform comprehensive security checks and file validation
         """
-        from core.security import SecurityValidator
-        from core.file_handler import FileValidator
+        from src.core.security import SecurityValidator
+        from src.core.file_handler import FileValidator
         
         # B1a-B1c: Initialize and determine files to process
-        security_validator = SecurityValidator(self.logger)
+        allowed_dirs = getattr(self.args, 'allowed_dirs', None)
+        security_validator = SecurityValidator(self.logger, allowed_dirs)
         file_validator = FileValidator(self.logger, self.config)
+        
+        # Validate output directory if specified
+        if hasattr(self.args, 'output_dir') and self.args.output_dir:
+            validated_output_dir = security_validator.validate_output_directory(self.args.output_dir)
+            # Update args with validated output directory
+            self.args.output_dir = validated_output_dir
         
         # Determine input files
         if hasattr(self.args, 'input') and self.args.input:
@@ -162,13 +169,16 @@ class FastPassApplication:
                 # B1e-B2e: Security validation
                 security_validator.validate_file_path(file_path)
                 
-                # B3a-B5c: File format and content validation
-                file_manifest = file_validator.validate_file(file_path)
+                # B3a-B5c: File format and content validation (allow unsupported for batch processing)
+                file_manifest = file_validator.validate_file(file_path, allow_unsupported=True)
                 
                 validated_files.append(file_manifest)
                 
-            except (SecurityViolationError, FileFormatError) as e:
-                self.logger.error(f"Validation failed for {file_path}: {e}")
+            except SecurityViolationError as e:
+                self.logger.error(f"Security validation failed for {file_path}: {e}")
+                # Continue with other files
+            except FileFormatError as e:
+                self.logger.error(f"File format validation failed for {file_path}: {e}")
                 # Continue with other files
         
         if not validated_files:
@@ -196,8 +206,8 @@ class FastPassApplication:
         Section C: Crypto Tool Setup & Configuration
         Initialize and configure crypto handlers
         """
-        from core.crypto_handlers.office_handler import OfficeDocumentHandler
-        from core.crypto_handlers.pdf_handler import PDFHandler
+        from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
+        from src.core.crypto_handlers.pdf_handler import PDFHandler
         
         # C1a-C1d: Analyze required tools and initialize handlers
         required_tools = set(manifest.crypto_tool for manifest in validated_files)
@@ -221,7 +231,7 @@ class FastPassApplication:
         Section D: File Processing & Operations
         Process files with crypto operations
         """
-        from core.file_handler import FileProcessor
+        from src.core.file_handler import FileProcessor
         
         processor = FileProcessor(
             logger=self.logger,
@@ -231,14 +241,23 @@ class FastPassApplication:
             temp_files_created=self.temp_files_created
         )
         
-        return processor.process_files(validated_files, self.args.operation, self.args.output_dir)
+        # Check for dry-run and verify modes
+        dry_run = getattr(self.args, 'dry_run', False)
+        verify = getattr(self.args, 'verify', False)
+        
+        if dry_run:
+            self.logger.info("DRY RUN MODE: Simulating operations without making changes")
+        if verify:
+            self.logger.info("VERIFY MODE: Performing deep verification of processed files")
+        
+        return processor.process_files(validated_files, self.args.operation, self.args.output_dir, dry_run=dry_run, verify=verify)
     
     def _cleanup_and_generate_final_report(self, processing_results: Dict) -> int:
         """
         Section E: Cleanup & Results Reporting
         Generate reports and determine exit code
         """
-        from core.file_handler import ResultsReporter
+        from src.core.file_handler import ResultsReporter
         
         # E1a-E1e: Calculate processing metrics
         reporter = ResultsReporter(self.logger, self.operation_start_time)
@@ -295,23 +314,8 @@ class FastPassApplication:
             pass  # Ignore errors during emergency cleanup
 
 
-# Custom Exception Classes
-class SecurityViolationError(Exception):
-    """Raised when security validation fails"""
-    pass
-
-class FileFormatError(Exception):
-    """Raised when file format validation fails"""
-    pass
-
-class CryptoToolError(Exception):
-    """Raised when crypto tools are unavailable"""
-    pass
-
-class PasswordError(Exception):
-    """Raised when password operations fail"""
-    pass
-
-class ProcessingError(Exception):
-    """Raised when file processing fails"""
-    pass
+# Import exception classes from centralized module
+from src.exceptions import (
+    SecurityViolationError, FileFormatError, CryptoToolError, 
+    PasswordError, FileProcessingError, ProcessingError
+)

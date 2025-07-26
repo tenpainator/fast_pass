@@ -1,6 +1,6 @@
 """
-FastPass Test Configuration and Fixtures
-PyTest configuration and shared fixtures
+FastPass Comprehensive Test Configuration and Fixtures
+PyTest configuration and shared fixtures for all test categories
 """
 
 import pytest
@@ -8,7 +8,16 @@ import tempfile
 import shutil
 from pathlib import Path
 import subprocess
+import json
 import os
+from typing import Dict, List, Any
+
+# Test markers for categorizing tests
+pytest.mark.unit = pytest.mark.mark("unit", "Unit tests")
+pytest.mark.integration = pytest.mark.mark("integration", "Integration tests") 
+pytest.mark.e2e = pytest.mark.mark("e2e", "End-to-end tests")
+pytest.mark.security = pytest.mark.mark("security", "Security tests")
+pytest.mark.performance = pytest.mark.mark("performance", "Performance tests")
 
 @pytest.fixture(scope="session")
 def test_data_dir():
@@ -104,7 +113,10 @@ def password_list_file(temp_work_dir):
         "password123",
         "secret456", 
         "complex&password!",
-        "test with spaces"
+        "test with spaces",
+        "unicode_пароль",
+        "symbols@#$%^&*()",
+        "verylongpasswordthatexceedsnormallimits1234567890"
     ]
     
     with open(password_file, 'w', encoding='utf-8') as f:
@@ -112,3 +124,135 @@ def password_list_file(temp_work_dir):
             f.write(f"{password}\n")
     
     return password_file
+
+
+@pytest.fixture(scope="session")
+def project_root():
+    """Fixture providing project root directory"""
+    return Path(__file__).parent.parent
+
+
+@pytest.fixture
+def sample_pdf_file(temp_work_dir, project_root):
+    """Fixture providing a sample PDF file for testing"""
+    source_pdf = project_root / "dev" / "pdf" / "test1_docx.pdf"
+    if source_pdf.exists():
+        test_pdf = temp_work_dir / "test_sample.pdf"
+        shutil.copy2(source_pdf, test_pdf)
+        return test_pdf
+    else:
+        # Use the simple test PDF if real one not available
+        return simple_test_pdf(temp_work_dir)
+
+
+@pytest.fixture
+def multiple_test_files(temp_work_dir, sample_pdf_file):
+    """Fixture providing multiple test files for batch testing"""
+    files = []
+    
+    if sample_pdf_file:
+        files.append(sample_pdf_file)
+        
+        # Create additional test files by copying the PDF
+        for i in range(3):
+            additional_file = temp_work_dir / f"test_file_{i}.pdf"
+            shutil.copy2(sample_pdf_file, additional_file)
+            files.append(additional_file)
+    
+    return files
+
+
+@pytest.fixture
+def unsupported_test_files(temp_work_dir):
+    """Fixture providing unsupported file formats for testing rejection"""
+    files = {}
+    
+    # Create .txt file
+    txt_file = temp_work_dir / "test.txt"
+    txt_file.write_text("This is a text file that should be rejected")
+    files["txt"] = txt_file
+    
+    # Create .doc file (fake - just rename a txt file)
+    doc_file = temp_work_dir / "test.doc"
+    doc_file.write_text("Fake legacy doc file")
+    files["doc"] = doc_file
+    
+    return files
+
+
+@pytest.fixture
+def encrypted_test_files(temp_work_dir, sample_pdf_file, fastpass_executable, project_root):
+    """Fixture providing pre-encrypted test files with known passwords"""
+    encrypted_files = {}
+    
+    if sample_pdf_file and sample_pdf_file.exists():
+        # Encrypt the PDF with a known password
+        encrypted_pdf = temp_work_dir / "encrypted_sample.pdf"
+        shutil.copy2(sample_pdf_file, encrypted_pdf)
+        
+        # Encrypt using FastPass
+        result = subprocess.run(
+            fastpass_executable + [
+                "encrypt",
+                "-i", str(encrypted_pdf),
+                "-p", "test123"
+            ],
+            capture_output=True,
+            text=True,
+            cwd=project_root
+        )
+        
+        if result.returncode == 0:
+            encrypted_files["pdf"] = {
+                "file": encrypted_pdf,
+                "password": "test123"
+            }
+    
+    return encrypted_files
+
+
+@pytest.fixture 
+def cli_test_combinations():
+    """Fixture providing comprehensive CLI argument combinations for testing"""
+    operations = ["encrypt", "decrypt", "check-password"]
+    input_methods = ["files", "recursive"]  
+    password_sources = ["cli", "file", "none"]
+    output_modes = ["inplace", "directory"]
+    flags = [[], ["--dry-run"], ["--verify"], ["--debug"]]
+    
+    combinations = []
+    for op in operations:
+        for input_method in input_methods:
+            # Recursive only allowed for decrypt and check-password
+            if input_method == "recursive" and op == "encrypt":
+                continue
+                
+            for password_source in password_sources:
+                # Password required for encrypt and decrypt
+                if password_source == "none" and op != "check-password":
+                    continue
+                    
+                for output_mode in output_modes:
+                    for flag_set in flags:
+                        combinations.append({
+                            "operation": op,
+                            "input_method": input_method,
+                            "password_source": password_source,
+                            "output_mode": output_mode,
+                            "flags": flag_set
+                        })
+    
+    return combinations
+
+
+# Helper functions for test utilities
+def run_fastpass_command(fastpass_executable: List[str], args: List[str], cwd: Path = None, input_data: str = None) -> subprocess.CompletedProcess:
+    """Run FastPass command and return result"""
+    cmd = fastpass_executable + args
+    return subprocess.run(
+        cmd,
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+        input=input_data
+    )

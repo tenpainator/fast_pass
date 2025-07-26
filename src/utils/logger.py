@@ -42,11 +42,20 @@ def setup_logger(name: str = "fastpass",
         console_format = "[%(levelname)s] %(message)s"
         date_format = None
     
-    # Create console handler
+    # Create console handler for INFO and DEBUG messages (stdout)
     console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    console_handler.addFilter(lambda record: record.levelno < logging.ERROR)
     console_formatter = logging.Formatter(console_format, datefmt=date_format)
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
+    
+    # Create separate handler for ERROR messages (stderr)
+    error_handler = logging.StreamHandler(sys.stderr)
+    error_handler.setLevel(logging.ERROR)
+    error_formatter = logging.Formatter(console_format, datefmt=date_format)
+    error_handler.setFormatter(error_formatter)
+    logger.addHandler(error_handler)
     
     # A3c: Add file handler if --log-file specified
     if log_file:

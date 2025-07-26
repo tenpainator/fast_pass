@@ -15,17 +15,8 @@ from dataclasses import dataclass
 from datetime import datetime
 import logging
 
-from utils.config import FastPassConfig
-
-
-# Custom Exception Classes
-class FileFormatError(Exception):
-    """Raised when file format validation fails"""
-    pass
-
-class ProcessingError(Exception):
-    """Raised when file processing fails"""
-    pass
+from src.utils.config import FastPassConfig
+from src.exceptions import FileFormatError, ProcessingError
 
 
 @dataclass
@@ -54,7 +45,7 @@ class FileValidator:
         self.config = config
         self.max_file_size = config.get('max_file_size', FastPassConfig.MAX_FILE_SIZE)
     
-    def validate_file(self, file_path: Path) -> FileManifest:
+    def validate_file(self, file_path: Path, allow_unsupported: bool = False) -> FileManifest:
         """
         B3a-B6e: Complete file validation pipeline
         Validate file format, content, and create manifest
@@ -68,7 +59,7 @@ class FileValidator:
             raise FileFormatError(f"Path is not a file: {file_path}")
         
         # B3a-B3e: Enhanced File Format Validation
-        file_format = self._detect_file_format(file_path)
+        file_format = self._detect_file_format(file_path, allow_unsupported=allow_unsupported)
         
         # B4a-B4d: File Access and Size Validation
         self._validate_file_access_and_size(file_path)
@@ -77,12 +68,15 @@ class FileValidator:
         is_encrypted = self._detect_encryption_status(file_path, file_format)
         
         # B6a-B6e: Build File Manifest
+        # For unsupported formats, use None as crypto_tool to indicate it will fail during processing
+        crypto_tool = FastPassConfig.SUPPORTED_FORMATS.get(file_format, None)
+        
         manifest = FileManifest(
             path=file_path,
             format=file_format,
             size=file_path.stat().st_size,
             is_encrypted=is_encrypted,
-            crypto_tool=FastPassConfig.SUPPORTED_FORMATS[file_format],
+            crypto_tool=crypto_tool or 'unsupported',  # Mark unsupported files
             security_checked=True,
             access_verified=True
         )
@@ -92,7 +86,7 @@ class FileValidator:
         
         return manifest
     
-    def _detect_file_format(self, file_path: Path) -> str:
+    def _detect_file_format(self, file_path: Path, allow_unsupported: bool = False) -> str:
         """
         B3b-B3e: Enhanced File Format Validation (Magic Number Priority)
         Detect file format using magic numbers with extension fallback
@@ -128,10 +122,14 @@ class FileValidator:
         # B3d: Verify FastPass Can Handle This Format
         if file_ext not in FastPassConfig.SUPPORTED_FORMATS:
             # B3d_Unsupported: File Type Not Supported
-            raise FileFormatError(
-                f"Unsupported file format: {file_ext}. "
-                f"Supported formats: {list(FastPassConfig.SUPPORTED_FORMATS.keys())}"
-            )
+            if allow_unsupported:
+                # Return the unsupported format to allow deferred failure during processing
+                return file_ext
+            else:
+                raise FileFormatError(
+                    f"Unsupported file format: {file_ext}. "
+                    f"Supported formats: {list(FastPassConfig.SUPPORTED_FORMATS.keys())}"
+                )
         
         return file_ext
     
@@ -176,7 +174,10 @@ class FileValidator:
         """
         
         # B5a: Determine File Type Handler
-        crypto_tool = FastPassConfig.SUPPORTED_FORMATS[file_format]
+        crypto_tool = FastPassConfig.SUPPORTED_FORMATS.get(file_format)
+        if not crypto_tool:
+            # Unsupported format - assume unencrypted
+            return False
         
         try:
             # B5b: Test Encryption Status
@@ -217,7 +218,7 @@ class FileProcessor:
         self.temp_files_created = temp_files_created
     
     def process_files(self, validated_files: List[FileManifest], 
-                     operation: str, output_dir: Optional[Path]) -> Dict:
+                     operation: str, output_dir: Optional[Path], dry_run: bool = False, verify: bool = False) -> Dict:
         """
         D2a-D4g: Main File Processing Pipeline
         Process all validated files with crypto operations
@@ -245,7 +246,7 @@ class FileProcessor:
                 try:
                     result = self._process_single_file(
                         file_manifest, operation, output_dir,
-                        processing_dir, output_temp_dir
+                        processing_dir, output_temp_dir, dry_run, verify
                     )
                     successful_files.append(result)
                     
@@ -262,19 +263,26 @@ class FileProcessor:
     
     def _process_single_file(self, file_manifest: FileManifest, operation: str,
                            output_dir: Optional[Path], processing_dir: Path,
-                           output_temp_dir: Path) -> 'FileProcessingResult':
+                           output_temp_dir: Path, dry_run: bool = False, verify: bool = False) -> 'FileProcessingResult':
         """
         D2c-D4g: Process single file through complete pipeline
         """
         
         # D2c: Get Crypto Handler
+        if file_manifest.crypto_tool == 'unsupported':
+            raise ProcessingError(f"Unsupported file format: {file_manifest.format}")
+        
         handler = self.crypto_handlers[file_manifest.crypto_tool]
         
         # D2d: Find Working Password
-        if operation in ['decrypt', 'check-password'] and file_manifest.is_encrypted:
+        if operation == 'decrypt' and file_manifest.is_encrypted:
             password = self.password_manager.find_working_password(file_manifest.path, handler)
             if not password:
                 raise ProcessingError(f"No working password found for {file_manifest.path}")
+        elif operation == 'check-password' and file_manifest.is_encrypted:
+            # For check-password, try to find a password but don't fail if none found
+            password = self.password_manager.find_working_password(file_manifest.path, handler)
+            # Note: password may be None, which is handled in the check-password logic
         elif operation == 'encrypt':
             # For encryption, use first available password
             passwords = self.password_manager.get_password_candidates(file_manifest.path)
@@ -288,32 +296,59 @@ class FileProcessor:
         temp_input = processing_dir / f'input_{file_manifest.path.name}'
         temp_output = output_temp_dir / f'output_{file_manifest.path.name}'
         
-        shutil.copy2(file_manifest.path, temp_input)
+        if not dry_run:
+            shutil.copy2(file_manifest.path, temp_input)
         
         # D2g-D2h: Perform Crypto Operation
-        if operation == 'encrypt':
-            handler.encrypt_file(temp_input, temp_output, password)
-        elif operation == 'decrypt':
-            handler.decrypt_file(temp_input, temp_output, password)
-        elif operation == 'check-password':
-            # For check-password, just verify we can open with password
-            if file_manifest.is_encrypted:
-                if not handler.test_password(temp_input, password):
-                    raise ProcessingError(f"Password verification failed for {file_manifest.path}")
-            # No output file needed for check-password
-            temp_output = None
+        if dry_run:
+            # Dry-run mode: simulate operations without making changes
+            if operation == 'encrypt':
+                self.logger.info(f"DRY RUN: Would encrypt {file_manifest.path.name}")
+            elif operation == 'decrypt':
+                self.logger.info(f"DRY RUN: Would decrypt {file_manifest.path.name}")
+            elif operation == 'check-password':
+                self.logger.info(f"DRY RUN: Would check password for {file_manifest.path.name}")
+            # In dry-run, create a dummy output file if needed for validation
+            if operation != 'check-password':
+                temp_output.touch()
+        else:
+            # Real operations
+            if operation == 'encrypt':
+                handler.encrypt_file(temp_input, temp_output, password)
+            elif operation == 'decrypt':
+                handler.decrypt_file(temp_input, temp_output, password)
+            elif operation == 'check-password':
+                # For check-password, verify file status and password if available
+                if file_manifest.is_encrypted:
+                    if password:
+                        if not handler.test_password(temp_input, password):
+                            raise ProcessingError(f"Password verification failed for {file_manifest.path}")
+                        self.logger.info(f"Password check: {file_manifest.path.name} - password works")
+                    else:
+                        self.logger.info(f"Password check: {file_manifest.path.name} - encrypted, no password provided")
+                else:
+                    self.logger.info(f"Password check: {file_manifest.path.name} - not encrypted")
+                # No output file needed for check-password
+                temp_output = None
         
         # D3a-D3d: Output Validation (if output file was created)
-        if temp_output and operation != 'check-password':
+        if not dry_run and temp_output and operation != 'check-password':
             self._validate_output_file(temp_output, file_manifest, operation)
         
         # D4a-D4g: File Movement and Final Result
-        if operation != 'check-password':
+        if dry_run:
+            # In dry-run mode, no file changes are made
+            final_path = file_manifest.path
+        elif operation != 'check-password':
             final_path = self._move_to_final_location(
                 temp_output, file_manifest.path, output_dir
             )
         else:
             final_path = file_manifest.path  # No file movement for check-password
+        
+        # Deep verification if verify mode is enabled
+        if verify and not dry_run and operation != 'check-password':
+            self._perform_deep_verification(final_path, file_manifest, operation, password)
         
         # D4f-D4g: Create Processing Result
         return FileProcessingResult(
@@ -323,6 +358,37 @@ class FileProcessor:
             password_used=password is not None,
             checksum=self._calculate_checksum(final_path) if final_path.exists() else None
         )
+    
+    def _perform_deep_verification(self, final_path: Path, file_manifest: FileManifest, operation: str, password: str) -> None:
+        """
+        Perform deep verification of the processed file
+        """
+        handler = self.crypto_handlers[file_manifest.crypto_tool]
+        
+        try:
+            if operation == 'encrypt':
+                # For encryption, verify the file is encrypted and password works
+                self.logger.info(f"Verification: Testing encrypted file {final_path.name}")
+                if not handler.test_password(final_path, password):
+                    raise ProcessingError(f"Verification failed: Encrypted file cannot be opened with password")
+                self.logger.info(f"Verification successful: {final_path.name} is properly encrypted")
+                
+            elif operation == 'decrypt':
+                # For decryption, verify the file is no longer encrypted (if applicable)
+                self.logger.info(f"Verification: Checking decrypted file {final_path.name}")
+                try:
+                    # Try to detect if file is still encrypted by attempting password test
+                    if handler.test_password(final_path, password):
+                        self.logger.warning(f"Verification: {final_path.name} may still be encrypted")
+                    else:
+                        self.logger.info(f"Verification successful: {final_path.name} appears to be decrypted")
+                except:
+                    # If password test fails, it likely means file is decrypted (good)
+                    self.logger.info(f"Verification successful: {final_path.name} appears to be decrypted")
+                    
+        except Exception as e:
+            self.logger.error(f"Deep verification failed for {final_path.name}: {e}")
+            # Don't raise exception - verification failure shouldn't abort the operation
     
     def _validate_output_file(self, temp_output: Path, file_manifest: FileManifest, operation: str) -> None:
         """

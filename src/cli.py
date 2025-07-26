@@ -10,8 +10,9 @@ import json
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
-from utils.config import FastPassConfig
-from utils.logger import setup_logger, sanitize_error_message
+from src.utils.config import FastPassConfig
+from src.utils.logger import setup_logger, sanitize_error_message
+from src.app import FastPassApplication
 
 
 def parse_command_line_arguments() -> argparse.Namespace:
@@ -49,17 +50,23 @@ Examples:
     # User must choose either encrypt OR decrypt
     # Cannot do both operations simultaneously
     subparsers = parser.add_subparsers(dest='operation', help='Operation to perform')
-    subparsers.required = False  # Allow for info commands
+    subparsers.required = False  # Allow for info commands first
     
     # Encrypt operation
     encrypt_parser = subparsers.add_parser('encrypt', help='Add password protection to files')
     setup_common_arguments(encrypt_parser)
+    # Add recursive option to encrypt (will be blocked in validation)
+    encrypt_parser.add_argument(
+        '-r', '--recursive',
+        type=Path,
+        help='Process directory recursively (not supported for encrypt)'
+    )
     
     # Decrypt operation  
     decrypt_parser = subparsers.add_parser('decrypt', help='Remove password protection from files')
     setup_common_arguments(decrypt_parser)
     
-    # Add recursive option to decrypt and check-password only
+    # Add recursive option to decrypt
     decrypt_parser.add_argument(
         '-r', '--recursive',
         type=Path,
@@ -129,6 +136,14 @@ def setup_common_arguments(parser: argparse.ArgumentParser) -> None:
         '--verify',
         action='store_true',
         help='Deep verification of processed files'
+    )
+    
+    # Security configuration
+    parser.add_argument(
+        '--allowed-dirs',
+        nargs='+',
+        type=str,
+        help='Additional directories to allow for file access (default: home directory and current working directory)'
     )
     
     parser.add_argument(
@@ -229,8 +244,8 @@ def handle_stdin_passwords(args: argparse.Namespace) -> None:
                 password_mapping = json.loads(stdin_data)
                 # Store the mapping for later use
                 args.stdin_password_mapping = password_mapping
-                # Remove 'stdin' from password list
-                args.password = [p for p in args.password if p != 'stdin']
+            # Always remove 'stdin' from password list, even if empty
+            args.password = [p for p in args.password if p != 'stdin']
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in stdin: {e}")
         except Exception as e:
@@ -247,7 +262,17 @@ def main() -> int:
         # A1h: Read User's Commands
         # Process the command-line instructions user provided
         # Handle cases where user asks for help or makes errors
-        args = parse_command_line_arguments()
+        try:
+            args = parse_command_line_arguments()
+        except SystemExit as e:
+            # Handle argparse errors and provide custom messages
+            if e.code == 2:
+                # Check if this looks like missing operation (starts with -i or -p without operation)
+                if len(sys.argv) > 1 and sys.argv[1].startswith('-'):
+                    print("Error: Must specify an operation (encrypt, decrypt, or check-password)", file=sys.stderr)
+                    return 2
+            # Re-raise for other SystemExit cases (like --help, --version)
+            raise
         
         # A1i: Handle Information Requests
         if hasattr(args, 'list_supported') and args.list_supported:
@@ -273,8 +298,7 @@ def main() -> int:
         config = FastPassConfig.load_configuration(args)
         logger.debug(f"Configuration loaded: {len(config)} settings")
         
-        # Import and run main application
-        from app import FastPassApplication
+        # Create and run main application
         app = FastPassApplication(args, logger, config)
         return app.run()
         
@@ -286,9 +310,19 @@ def main() -> int:
         print("\nOperation cancelled by user", file=sys.stderr)
         return 1
     except Exception as e:
-        # Unexpected error
-        print(f"Unexpected error: {sanitize_error_message(str(e))}", file=sys.stderr)
-        return 2
+        from src.exceptions import FileFormatError, FileProcessingError
+        # Check for specific error types that should return code 1
+        error_msg = sanitize_error_message(str(e))
+        if isinstance(e, (FileFormatError, FileProcessingError)) or \
+           "Unsupported file format" in error_msg or \
+           "File not found" in error_msg or \
+           "Path resolution failed" in error_msg:
+            print(f"[ERROR] {error_msg}", file=sys.stderr)
+            return 1
+        else:
+            # Unexpected error
+            print(f"[ERROR] Unexpected error: {error_msg}", file=sys.stderr)
+            return 2
 
 
 if __name__ == "__main__":

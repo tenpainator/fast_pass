@@ -61,7 +61,7 @@
 
 #### Password Management
 - [x] Per-file password specification with automatic pairing
-- [x] Password reuse algorithm with disable option
+- [x] Password management with multiple password support
 - [x] Password list file support for batch operations
 - [x] JSON password input via stdin for GUI integration
 - [x] Secure password handling and memory cleanup
@@ -90,7 +90,7 @@
 
 ### Constraints & Assumptions
 
-- **Technical Constraints:** Requires underlying crypto libraries (msoffcrypto-tool, pyzipper, PyPDF2) to be available
+- **Technical Constraints:** Requires underlying crypto libraries (msoffcrypto-tool, PyPDF2) to be available
 - **Platform Constraints:** Cross-platform compatible with pure Python dependencies
 - **Security Constraints:** Must maintain file confidentiality and integrity throughout operations
 - **User Constraints:** Must have appropriate file permissions for input and output directories
@@ -113,11 +113,10 @@ fast_pass/
 │   │   ├── crypto_handlers/      # Crypto tool integrations
 │   │   │   ├── __init__.py
 │   │   │   ├── office_handler.py # msoffcrypto-tool integration
-│   │   │   ├── pdf_handler.py    # PyPDF2 integration
-│   │   │   └── zip_handler.py    # pyzipper integration
+│   │   │   └── pdf_handler.py    # PyPDF2 integration
 │   │   └── password/             # Password handling modules
 │   │       ├── __init__.py
-│   │       ├── password_manager.py # Password reuse and validation
+│   │       ├── password_manager.py # Password validation and management
 │   │       └── password_list.py    # Password list file handling
 │   └── utils/                    # Utility modules
 │       ├── __init__.py
@@ -155,45 +154,36 @@ filetype>=1.2.0            # File type detection (replaces python-magic)
 
 ### **Password Handling Architecture**
 
-**Following FastRedline precedent patterns:**
+**Simplified password management without reuse concept:**
 
 ```python
 # Password handling with multiple sources and priority algorithm
 class PasswordManager:
     def __init__(self):
-        self.password_pool = []  # Stores successful passwords for reuse
-        self.password_reuse_enabled = True  # Can be disabled via --no-password-reuse
-        self.cli_passwords = []  # Multiple -p passwords from CLI
+        self.cli_passwords = []  # Space-delimited passwords from CLI
         self.password_list_file = None  # Path to password list file
+        self.password_list = []  # Passwords loaded from file
         
     def load_password_sources(self, args):
         """Load passwords from all sources"""
-        # Multiple -p flags from CLI
-        if hasattr(args, 'passwords') and args.passwords:
-            self.cli_passwords = [p for p in args.passwords if p != 'stdin']
+        # Space-delimited passwords from CLI
+        if hasattr(args, 'cli_passwords') and args.cli_passwords:
+            self.cli_passwords = [p for p in args.cli_passwords if p != 'stdin']
             
         # Password list file
         if args.password_list:
             self.password_list_file = args.password_list
+            self.password_list = self._load_password_list()
             
-    def get_password_candidates(self, file_path, specific_password=None):
+    def get_password_candidates(self, file_path):
         """Get prioritized list of passwords to try for a file"""
         candidates = []
         
-        # Priority 1: Per-file specific password (highest priority)
-        if specific_password and specific_password != 'stdin':
-            candidates.append(specific_password)
-            
-        # Priority 2: CLI -p passwords (in order provided)
+        # Priority 1: CLI -p passwords (in order provided)
         candidates.extend(self.cli_passwords)
         
-        # Priority 3: Password list file (line by line)
-        if self.password_list_file:
-            candidates.extend(self._load_password_list())
-            
-        # Priority 4: Password reuse pool (successful passwords from previous files)
-        if self.password_reuse_enabled:
-            candidates.extend(reversed(self.password_pool))  # Most recent first
+        # Priority 2: Password list file (line by line)
+        candidates.extend(self.password_list)
             
         # Remove duplicates while preserving order
         return list(dict.fromkeys(candidates))
@@ -207,14 +197,15 @@ class PasswordManager:
             self.log_error(f"Password list file not found: {self.password_list_file}")
             return []
             
-    def try_password_on_file(self, file_path, password):
-        """Try password on file, add to pool if successful"""
-        if self.validate_password(file_path, password):
-            if password not in self.password_pool:
-                self.password_pool.append(password)
-                self.log_debug(f"Added password to reuse pool for future files")
-            return True
-        return False
+    def find_working_password(self, file_path, crypto_handler):
+        """Find working password for file by trying all candidates"""
+        candidates = self.get_password_candidates(file_path)
+        
+        for password in candidates:
+            if crypto_handler.test_password(file_path, password):
+                return password
+        
+        return None
 ```
 
 ---
@@ -222,26 +213,24 @@ class PasswordManager:
 ## Command Line Reference
 
 ```
-Usage: fast_pass {encrypt|decrypt} [options] file1 [file2 file3...]
+Usage: fast_pass {encrypt|decrypt} [options]
 
 Required Arguments:
   encrypt                  Add password protection to files
   decrypt                  Remove password protection from files
-  file1 [file2...]         Files to process (supports mixed file types)
+
+File Input Options:
+  -i, --input FILE...      Files to process (space-delimited, quotes for spaces)
+  -r, --recursive DIR      Process directory recursively (decrypt/check-password only)
 
 Password Options:
-  -p, --password PASS      Password for file (can be specified multiple times)
+  -p, --password PASS...   Passwords to try (space-delimited, quotes for spaces)
   --password-list FILE     Text file with passwords to try (one per line)
-  --no-password-reuse      Disable automatic password reuse across files
   -p stdin                 Read passwords from JSON via stdin (GUI integration)
   --check-password [FILE]  Check if file requires password (dry-run mode)
 
-Directory Options:
-  -r, --recursive DIR      Process all supported files in directory recursively
-
 Output Options:
   -o, --output-dir DIR     Output directory (default: in-place modification)
-  --backup                 Create backup before modifying files
 
 Utility Options:
   --dry-run               Show what would be done without making changes
@@ -253,45 +242,46 @@ Utility Options:
 
 Supported File Formats:
   Modern Office:     .docx, .xlsx, .pptx, .docm, .xlsm, .pptm, .dotx, .xltx, .potx
-  Legacy Office:     .doc, .xls, .ppt (DECRYPTION ONLY - cannot add passwords)
-  PDF Files:         .pdf
+                     (Encryption: experimental support, Decryption: full support)
+  Legacy Office:     .doc, .xls, .ppt (NOT SUPPORTED - use Office to convert to modern format)
+  PDF Files:         .pdf (Full encryption and decryption support)
 Examples:
   # Encrypt single file with password
-  fast_pass encrypt contract.docx -p "mypassword"
+  fast_pass encrypt -i contract.docx -p "mypassword"
   
   # Decrypt multiple files with same password
-  fast_pass decrypt file1.pdf file2.docx file3.xlsx -p "shared_pwd"
+  fast_pass decrypt -i file1.pdf file2.docx file3.xlsx -p "shared_pwd"
   
-  # Per-file passwords (GUI integration pattern)
-  fast_pass decrypt protected.pdf -p "pdf_pwd" document.docx -p "doc_pwd"
+  # Multiple passwords via CLI (space-delimited, tries all passwords on all files)
+  fast_pass decrypt -i file1.pdf file2.docx -p "password123" "secret456" "admin789"
   
-  # Multiple passwords via CLI (tries all passwords on all files)
-  fast_pass decrypt file1.pdf file2.docx -p "password123" -p "secret456" -p "admin789"
+  # Passwords with spaces (quoted)
+  fast_pass decrypt -i protected.pdf -p "password1" "password 2" "ps3"
   
   # Password list file for batch operations
-  fast_pass decrypt "archive_folder/report1.pdf" "archive_folder/report2.pdf" --password-list common_passwords.txt
+  fast_pass decrypt -i "archive_folder/report1.pdf" "archive_folder/report2.pdf" --password-list common_passwords.txt
   
   # Combined approach: specific password + password list fallback
-  fast_pass decrypt urgent.pdf "archive1.pdf" "archive2.pdf" -p "urgent_pwd" --password-list common_passwords.txt
+  fast_pass decrypt -i urgent.pdf "archive1.pdf" "archive2.pdf" -p "urgent_pwd" --password-list common_passwords.txt
   
   # Passwords from stdin JSON (GUI integration)
-  fast_pass decrypt file1.pdf file2.docx -p stdin < passwords.json
+  fast_pass decrypt -i file1.pdf file2.docx -p stdin < passwords.json
   # JSON format: {"file1.pdf": "secret1", "file2.docx": "secret2"}
   
-  # Recursively process directory with password reuse
+  # Recursively process directory (decrypt only)
   fast_pass decrypt -r ./encrypted_docs/ -p "main_password"
   
-  # Recursive with password list and backup
-  fast_pass decrypt -r ./archive/ --password-list passwords.txt --backup
+  # Recursive with password list
+  fast_pass decrypt -r ./archive/ --password-list passwords.txt
   
   # Check password protection status (dry-run)
   fast_pass --check-password -r ./documents/ --password-list test_passwords.txt
   
   # Mixed file types with output directory
-  fast_pass encrypt report.pdf data.xlsx presentation.pptx -p "secret" -o ./secured/
+  fast_pass encrypt -i report.pdf data.xlsx presentation.pptx -p "secret" -o ./secured/
   
-  # Disable password reuse for security
-  fast_pass decrypt file1.pdf file2.pdf -p "pwd1" --no-password-reuse
+  # Security: Allow current directory access (use with caution)
+  fast_pass decrypt -i ./docs/report.pdf --allow-cwd -p "password123"
 
 Exit Codes:
   0  Success
@@ -342,7 +332,7 @@ def main():
         log_error(f"Crypto tool unavailable: {e}")
         sys.exit(1)  # Tool availability error
     except ProcessingError as e:
-        restore_backups_on_critical_failure()
+        cleanup_partial_processing_on_failure()
         sys.exit(1)  # Processing failure
     except Exception as e:
         log_error(f"Unexpected error: {e}")
@@ -354,12 +344,17 @@ class FastPassConfig:
     VERSION = "1.0.0"
     MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB
     TEMP_DIR_PREFIX = "fastpass_"
-    BACKUP_SUFFIX_PATTERN = "_%Y%m%d_%H%M%S.bak"
     SECURE_FILE_PERMISSIONS = 0o600
     SUPPORTED_FORMATS = {
         '.docx': 'msoffcrypto',
         '.xlsx': 'msoffcrypto', 
         '.pptx': 'msoffcrypto',
+        '.docm': 'msoffcrypto',
+        '.xlsm': 'msoffcrypto',
+        '.pptm': 'msoffcrypto',
+        '.dotx': 'msoffcrypto',
+        '.xltx': 'msoffcrypto',
+        '.potx': 'msoffcrypto',
         '.pdf': 'PyPDF2'
     }
     
@@ -406,8 +401,14 @@ class FastPassConfig:
             'log_level': 'INFO',
             'log_file': None,
             'cleanup_on_error': True,
-            'password_reuse_enabled': True,
-            'backup_enabled': False
+            # Security hardening settings
+            'allow_cwd': False,  # Default: do not allow current directory access
+            'max_password_length': 1024,
+            'max_json_size': 1024 * 1024,  # 1MB limit for password JSON
+            'max_path_length': 4096,
+            'enable_secure_deletion': True,
+            'symlink_protection': True,
+            'xml_entity_protection': True
         }
     
     @classmethod
@@ -422,8 +423,13 @@ class FastPassConfig:
             'FASTPASS_LOG_LEVEL': ('log_level', str),
             'FASTPASS_LOG_FILE': ('log_file', str),
             'FASTPASS_CLEANUP_ON_ERROR': ('cleanup_on_error', bool),
-            'FASTPASS_PASSWORD_REUSE': ('password_reuse_enabled', bool),
-            'FASTPASS_BACKUP_ENABLED': ('backup_enabled', bool)
+            # Security environment variables
+            'FASTPASS_ALLOW_CWD': ('allow_cwd', bool),
+            'FASTPASS_MAX_PASSWORD_LENGTH': ('max_password_length', int),
+            'FASTPASS_MAX_JSON_SIZE': ('max_json_size', int),
+            'FASTPASS_ENABLE_SECURE_DELETION': ('enable_secure_deletion', bool),
+            'FASTPASS_SYMLINK_PROTECTION': ('symlink_protection', bool),
+            'FASTPASS_XML_ENTITY_PROTECTION': ('xml_entity_protection', bool)
         }
         
         for env_var, (config_key, type_func) in env_mapping.items():
@@ -445,9 +451,6 @@ class FastPassConfig:
         
         if hasattr(cli_args, 'debug') and cli_args.debug:
             config['log_level'] = 'DEBUG'
-        
-        if hasattr(cli_args, 'no_password_reuse') and cli_args.no_password_reuse:
-            config['password_reuse_enabled'] = False
             
         if hasattr(cli_args, 'output_dir') and cli_args.output_dir:
             config['output_directory'] = cli_args.output_dir
@@ -482,9 +485,9 @@ def parse_command_line_arguments() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 Examples:
-  fast_pass encrypt file.docx -p mypassword
-  fast_pass decrypt file.pdf --password-list passwords.txt
-  fast_pass encrypt "file1.xlsx" "file2.xlsx" -o ./encrypted/
+  fast_pass encrypt -i file.docx -p mypassword
+  fast_pass decrypt -i file.pdf --password-list passwords.txt
+  fast_pass encrypt -i "file1.xlsx" "file2.xlsx" -o ./encrypted/
         '''
     )
     
@@ -495,21 +498,19 @@ Examples:
     operation_group.add_argument('-d', '--decrypt', action='store_true', 
                                 help='Decrypt files')
     
-    # A1c: File arguments (explicit file specification required)
-    parser.add_argument('files', nargs='*', type=str,
-                       help='Files to process (use quotes for paths with spaces)')
+    # A1c: File input options (explicit file specification required)
+    parser.add_argument('-i', '--input', nargs='*', type=str, dest='files',
+                       help='Files to process (space-delimited, quotes for spaces)')
     parser.add_argument('-r', '--recursive', type=Path, metavar='DIR',
-                       help='Process directory recursively')
+                       help='Process directory recursively (decrypt/check-password only)')
     
-    # A1d: Password options with priority system and TTY handling
-    parser.add_argument('-p', '--password', action='append', dest='cli_passwords',
-                       help='Password (can be used multiple times, or "stdin" for JSON input)')
+    # A1d: Password options with space-delimited support
+    parser.add_argument('-p', '--password', nargs='*', type=str, dest='cli_passwords',
+                       help='Passwords to try (space-delimited, quotes for spaces, or "stdin" for JSON input)')
     parser.add_argument('--password-list', type=Path,
                        help='File containing passwords (one per line)')
-    parser.add_argument('--no-password-reuse', action='store_true',
-                       help='Disable automatic password reuse across files')
     
-    # A1e: Output and backup options  
+    # A1e: Output options  
     parser.add_argument('-o', '--output-dir', type=Path,
                        help='Output directory (default: in-place)')
     
@@ -526,10 +527,14 @@ Examples:
                        help='Write logs to specified file')
     parser.add_argument('--report-format', choices=['text', 'json', 'csv'],
                        default='text', help='Output report format')
+    
+    # A1g: Security options
+    parser.add_argument('--allow-cwd', action='store_true',
+                       help='Allow file operations in current working directory (security: use with caution)')
     parser.add_argument('-v', '--version', action='version',
                        version=f'FastPass {FastPassConfig.VERSION}')
     
-    # A1g: Parse arguments with error handling
+    # A1h: Parse arguments with error handling
     try:
         args = parser.parse_args()
     except SystemExit as e:
@@ -554,6 +559,10 @@ def validate_operation_mode_and_arguments(args: argparse.Namespace) -> argparse.
     
     if args.files and args.recursive:
         raise ValueError("Cannot specify both files and --recursive")
+    
+    # A2a1: Restrict recursive mode to decrypt and check-password only
+    if args.recursive and args.encrypt:
+        raise ValueError("Recursive mode is only supported for decrypt operations (security restriction)")
     
     # A2b: Process explicit file paths and normalize (no glob pattern support)
     if args.files:
@@ -704,15 +713,15 @@ class FastPassApplication:
         self.processing_results: Dict[Path, str] = {}
         self.operation_start_time = datetime.now()
         
-        # A5c: Load configuration and initialize password manager
+        # A5c: Load configuration and initialize secure password manager
         self.config = FastPassConfig.load_configuration(args)
-        self.password_manager = PasswordManager(
-            cli_passwords=args.cli_passwords or [],
-            password_list_file=args.password_list,
-            reuse_enabled=self.config['password_reuse_enabled']
-        )
+        self.password_manager = SecurePasswordManager()
+        self.password_manager.load_password_sources(args)
         
-        # A5d: State flags
+        # A5d: Initialize secure temporary file manager
+        self.temp_file_manager = SecureTempFileManager()
+        
+        # A5e: State flags
         self.ready_for_processing = True
         
         self.logger.debug("FastPass application initialized successfully")
@@ -725,7 +734,7 @@ class FastPassApplication:
   - Quoted paths for files with spaces: `fast_pass encrypt "my documents/file.txt"`
   - `args.operation` contains 'encrypt' or 'decrypt' as positional argument
   - `args.files` becomes list of explicitly specified file paths
-  - `args.password_reuse_enabled` boolean flag (default True, disabled via --no-password-reuse)
+  - `args.cli_passwords` contains space-delimited passwords from -p flag
   - `args.stdin_password_mapping` contains JSON password mapping if '-p stdin' used
 
 - **A2: Operation Mode & File Path Validation**
@@ -750,28 +759,546 @@ class FastPassApplication:
 
 - **A4: Crypto Library Availability Detection**
   - Test msoffcrypto-tool: `import msoffcrypto` with ImportError handling
-  - Test pyzipper availability: `import pyzipper` with version check
   - Test PyPDF2: `import PyPDF2` with version compatibility check
-  - Store availability: `self.crypto_tools = {'msoffcrypto': bool, 'pyzipper': bool, 'pypdf2': bool}`
+  - Store availability: `self.crypto_tools = {'msoffcrypto': bool, 'pypdf2': bool}`
   - If required libraries missing: exit with helpful installation instructions
 
 - **A5: Configuration & Default Setup**
   - `self.config = {'backup_suffix': '_backup_{timestamp}', 'temp_dir_prefix': 'FastPass_'}`
   - `self.config['secure_permissions'] = 0o600` (read/write owner only)
   - `self.config['max_file_size'] = 500 * 1024 * 1024` (500MB limit)
-  - `self.config['supported_formats'] = {'.docx': 'msoffcrypto', '.pdf': 'pypdf2', '.zip': '7zip'}`
+  - `self.config['supported_formats'] = {'.docx': 'msoffcrypto', '.pdf': 'pypdf2'}`
   - Password policy: `self.config['min_password_length'] = 1` (no minimum enforced)
   - Cleanup settings: `self.config['cleanup_on_error'] = True`
 
 - **A6: FastPass Application Object Creation**
   - Main `FastPass(args)` object instantiated with parsed arguments
   - `self.operation_mode = args.operation` ('encrypt' or 'decrypt')
-  - `self.password_manager = PasswordManager(reuse_enabled=args.password_reuse_enabled)`
+  - `self.password_manager = PasswordManager()`
   - `self.file_processors = {}` (will map files to appropriate crypto handlers)
   - `self.temp_files_created = []` (tracking for cleanup)
-  - `self.backup_files_created = []` (tracking backups for rollback)
   - `self.operation_start_time = datetime.now()` for timing
   - State flags: `self.ready_for_processing = True`, `self.cleanup_required = False`
+
+---
+
+## Security Hardening & Attack Vector Mitigation
+
+> **SECURITY CRITICAL**: This section addresses comprehensive security hardening based on threat analysis and attack vector identification. Every mitigation must be implemented exactly as specified to prevent exploitation.
+
+### **Attack Vector Analysis & Mitigations**
+
+#### **1. Path Traversal Attack Prevention**
+
+**Attack Scenario**: Attacker uses paths like `../../../../etc/passwd` to access files outside allowed directories.
+
+**Hardened Validation**:
+```python
+def validate_path_security_hardened(file_path: Path, explicit_allow_cwd: bool = False) -> None:
+    """Enhanced path traversal protection with strict validation"""
+    import os
+    from pathlib import Path
+    
+    # B1-SEC-1: Canonical path resolution with symlink detection
+    try:
+        original_path = file_path
+        resolved_path = file_path.resolve(strict=True)  # Fail if path doesn't exist
+        
+        # B1-SEC-2: Symlink detection and protection
+        if resolved_path != original_path.resolve():
+            if original_path.is_symlink() or any(p.is_symlink() for p in original_path.parents):
+                raise SecurityViolationError("Symlink access denied for security")
+        
+        # B1-SEC-3: Restricted allowed directories (NO current directory by default)
+        allowed_dirs = [Path.home().resolve()]
+        
+        # Only allow current directory if explicitly enabled
+        if explicit_allow_cwd:
+            allowed_dirs.append(Path.cwd().resolve())
+        
+        # B1-SEC-4: Strict containment checking
+        is_allowed = False
+        for base_dir in allowed_dirs:
+            try:
+                relative_path = resolved_path.relative_to(base_dir)
+                # Additional check: no parent directory references in resolved path
+                if '..' in str(relative_path):
+                    raise SecurityViolationError("Path traversal in resolved path")
+                is_allowed = True
+                break
+            except ValueError:
+                continue
+        
+        if not is_allowed:
+            raise SecurityViolationError("File access outside permitted directories")
+            
+        # B1-SEC-5: Path component analysis (enhanced)
+        forbidden_components = ['..', '.', '', '~']
+        for component in original_path.parts:
+            if component in forbidden_components:
+                raise SecurityViolationError(f"Forbidden path component: {component}")
+            if component.startswith('.') and component not in ['.docx', '.xlsx', '.pptx', '.pdf']:
+                raise SecurityViolationError("Hidden file/directory access denied")
+            
+        # B1-SEC-6: Path length and character validation
+        if len(str(resolved_path)) > 4096:  # Reasonable path length limit
+            raise SecurityViolationError("Path length exceeds security limit")
+            
+        # Check for null bytes and other dangerous characters
+        dangerous_chars = ['\x00', '\n', '\r', '\t']
+        if any(char in str(original_path) for char in dangerous_chars):
+            raise SecurityViolationError("Dangerous characters in file path")
+            
+    except (OSError, FileNotFoundError) as e:
+        raise SecurityViolationError(f"Invalid or inaccessible file path: {e}")
+```
+
+#### **2. Command Injection Prevention**
+
+**Attack Scenario**: Malicious file paths with shell metacharacters like `; rm -rf /` injected into subprocess calls.
+
+**Secure Implementation**:
+```python
+def encrypt_file_secure(self, input_path: Path, output_path: Path, password: str) -> None:
+    """Secure Office encryption using direct library calls (no subprocess)"""
+    
+    # B2-SEC-1: Legacy format validation
+    file_extension = input_path.suffix.lower()
+    if file_extension in ['.doc', '.xls', '.ppt']:
+        raise FileFormatError(f"Legacy Office format {file_extension} not supported")
+    
+    # B2-SEC-2: Path validation before processing
+    validate_path_security_hardened(input_path)
+    validate_path_security_hardened(output_path.parent)
+    
+    # B2-SEC-3: Password sanitization
+    if len(password) > 1024:  # Reasonable password length limit
+        raise ValueError("Password exceeds maximum length")
+    if '\x00' in password:
+        raise ValueError("Null byte in password")
+    
+    # B2-SEC-4: Use direct library calls instead of subprocess
+    try:
+        import msoffcrypto
+        
+        # Use msoffcrypto library directly for encryption (when available)
+        # This eliminates subprocess command injection risks
+        with open(input_path, 'rb') as input_file:
+            # Note: Direct encryption may require different approach
+            # Fall back to subprocess with strict argument validation only if necessary
+            if self._direct_encryption_available():
+                self._encrypt_direct(input_file, output_path, password)
+            else:
+                self._encrypt_subprocess_secure(input_path, output_path, password)
+                
+    except Exception as e:
+        raise ProcessingError(f"Secure Office encryption failed: {e}")
+
+def _encrypt_subprocess_secure(self, input_path: Path, output_path: Path, password: str) -> None:
+    """Fallback secure subprocess implementation with strict validation"""
+    
+    # B2-SEC-5: Strict argument validation for subprocess
+    import subprocess
+    import shlex
+    
+    # Validate all paths are within allowed directories
+    validate_path_security_hardened(input_path)
+    validate_path_security_hardened(output_path.parent)
+    
+    # Use argument list (not shell) to prevent injection
+    cmd_args = [
+        'python', '-m', 'msoffcrypto.cli',
+        '-e', '-p', password,
+        str(input_path.resolve()),  # Use absolute paths
+        str(output_path.resolve())
+    ]
+    
+    # B2-SEC-6: Secure subprocess execution
+    try:
+        result = subprocess.run(
+            cmd_args,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            shell=False,  # CRITICAL: Never use shell=True
+            cwd=None,     # Don't inherit current directory
+            env={'PATH': os.environ.get('PATH', '')},  # Minimal environment
+            check=False
+        )
+        
+        if result.returncode != 0:
+            # Sanitize error output to prevent information disclosure
+            sanitized_error = self._sanitize_error_message(result.stderr)
+            raise ProcessingError(f"Office encryption failed: {sanitized_error}")
+            
+    except subprocess.TimeoutExpired:
+        raise ProcessingError("Office encryption timed out")
+```
+
+#### **3. Password Security & Memory Protection**
+
+**Attack Scenarios**: Password exposure in process lists, memory dumps, swap files, or shell history.
+
+**Secure Implementation**:
+```python
+class SecurePasswordManager:
+    """Enhanced password manager with memory protection"""
+    
+    def __init__(self):
+        self.cli_passwords = []
+        self.password_list_file = None
+        self.password_list = []
+        self._memory_regions = []  # Track memory for secure clearing
+        
+    # B3-SEC-1: Secure password input without command line exposure
+    def get_password_secure(self, prompt: str = "Password: ") -> str:
+        """Get password without exposing in process list or history"""
+        import getpass
+        import sys
+        
+        if sys.stdin.isatty():
+            # Interactive mode - use secure password prompt
+            password = getpass.getpass(prompt)
+        else:
+            # Non-interactive mode - read from stdin (for automation)
+            password = sys.stdin.readline().rstrip('\n\r')
+        
+        if not password:
+            raise ValueError("Empty password not allowed")
+            
+        return password
+    
+    # B3-SEC-2: Secure memory clearing for passwords
+    def clear_password_memory(self, password_str: str) -> None:
+        """Attempt to clear password from memory (best effort)"""
+        import ctypes
+        
+        try:
+            # Get string object memory location
+            address = id(password_str)
+            size = len(password_str)
+            
+            # Overwrite memory with zeros (best effort in Python)
+            ctypes.memset(address, 0, size)
+            
+        except Exception:
+            # Memory clearing is best effort - don't fail operation
+            pass
+    
+    # B3-SEC-3: Secure JSON password parsing with validation
+    def parse_stdin_passwords_secure(self, stdin_data: str) -> Dict[str, str]:
+        """Secure JSON password parsing with strict validation"""
+        import json
+        
+        # Validate JSON size to prevent DoS
+        if len(stdin_data) > 1024 * 1024:  # 1MB limit
+            raise ValueError("Password JSON exceeds size limit")
+        
+        try:
+            password_mapping = json.loads(stdin_data)
+            
+            if not isinstance(password_mapping, dict):
+                raise ValueError("Password input must be JSON object")
+            
+            # Validate each entry
+            validated_mapping = {}
+            for filename, password in password_mapping.items():
+                if not isinstance(filename, str) or not isinstance(password, str):
+                    raise ValueError("Password mapping must contain only strings")
+                
+                # Validate filename for security
+                file_path = Path(filename)
+                validate_path_security_hardened(file_path)
+                
+                # Validate password
+                if len(password) > 1024:
+                    raise ValueError(f"Password for {filename} exceeds length limit")
+                if '\x00' in password:
+                    raise ValueError(f"Invalid characters in password for {filename}")
+                
+                validated_mapping[filename] = password
+            
+            return validated_mapping
+            
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in password input: {e}")
+        finally:
+            # Clear input data from memory
+            self.clear_password_memory(stdin_data)
+```
+
+#### **4. Secure Temporary File Operations**
+
+**Attack Scenarios**: Race conditions, symlink attacks, predictable file names, insecure permissions.
+
+**Secure Implementation**:
+```python
+class SecureTempFileManager:
+    """Enhanced temporary file manager with security hardening"""
+    
+    def __init__(self):
+        self.temp_directories = []
+        self.temp_files = []
+        self.cleanup_registered = False
+        
+    # B4-SEC-1: Secure temporary directory creation
+    def create_secure_temp_directory(self) -> Path:
+        """Create cryptographically secure temporary directory"""
+        import tempfile
+        import secrets
+        import os
+        from datetime import datetime
+        
+        # B4-SEC-2: Cryptographically secure random naming
+        random_suffix = secrets.token_hex(16)  # 32 character hex string
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        pid = os.getpid()
+        
+        # Combine multiple entropy sources
+        temp_name = f"fastpass_sec_{timestamp}_{pid}_{random_suffix}"
+        
+        # B4-SEC-3: Create with most restrictive permissions
+        old_umask = os.umask(0o077)  # Ensure only owner can access
+        try:
+            temp_dir = Path(tempfile.mkdtemp(prefix=temp_name))
+            
+            # Set extremely restrictive permissions
+            os.chmod(temp_dir, 0o700)  # Owner read/write/execute only
+            
+            # Create subdirectories with same restrictive permissions
+            for subdir in ['processing', 'output']:
+                subdir_path = temp_dir / subdir
+                subdir_path.mkdir(mode=0o700)
+                
+            self.temp_directories.append(temp_dir)
+            
+            # Register cleanup if not already done
+            if not self.cleanup_registered:
+                import atexit
+                atexit.register(self.emergency_cleanup)
+                self.cleanup_registered = True
+                
+            return temp_dir
+            
+        finally:
+            os.umask(old_umask)  # Restore original umask
+    
+    # B4-SEC-4: Secure atomic file operations
+    def atomic_file_write(self, content: bytes, target_path: Path) -> None:
+        """Secure atomic file write to prevent race conditions"""
+        import secrets
+        import os
+        
+        # Create temporary file in same directory as target (for atomic move)
+        temp_name = f".tmp_{secrets.token_hex(8)}_{target_path.name}"
+        temp_path = target_path.parent / temp_name
+        
+        try:
+            # Write to temporary file with secure permissions
+            with open(temp_path, 'wb') as f:
+                os.chmod(temp_path, 0o600)  # Restrictive permissions before writing
+                f.write(content)
+                f.flush()
+                os.fsync(f.fileno())  # Ensure data is written to disk
+            
+            # Atomic move to final location
+            temp_path.replace(target_path)
+            
+        except Exception:
+            # Clean up temporary file on failure
+            if temp_path.exists():
+                try:
+                    temp_path.unlink()
+                except Exception:
+                    pass
+            raise
+    
+    # B4-SEC-5: Secure file deletion with overwriting
+    def secure_delete_file(self, file_path: Path) -> None:
+        """Securely delete file with overwriting (best effort)"""
+        import os
+        
+        try:
+            if file_path.exists() and file_path.is_file():
+                file_size = file_path.stat().st_size
+                
+                # Overwrite with random data (best effort)
+                if file_size > 0 and file_size < 100 * 1024 * 1024:  # Only for files < 100MB
+                    with open(file_path, 'r+b') as f:
+                        # Multiple passes with different patterns
+                        patterns = [b'\x00', b'\xFF', secrets.token_bytes(min(file_size, 1024))]
+                        for pattern in patterns:
+                            f.seek(0)
+                            if len(pattern) == 1:
+                                f.write(pattern * file_size)
+                            else:
+                                # Write random pattern
+                                remaining = file_size
+                                while remaining > 0:
+                                    chunk_size = min(remaining, len(pattern))
+                                    f.write(pattern[:chunk_size])
+                                    remaining -= chunk_size
+                            f.flush()
+                            os.fsync(f.fileno())
+                
+                # Remove file
+                file_path.unlink()
+                
+        except Exception:
+            # Don't fail operation if secure deletion fails
+            try:
+                file_path.unlink()  # Fallback to normal deletion
+            except Exception:
+                pass
+```
+
+#### **5. File Format Attack Prevention**
+
+**Attack Scenarios**: XXE injection, ZIP bombs, malicious macros, polyglot files.
+
+**Secure Implementation**:
+```python
+def validate_file_format_secure(file_path: Path) -> str:
+    """Enhanced file format validation with attack prevention"""
+    import filetype
+    import zipfile
+    import xml.etree.ElementTree as ET
+    
+    # B5-SEC-1: File size validation (prevent DoS)
+    file_size = file_path.stat().st_size
+    if file_size > FastPassConfig.MAX_FILE_SIZE:
+        raise FileFormatError(f"File too large: {file_size} bytes")
+    if file_size == 0:
+        raise FileFormatError("Empty file not allowed")
+    
+    # B5-SEC-2: Magic number validation (primary authority)
+    detected_type = filetype.guess(str(file_path))
+    file_extension = file_path.suffix.lower()
+    
+    # Allowed magic number mappings
+    allowed_magic_types = {
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+        'application/pdf': '.pdf'
+    }
+    
+    detected_format = None
+    if detected_type and detected_type.mime in allowed_magic_types:
+        detected_format = allowed_magic_types[detected_type.mime]
+        
+        # B5-SEC-3: Cross-validate magic number vs extension
+        if file_extension != detected_format:
+            raise FileFormatError(f"File format mismatch: extension {file_extension} vs detected {detected_format}")
+    
+    # B5-SEC-4: Extension-based validation (fallback)
+    if not detected_format:
+        if file_extension in FastPassConfig.SUPPORTED_FORMATS:
+            detected_format = file_extension
+        else:
+            raise FileFormatError(f"Unsupported file format: {file_extension}")
+    
+    # B5-SEC-5: Office document security validation
+    if detected_format in ['.docx', '.xlsx', '.pptx']:
+        validate_office_document_security(file_path)
+    
+    # B5-SEC-6: PDF security validation  
+    elif detected_format == '.pdf':
+        validate_pdf_document_security(file_path)
+    
+    return detected_format
+
+def validate_office_document_security(file_path: Path) -> None:
+    """Validate Office document against security threats"""
+    import zipfile
+    import xml.etree.ElementTree as ET
+    
+    try:
+        # B5-SEC-7: ZIP bomb protection
+        with zipfile.ZipFile(file_path, 'r') as zip_file:
+            total_uncompressed = 0
+            file_count = 0
+            
+            for info in zip_file.infolist():
+                file_count += 1
+                total_uncompressed += info.file_size
+                
+                # Prevent ZIP bombs
+                if file_count > 1000:  # Reasonable file count limit
+                    raise FileFormatError("Office document contains too many files")
+                
+                if total_uncompressed > 100 * 1024 * 1024:  # 100MB uncompressed limit
+                    raise FileFormatError("Office document uncompressed size too large")
+                
+                # Check compression ratio for ZIP bomb detection
+                if info.file_size > 0 and info.compress_size > 0:
+                    ratio = info.file_size / info.compress_size
+                    if ratio > 100:  # High compression ratio indicates potential ZIP bomb
+                        raise FileFormatError("Suspicious compression ratio in Office document")
+            
+            # B5-SEC-8: XML content validation (prevent XXE)
+            xml_files = [name for name in zip_file.namelist() if name.endswith('.xml')]
+            for xml_file in xml_files[:10]:  # Limit XML files checked
+                try:
+                    with zip_file.open(xml_file) as f:
+                        xml_content = f.read(1024 * 1024)  # Limit XML size read
+                        validate_xml_security(xml_content)
+                except Exception:
+                    # Don't fail on XML parsing errors, but log suspicion
+                    continue
+                    
+    except zipfile.BadZipFile:
+        raise FileFormatError("Corrupted Office document")
+
+def validate_xml_security(xml_content: bytes) -> None:
+    """Validate XML content for security threats"""
+    
+    # B5-SEC-9: XXE prevention - check for entity declarations
+    xml_str = xml_content.decode('utf-8', errors='ignore')
+    
+    # Look for suspicious patterns
+    suspicious_patterns = [
+        '<!ENTITY',     # Entity declarations
+        'SYSTEM',       # System entity references
+        'file://',      # File protocol
+        'http://',      # HTTP requests in XML
+        'https://',     # HTTPS requests in XML
+        '&lt;!ENTITY', # HTML-encoded entity declarations
+    ]
+    
+    xml_lower = xml_str.lower()
+    for pattern in suspicious_patterns:
+        if pattern.lower() in xml_lower:
+            raise FileFormatError("Potentially malicious XML content detected")
+    
+    # Additional size check
+    if len(xml_content) > 10 * 1024 * 1024:  # 10MB XML limit
+        raise FileFormatError("XML content too large")
+
+def validate_pdf_document_security(file_path: Path) -> None:
+    """Validate PDF document against security threats"""
+    
+    # B5-SEC-10: Basic PDF structure validation
+    with open(file_path, 'rb') as f:
+        header = f.read(1024)
+        
+        # Check PDF header
+        if not header.startswith(b'%PDF-'):
+            raise FileFormatError("Invalid PDF header")
+        
+        # Look for suspicious content
+        suspicious_content = [
+            b'/JavaScript',  # JavaScript in PDF
+            b'/JS',         # JavaScript abbreviation
+            b'/Launch',     # Launch actions
+            b'/GoToR',      # Go to remote actions
+        ]
+        
+        content_sample = f.read(10 * 1024)  # Read first 10KB for scanning
+        for suspicious in suspicious_content:
+            if suspicious in content_sample:
+                raise FileFormatError("Potentially malicious PDF content detected")
+```
 
 ---
 
@@ -800,14 +1327,14 @@ def perform_security_and_file_validation(args: argparse.Namespace) -> List[FileM
         # B1b: Path resolution and normalization
         resolved_path = Path(file_path).expanduser().resolve()
         
-        # B1c: Security validation - path traversal protection
-        validate_path_security(resolved_path)
+        # B1c: Security validation - hardened path traversal protection
+        validate_path_security_hardened(resolved_path, explicit_allow_cwd=args.allow_cwd)
         
         # B1d: File existence and access validation
         validate_file_access(resolved_path)
         
-        # B1e: File format validation
-        file_format = validate_file_format(resolved_path)
+        # B1e: File format validation with security hardening
+        file_format = validate_file_format_secure(resolved_path)
         
         # B1f: Encryption status detection
         encryption_status = detect_encryption_status(resolved_path, file_format)
@@ -900,7 +1427,6 @@ def validate_file_format(file_path: Path) -> str:
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx', 
         'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
         'application/pdf': '.pdf',
-        'application/zip': '.zip'  # Handle ZIP-based formats
     }
     
     if detected_type and detected_type.mime in magic_to_format:
@@ -1002,7 +1528,6 @@ class FileManifest:
 - **B5: Password Protection Status Detection**
   - **Office Documents**: `msoffcrypto.OfficeFile(file_stream).is_encrypted()` returns boolean
   - **PDF Files**: `PyPDF2.PdfReader(file_stream).is_encrypted` property check
-  - **ZIP Archives**: Test 7zip list command, look for password prompt or "wrong password" message
   - Store status: `password_status = {'file_path': bool}` for each file
   - **Special case**: If operation is 'encrypt' and file already encrypted, add to warnings
   - **Special case**: If operation is 'decrypt' and file not encrypted, add to warnings
@@ -1017,8 +1542,7 @@ class FileManifest:
         'format': str, 
         'size': int,
         'is_password_protected': bool,
-        'crypto_tool': str,  # 'msoffcrypto', 'pypdf2', '7zip'
-        'backup_required': bool,
+        'crypto_tool': str,  # 'msoffcrypto', 'pypdf2'
         'temp_file_needed': bool
     }
     ```
@@ -1061,10 +1585,9 @@ class OfficeDocumentHandler:
         self.msoffcrypto = msoffcrypto
         
     def encrypt_file(self, input_path: Path, output_path: Path, password: str) -> None:
-        """C2a: Encrypt Office document"""
-        # Note: msoffcrypto primarily supports decryption
-        # For encryption, we'd need to use Office automation or other tools
-        raise NotImplementedError("Office encryption requires different approach")
+        """C2a: Secure Office document encryption with hardened security"""
+        # Use the secure implementation that includes all security validations
+        encrypt_file_secure(self, input_path, output_path, password)
     
     def decrypt_file(self, input_path: Path, output_path: Path, password: str) -> None:
         """C2b: Decrypt Office document"""
@@ -1196,12 +1719,11 @@ class PasswordManager:
     tool_mapping = {
         '.docx': 'msoffcrypto', '.xlsx': 'msoffcrypto', '.pptx': 'msoffcrypto',
         '.doc': 'msoffcrypto', '.xls': 'msoffcrypto', '.ppt': 'msoffcrypto',  
-        '.pdf': 'PyPDF2',
-        '.zip': 'pyzipper', '.7z': 'pyzipper'
+        '.pdf': 'PyPDF2'
     }
     ```
   - Assign crypto tool: `file_entry['crypto_tool'] = tool_mapping[file_entry['extension']]`
-  - Group by tool: `self.tool_groups = {'msoffcrypto': [], 'PyPDF2': [], 'pyzipper': []}`
+  - Group by tool: `self.tool_groups = {'msoffcrypto': [], 'PyPDF2': []}`
   - Availability check: ensure required tools are available for file types present
   - If tool missing: `sys.exit(1)` with "Required crypto tool not available: {tool_name}"
 
@@ -1227,13 +1749,6 @@ class PasswordManager:
         
         def encrypt(self, input_path, output_path, password):
             # Implementation using PyPDF2 library
-    ```
-  - **pyzipper Handler**:
-    ```python
-    class PyZipperHandler:
-        def __init__(self):
-            self.compression_level = 6
-            self.encryption_method = 'AES-256'
     ```
 
 - **C4: msoffcrypto-tool Configuration**
@@ -1270,33 +1785,10 @@ class PasswordManager:
     }
     ```
 
-- **C6: pyzipper Library Configuration**
-  - Configure pyzipper options:
-    ```python
-    import pyzipper
-    
-    pyzipper_config = {
-        'compression_method': pyzipper.ZIP_DEFLATED,  # Standard compression
-        'compression_level': 6,                      # Good compression ratio
-        'encryption_method': pyzipper.WZ_AES,        # AES encryption
-        'aes_key_length': 256,                       # 256-bit AES keys
-        'allow_zip64': True                          # Support large files
-    }
-    
-    # Test AES functionality
-    try:
-        with pyzipper.AESZipFile('test.zip', 'w') as zf:
-            zf.setencryption(pyzipper.WZ_AES, nbits=256)
-            # AES encryption confirmed available
-    except Exception:
-        # Fallback to traditional ZIP encryption if needed
-        pass
-    ```
 
 - **C7: Tool-Specific Option Configuration**
   - **Office Documents**: Set metadata preservation, compatible encryption methods
   - **PDF Files**: Configure user/owner passwords, permission settings
-  - **ZIP Archives**: Set compression level, encryption method, file patterns
   - Password validation: ensure passwords meet tool-specific requirements
   - Error handling: configure timeout values, retry attempts for each tool
   - Logging: set up per-tool debug logging if enabled
@@ -1311,7 +1803,6 @@ class PasswordManager:
         'crypto_handler': handler_object,
         'password': str,
         'output_path': Path,
-        'backup_path': Path,
         'temp_files': []
     }
     ```
@@ -1634,7 +2125,6 @@ def cleanup_failed_file_processing(file_path: Path) -> None:
   - **Processing execution**: 
     - For Office files: use msoffcrypto library via subprocess or direct API
     - For PDF files: use PyPDF2 with PdfReader/PdfWriter classes
-    - For ZIP files: use pyzipper with AES encryption
   - **Output verification**: Confirm processed file has correct encryption status
   - **File movement**: Move from temp location to final destination (in-place or output directory)
 
@@ -1915,13 +2405,12 @@ def cleanup_temporary_directory(temp_dir: Path) -> None:
 - **E3: Sensitive Data Memory Cleanup**
   - **Password variables**: Explicitly delete all password variables from memory
   - **Command line args**: Clear args.passwords, args.password_list contents  
-  - **Processing state**: Clear password_manager.password_pool and password_reuse_cache
+  - **Processing state**: Clear password_manager internal state
   - **Garbage collection**: Force `gc.collect()` to ensure memory cleanup
   - **Note**: Python doesn't guarantee memory overwriting, but this is best effort cleanup
 
 - **E4: Temporary File & Directory Cleanup**
   - **Temp directory removal**: `shutil.rmtree(temp_dir)` for each temp directory created
-  - **Backup cleanup**: Remove backup files if processing fully successful and not requested to keep
   - **Intermediate files**: Clean up any partial processing files left behind
   - **Lock files**: Remove any file locks or temp markers created during processing
   - **Error handling**: Log warnings for cleanup failures but don't fail the operation
@@ -1939,6 +2428,103 @@ def cleanup_temporary_directory(temp_dir: Path) -> None:
   - Clear handler references: `self.crypto_handlers = {}`
   - Reset application state: `self.ready_for_processing = False`
   - Final log entry: `logger.info(f"FastPass operation completed in {total_time} with {successful_count}/{total_files} files successful")`
+
+---
+
+## Security Implementation Summary
+
+### **Comprehensive Security Hardening Implemented**
+
+FastPass includes enterprise-grade security hardening based on comprehensive threat analysis and attack vector identification. All security measures are mandatory and must be implemented exactly as specified.
+
+#### **Security Mitigations by Attack Vector**
+
+| **Attack Vector** | **Mitigation Implemented** | **Security Function** |
+|-------------------|---------------------------|----------------------|
+| **Path Traversal** | Hardened path validation with symlink detection | `validate_path_security_hardened()` |
+| **Command Injection** | Direct library calls + secure subprocess | `encrypt_file_secure()` |
+| **Password Exposure** | Memory clearing + secure input handling | `SecurePasswordManager` |
+| **Race Conditions** | Atomic operations + secure temp files | `SecureTempFileManager` |
+| **XXE Injection** | XML entity detection + content validation | `validate_xml_security()` |
+| **ZIP Bombs** | Compression ratio analysis + size limits | `validate_office_document_security()` |
+| **Malicious PDFs** | JavaScript detection + content scanning | `validate_pdf_document_security()` |
+| **Symlink Attacks** | Symlink detection + strict path resolution | `validate_path_security_hardened()` |
+| **DoS Attacks** | Input size limits + resource constraints | Multiple validation functions |
+| **File Format Confusion** | Magic number validation + strict matching | `validate_file_format_secure()` |
+
+#### **Security Configuration Options**
+
+```python
+# CLI Security Flags
+--allow-cwd           # Explicitly enable current directory access (default: disabled)
+
+# Environment Variables
+FASTPASS_ALLOW_CWD=false              # Default: restrict to home directory only
+FASTPASS_MAX_PASSWORD_LENGTH=1024     # Password length limit
+FASTPASS_MAX_JSON_SIZE=1048576        # 1MB JSON input limit
+FASTPASS_ENABLE_SECURE_DELETION=true  # Overwrite files before deletion
+FASTPASS_SYMLINK_PROTECTION=true      # Block symlink access
+FASTPASS_XML_ENTITY_PROTECTION=true   # XXE protection enabled
+```
+
+#### **Security-First Design Principles**
+
+1. **Principle of Least Privilege**: By default, only allow access to user home directory
+2. **Defense in Depth**: Multiple layers of validation and sanitization
+3. **Fail Secure**: Security violations result in immediate termination
+4. **Input Validation**: All user inputs validated against strict criteria
+5. **Secure by Default**: Most restrictive settings enabled by default
+6. **Memory Protection**: Best-effort password clearing and secure handling
+7. **Atomic Operations**: Prevent race conditions and partial state corruption
+8. **Content Validation**: Deep inspection of file contents for malicious patterns
+
+#### **Critical Security Requirements**
+
+**MANDATORY IMPLEMENTATION**: The following security measures are not optional and must be implemented exactly as specified:
+
+- ✅ **Path Traversal Protection**: `validate_path_security_hardened()` with symlink detection
+- ✅ **Command Injection Prevention**: Direct library calls or secure subprocess with argument validation
+- ✅ **Password Memory Protection**: `SecurePasswordManager` with memory clearing
+- ✅ **Secure Temporary Files**: Cryptographically secure naming and restrictive permissions (0o600)
+- ✅ **File Format Validation**: Magic number + extension cross-validation with attack detection
+- ✅ **Input Sanitization**: All user inputs validated for length, content, and dangerous patterns
+- ✅ **Error Sanitization**: No sensitive information disclosed in error messages
+- ✅ **Resource Limits**: File size, path length, and processing time constraints
+
+#### **Security Testing Requirements**
+
+Each security measure must be tested with specific attack scenarios:
+
+```python
+# Security Test Cases (Required)
+test_path_traversal_attacks()          # ../../../../etc/passwd
+test_symlink_attacks()                 # Symlink to sensitive files  
+test_command_injection()               # ; rm -rf / in file paths
+test_password_exposure()               # Process list monitoring
+test_xxe_injection()                   # XML external entity attacks
+test_zip_bomb_detection()              # Compression ratio attacks
+test_malicious_pdf_content()           # JavaScript/launch actions
+test_race_condition_prevention()       # Concurrent file operations
+test_dos_via_large_inputs()            # Oversized files and inputs
+test_file_format_confusion()           # Polyglot and mismatched formats
+```
+
+#### **Security Audit Checklist**
+
+Before deployment, verify each security control:
+
+- [ ] Path validation blocks `../../../etc/passwd` access attempts
+- [ ] Symlink access denied with clear error message  
+- [ ] Subprocess calls use argument arrays, never shell execution
+- [ ] Passwords not visible in `ps aux` output during processing
+- [ ] JSON password input validated for size and content
+- [ ] Temporary files created with 0o600 permissions
+- [ ] File format mismatches rejected (e.g., .pdf with .docx magic number)
+- [ ] ZIP bomb detection triggers on high compression ratios
+- [ ] PDF JavaScript content blocked
+- [ ] XXE entity declarations in Office documents blocked
+- [ ] Memory clearing attempted for password variables
+- [ ] Error messages sanitized of sensitive information
 
 ---
 
@@ -2058,10 +2644,8 @@ class TestEndToEndWorkflows:
 
 class TestPasswordManagement:
     def test_password_priority_system(self):
-        """Test CLI > list file > reuse priority order"""
+        """Test CLI > list file priority order"""
     
-    def test_password_reuse_across_files(self):
-        """Test automatic password reuse functionality"""
     
     def test_stdin_json_password_input(self):
         """Test JSON password input via stdin"""

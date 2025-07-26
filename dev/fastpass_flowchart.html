@@ -138,9 +138,9 @@
     
     A1c["A1c: Define Main Operation Choice\nUser must choose either encrypt OR decrypt\nCannot do both operations simultaneously"] --> A1d
     
-    A1d["A1d: Set Up File Input Options\nAccept individual files or entire folder processing\nRequire explicit file specification with quotes for spaced paths"] --> A1e
+    A1d["A1d: Set Up File Input Options\nUse -i/--input flag for space-delimited files\nRequire explicit file specification with quotes for spaced paths"] --> A1e
     
-    A1e["A1e: Configure Password Options with TTY Detection\nAccept passwords from CLI, password file, or JSON stdin\nSupport TTY detection for secure password input"] --> A1f
+    A1e["A1e: Configure Password Options with Space Delimitation\nAccept space-delimited passwords with -p flag\nSupport password file and JSON stdin options"] --> A1f
     
     A1f["A1f: Set Output Location Options\nChoose where processed files should be saved\nDefault: replace original files in same location"] --> A1g
     
@@ -156,7 +156,7 @@
     A1i["A1i: Handle Information Requests\nCheck if user wants to see supported file formats\nShow list and exit if that's all they wanted"] --> A1iCheck
     
     A1iCheck{"A1i_Check: Information Request Mode?\nDid user ask to see supported formats only?\nOr do they want to actually process files?"}
-    A1iCheck -->|"Show formats requested"| A1iList["A1i_List: Show Supported File Types\nDisplay list of file formats FastPass can handle\n(.docx, .xlsx, .pptx, .pdf, etc.)"]
+    A1iCheck -->|"Show formats requested"| A1iList["A1i_List: Show Supported File Types\nModern Office: .docx, .xlsx, .pptx (experimental encryption)\nPDF: .pdf (full support)\nLegacy Office: .doc, .xls, .ppt (NOT SUPPORTED)"]
     A1iCheck -->|"Normal operation"| A2a
     
     %% ARGUMENT VALIDATION WITH EXPLICIT FILE PROCESSING
@@ -165,7 +165,13 @@
     A2aCheck{"A2a_Check: Valid Input Method Provided?\nUser must choose files OR folder processing\nBoth options together would be confusing"}
     A2aCheck -->|"No input specified"| A2aError["A2a_Error: Nothing to Process\nTell user they must specify files or use folder mode\nExit with helpful error message"]
     A2aCheck -->|"Conflicting options"| A2aBothError["A2a_Both_Error: Conflicting Instructions\nUser specified both individual files AND folder processing\nExit with clarification about choosing one method"]
-    A2aCheck -->|"Valid specification"| A2b
+    A2aCheck -->|"Valid specification"| A2a1
+    
+    A2a1["A2a1: Validate Recursive Mode Usage\nCheck if recursive mode used with encrypt operation\nRecursive mode only allowed with decrypt/check-password"] --> A2a1Check
+    
+    A2a1Check{"A2a1_Check: Recursive Mode Valid?\nIs recursive mode used only with decrypt operations?\nPrevent dangerous bulk encryption"}
+    A2a1Check -->|"Encrypt + recursive (dangerous)"| A2a1Error["A2a1_Error: Recursive Encryption Blocked\nRecursive mode only supported for decrypt operations\nSecurity restriction to prevent accidental bulk encryption"]
+    A2a1Check -->|"Valid usage"| A2b
     
     A2b["A2b: Process Explicit File Paths\nHandle user-specified file paths directly\nExpand shortcuts like ~ for home directory"] --> A2bLoop
     
@@ -216,7 +222,7 @@
     A4bCheck{"A4b_Check: Office Tool Working?\nDid the Office encryption tool respond properly?\nIs it installed and ready to use?"}
     A4bCheck -->|"Tool missing"| A4bError["A4b_Error: Office Tool Not Found\nMark Office document processing as unavailable\nAdd to list of missing required tools"]
     A4bCheck -->|"Tool not responding"| A4bTimeout["A4b_Timeout: Office Tool Hanging\nTool exists but not responding properly\nMark as unavailable due to system issues"]
-    A4bCheck -->|"Tool working"| A4bSuccess["A4b_Success: Office Tool Ready\nOffice document encryption is available\nSystem can process .docx, .xlsx, .pptx files"]
+    A4bCheck -->|"Tool working"| A4bSuccess["A4b_Success: Office Tool Ready\nOffice document processing available\nDecryption: full support, Encryption: experimental\nSystem can process .docx, .xlsx, .pptx files"]
     
     A4bError --> A4c
     A4bTimeout --> A4c
@@ -530,7 +536,7 @@
     
     D1b["D1b: Create Secure Temp Directory\nUse SecureTempDirectory context manager\nAutomatic cleanup even on exceptions"] --> D1c
     
-    D1c["D1c: Set Enhanced Secure Permissions\ntemp_dir.chmod(0o700) + subdirs with 0o700\nprocessing/, output/, backup/ subdirectories"] --> D1d
+    D1c["D1c: Set Enhanced Secure Permissions\ntemp_dir.chmod(0o700) + subdirs with 0o700\nprocessing/, output/ subdirectories"] --> D1d
     
     D1d["D1d: Register Emergency Cleanup\natexit.register(emergency_cleanup_temp_directory)\nEnsure cleanup even on unexpected termination"] --> D1e
     
@@ -769,6 +775,7 @@
     A1hHelp --> ProgramEnd
     A1iList --> ProgramEnd
     A2aError --> ProgramEnd
+    A2a1Error --> ProgramEnd
     A2aBothError --> ProgramEnd
     A2bPathError --> ProgramEnd
     A2cDirError --> ProgramEnd
@@ -825,7 +832,7 @@
     class E3a,E3aSanitize,E3aLoop,E3aOverwrite,E3b,E3c,E3d securityBox
     
     %% APPLY STYLES - STANDARD PROCESSING (Green)
-    class Start,Main,A1a,A1b,A1c,A1d,A1e,A1f,A1g,A1h,A1i,A2a,A2b,A2bLoop,A2bExpand,A2c,A2d,A2e processBox
+    class Start,Main,A1a,A1b,A1c,A1d,A1e,A1f,A1g,A1h,A1i,A2a,A2a1,A2b,A2bLoop,A2bExpand,A2c,A2d,A2e processBox
     class A3a,A3b,A3c,A3d,A3e,A3f,A4a,A4b,A4bSuccess,A4c,A4cSuccess,A4d,A4dLoop,A4e processBox
     class A5a,A5b,A5c,A5d,A5e,A5f,A5g processBox
     class B1a,B1b,B1c,B1cFiles,B1cRecursive,B1d,B1e,B1f,B3a,B3b,B3c,B3d,B3e processBox
@@ -836,7 +843,7 @@
     class E4a,E4aText,E4aJSON,E4aCSV,E4b,E4c,E4d,E4e,E5a,E5b,E5bSuccess,E5bMixed,E5bFailure,E5c,E5d processBox
     
     %% APPLY STYLES - DECISION POINTS (Orange)
-    class A1hCheck,A1iCheck,A2aCheck,A2bCheck,A2bNext,A2cCheck,A2dCheck decisionBox
+    class A1hCheck,A1iCheck,A2aCheck,A2a1Check,A2bCheck,A2bNext,A2cCheck,A2dCheck decisionBox
     class A4bCheck,A4cCheck,A4dCheck,A4dNext,A4eCheck decisionBox
     class B1eCheck,B1fCheck,B2bCheck,B2cCheck,B2cNext,B2eCheck,B3bCheck,B3dCheck,B3eCheck decisionBox
     class B4aCheck,B4bCheck,B4cCheck,B4dCheck,B5aCheck,B5bCheck,B6gCheck,B6hCheck decisionBox
@@ -851,7 +858,7 @@
     %% This approach uses CSS classes to style error edges consistently
     
     %% APPLY STYLES - ERROR CONDITIONS (Red)
-    class A1hError,A2aError,A2aBothError,A2bPathError,A2cDirError,A2cAccessError errorBox
+    class A1hError,A2aError,A2aBothError,A2a1Error,A2bPathError,A2cDirError,A2cAccessError errorBox
     class A2dTypeError,A2dCreateError,A4bError,A4bTimeout,A4cError,A4eError errorBox
     class B1eError,B1fMissing,B1fType,B2bDanger,B2cInvalid,B2eSecurity errorBox
     class B3dUnsupported,B3eMismatch,B4aRead,B4bLarge,B4bEmpty,B4cWrite,B4dOutput errorBox

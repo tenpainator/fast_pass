@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>FastPass - Complete Code-Level Implementation Flowchart</title>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -106,6 +106,7 @@
             <button onclick="resetZoom()">↻ Reset Zoom</button>
             <button onclick="downloadSVG()">💾 Download SVG</button>
             <button onclick="printChart()">🖨️ Print</button>
+            <button onclick="forceRender()">🔄 Force Render</button>
         </div>
         
         <div class="zoom-info">
@@ -856,6 +857,11 @@ flowchart TD
     </div>
 
     <script>
+        // Override Mermaid's text size limit
+        if (window.mermaid && window.mermaid.mermaidAPI) {
+            window.mermaid.mermaidAPI.maxTextSize = 900000;
+        }
+        
         mermaid.initialize({ 
             startOnLoad: true,
             theme: 'default',
@@ -863,8 +869,41 @@ flowchart TD
                 useMaxWidth: true,
                 htmlLabels: false
             },
-            securityLevel: 'loose'
+            securityLevel: 'loose',
+            maxTextSize: 900000,  // Increase text size limit to 900KB
+            suppressErrorRendering: false,
+            logLevel: 'error',
+            deterministicIds: true,
+            deterministicIDSeed: 'fastpass-flowchart',
+            // Additional config to handle large diagrams
+            wrap: true,
+            fontSize: 14,
+            fontFamily: 'Arial, sans-serif',
+            curve: 'basis'
         });
+        
+        // Add error handling for large diagrams
+        mermaid.parseError = function(err, hash) {
+            if (err.toString().includes('text size') || err.toString().includes('exceeded')) {
+                const diagramDiv = document.getElementById('diagram');
+                diagramDiv.innerHTML = `
+                    <div style="padding: 20px; border: 2px solid #f44336; background: #ffebee; border-radius: 4px; margin: 20px 0;">
+                        <h3 style="color: #d32f2f; margin-top: 0;">⚠️ Diagram Too Large</h3>
+                        <p>The flowchart contains too much detail for Mermaid's default limits.</p>
+                        <p><strong>Workarounds:</strong></p>
+                        <ul>
+                            <li>Download the SVG version using the button above</li>
+                            <li>View the source code directly in the HTML file</li>
+                            <li>Use a local Mermaid viewer with custom configuration</li>
+                        </ul>
+                        <details>
+                            <summary>Technical Details</summary>
+                            <pre>${err.toString()}</pre>
+                        </details>
+                    </div>
+                `;
+            }
+        };
 
         let currentZoom = 1;
         const diagram = document.getElementById('diagram');
@@ -898,6 +937,17 @@ flowchart TD
                 a.download = 'fastpass-complete-implementation-flowchart.svg';
                 a.click();
                 URL.revokeObjectURL(url);
+            } else {
+                // If SVG not available, download the raw mermaid code
+                const mermaidCode = document.querySelector('.mermaid').textContent;
+                const blob = new Blob([mermaidCode], {type: 'text/plain'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'fastpass-flowchart-source.txt';
+                a.click();
+                URL.revokeObjectURL(url);
+                alert('SVG not available. Downloaded raw Mermaid source code instead.');
             }
         }
 
@@ -905,6 +955,29 @@ flowchart TD
             window.print();
         }
 
+        function forceRender() {
+            // Try to force render with even higher limits
+            const diagram = document.getElementById('diagram');
+            
+            // Clear and try again with maximum settings
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: 'default',
+                flowchart: {
+                    useMaxWidth: true,
+                    htmlLabels: false
+                },
+                securityLevel: 'loose',
+                maxTextSize: 9999999,  // Very high limit
+                suppressErrorRendering: true,
+                logLevel: 'fatal'
+            });
+            
+            // Re-render
+            diagram.innerHTML = diagram.innerHTML;
+            mermaid.init(undefined, diagram);
+        }
+        
         diagram.addEventListener('wheel', function(e) {
             if (e.ctrlKey) {
                 e.preventDefault();

@@ -357,7 +357,7 @@ tests/
 **Specification Mapping**: Section B - Security & File Validation  
 **Coverage**: All B1-B5 subsections with comprehensive security hardening
 
-### TestSecurityValidatorInitialization (3 Tests)
+### TestSecurityValidatorInitialization (6 Tests)
 *Maps to: B1 - FILE PATH RESOLUTION AND SECURITY VALIDATION (Setup)*
 
 #### B1: Security Boundary Establishment
@@ -378,6 +378,18 @@ tests/
     - **Test**: Check allowed_directories for system temp directory
     - **Validation**: System temp directory present in allowed set
     - **Coverage**: Temporary file processing security allowance
+
+49. **`test_allowed_directories_includes_cwd()`** - **[B1]**
+    - **Purpose**: Verify current working directory included by default
+    - **Test**: Check allowed_directories for current working directory
+    - **Validation**: Current working directory present in allowed set
+    - **Coverage**: Project directory access enablement
+
+50. **`test_custom_allowed_directories()`** - **[B1]**
+    - **Purpose**: Verify custom allowed directories configuration works
+    - **Test**: Initialize SecurityValidator with custom allowed directories
+    - **Validation**: Only custom directories and temp directory are allowed
+    - **Coverage**: Configurable security boundary implementation
 
 ### TestPathResolutionValidation (3 Tests)
 *Maps to: B1b, B1c - Path resolution and normalization*
@@ -468,7 +480,7 @@ tests/
 60. **`test_validate_file_outside_allowed_directories_blocked()`** - **[B2b]**
     - **Purpose**: Verify files outside allowed directories are blocked
     - **Test**: System files outside allowed boundaries
-    - **Validation**: `SecurityViolationError` with "outside strict security boundaries"
+    - **Validation**: `SecurityViolationError` with "outside security boundaries"
     - **Coverage**: Directory containment enforcement
 
 61. **`test_containment_check_exact_boundary()`** - **[B2b]**
@@ -545,19 +557,25 @@ tests/
     - **Validation**: Security zone check returns False
     - **Coverage**: File type restriction enforcement
 
-72. **`test_validate_suid_files_blocked()`** - **[B2e]** (Unix only)
-    - **Purpose**: Verify SUID files are blocked on Unix systems
+72. **`test_validate_suid_files_blocked()`** - **[B2e]** (Unix/Linux only)
+    - **Purpose**: Verify SUID files are blocked on Unix/Linux systems
     - **Test**: Mock file stat with SUID bit set
     - **Validation**: Security zone check returns False
-    - **Coverage**: Unix privilege escalation prevention
+    - **Coverage**: Unix privilege escalation prevention (skipped on Windows)
 
-73. **`test_validate_sgid_files_blocked()`** - **[B2e]** (Unix only)
-    - **Purpose**: Verify SGID files are blocked on Unix systems
+73. **`test_validate_windows_permissions_allowed()`** - **[B2e]** (Windows only)
+    - **Purpose**: Verify Windows files don't trigger Unix-specific permission checks
+    - **Test**: Regular file on Windows system
+    - **Validation**: Security zone check returns True
+    - **Coverage**: Windows compatibility and permission check bypass
+
+74. **`test_validate_sgid_files_blocked()`** - **[B2e]** (Unix/Linux only)
+    - **Purpose**: Verify SGID files are blocked on Unix/Linux systems
     - **Test**: Mock file stat with SGID bit set
     - **Validation**: Security zone check returns False
-    - **Coverage**: Unix group privilege escalation prevention
+    - **Coverage**: Unix group privilege escalation prevention (skipped on Windows)
 
-74. **`test_validate_permission_check_failure_blocked()`** - **[B2e]**
+75. **`test_validate_permission_check_failure_blocked()`** - **[B2e]**
     - **Purpose**: Verify files with permission check failures are blocked
     - **Test**: Mock stat() to raise PermissionError
     - **Validation**: Security zone check returns False
@@ -932,11 +950,12 @@ tests/
 *Maps to: Security Implementation - Permission-Based Attack Prevention*
 
 #### Permission-Based Attack Prevention
-123. **`test_world_writable_file_attack()`** - **[Security]** (Unix only)
-     - **Purpose**: Test world-writable files are handled securely
+123. **`test_world_writable_file_attack()`** - **[Security]** (Unix/Linux only)
+     - **Purpose**: Test world-writable files are handled securely on Unix/Linux systems
      - **Test**: File with 0o666 permissions outside temp directory
      - **Validation**: Security policy appropriately applied based on location
-     - **Coverage**: World-writable file security policy enforcement
+     - **Coverage**: World-writable file security policy enforcement (skipped on Windows)
+     - **Note**: Windows systems skip this check to prevent false positives with normal file permissions
 
 124. **`test_permission_denied_handling()`** - **[Security]**
      - **Purpose**: Test permission denied errors are handled gracefully

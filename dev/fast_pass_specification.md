@@ -280,8 +280,8 @@ Examples:
   # Mixed file types with output directory
   fast_pass encrypt -i report.pdf data.xlsx presentation.pptx -p "secret" -o ./secured/
   
-  # Security: Allow current directory access (use with caution)
-  fast_pass decrypt -i ./docs/report.pdf --allow-cwd -p "password123"
+  # Security: Use custom allowed directories
+  fast_pass decrypt -i ./restricted/report.pdf --allowed-dirs /home/user/restricted /tmp -p "password123"
 
 Exit Codes:
   0  Success
@@ -529,8 +529,8 @@ Examples:
                        default='text', help='Output report format')
     
     # A1g: Security options
-    parser.add_argument('--allow-cwd', action='store_true',
-                       help='Allow file operations in current working directory (security: use with caution)')
+    parser.add_argument('--allowed-dirs', nargs='+', type=str,
+                       help='Additional directories to allow for file access (default: home directory and current working directory)')
     parser.add_argument('-v', '--version', action='version',
                        version=f'FastPass {FastPassConfig.VERSION}')
     
@@ -1495,7 +1495,7 @@ class FileManifest:
   - Base directory validation: Check if resolved path is within `Path.home().resolve()` or `Path.cwd().resolve()`
   - Containment checking: Use `resolved_path.relative_to(base_dir)` to verify path is within allowed boundaries
   - Component analysis: Reject paths containing `..`, `.`, hidden files, or empty components
-  - System paths: Automatic rejection of paths outside user home and current working directory
+  - System paths: Automatic rejection of paths outside configured allowed directories (default: user home and current working directory)
   - Error handling: Convert OSError/ValueError to SecurityViolationError with sanitized messages
   - Critical exit: if security violations detected, `sys.exit(3)` with generic "security violation" message
 
@@ -2456,10 +2456,10 @@ FastPass includes enterprise-grade security hardening based on comprehensive thr
 
 ```python
 # CLI Security Flags
---allow-cwd           # Explicitly enable current directory access (default: disabled)
+--allowed-dirs        # Specify custom allowed directories (space-separated)
 
 # Environment Variables
-FASTPASS_ALLOW_CWD=false              # Default: restrict to home directory only
+FASTPASS_CUSTOM_ALLOWED_DIRS=""       # Custom allowed directories (comma-separated)
 FASTPASS_MAX_PASSWORD_LENGTH=1024     # Password length limit
 FASTPASS_MAX_JSON_SIZE=1048576        # 1MB JSON input limit
 FASTPASS_ENABLE_SECURE_DELETION=true  # Overwrite files before deletion
@@ -2469,7 +2469,7 @@ FASTPASS_XML_ENTITY_PROTECTION=true   # XXE protection enabled
 
 #### **Security-First Design Principles**
 
-1. **Principle of Least Privilege**: By default, only allow access to user home directory
+1. **Principle of Least Privilege**: By default, allow access to user home directory and current working directory for practical usability
 2. **Defense in Depth**: Multiple layers of validation and sanitization
 3. **Fail Secure**: Security violations result in immediate termination
 4. **Input Validation**: All user inputs validated against strict criteria
@@ -2567,7 +2567,7 @@ class TestPathTraversalSecurity:
         """Test rejection of '../' path traversal attempts"""
     
     def test_reject_absolute_paths_outside_allowed(self):
-        """Test rejection of paths outside user home/current directory"""
+        """Test rejection of paths outside configured allowed directories"""
     
     def test_symlink_resolution_security(self):
         """Test proper handling of symbolic links"""

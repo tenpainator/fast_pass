@@ -104,25 +104,29 @@
 fast_pass/
 ├── src/                          # Main source code
 │   ├── __init__.py
-│   ├── main.py                   # Entry point and CLI parsing
-│   ├── crypto_handlers/          # Crypto tool integrations
+│   ├── __main__.py               # Makes package executable with 'python -m src'
+│   ├── cli.py                    # CLI argument parsing and validation
+│   ├── core/                     # Core business logic
 │   │   ├── __init__.py
-│   │   ├── office_handler.py     # msoffcrypto-tool integration
-│   │   ├── pdf_handler.py        # PyPDF2 integration
-│   │   └── zip_handler.py        # pyzipper integration
-│   ├── security/                 # Security validation modules
-│   │   ├── __init__.py
-│   │   ├── file_validator.py     # File format and path validation
-│   │   └── backup_manager.py     # Backup creation and management
-│   ├── password/                 # Password handling modules
-│   │   ├── __init__.py
-│   │   ├── password_manager.py   # Password reuse and validation
-│   │   └── password_list.py      # Password list file handling
+│   │   ├── file_handler.py       # File processing pipeline
+│   │   ├── security.py           # Security validation and path checking
+│   │   ├── crypto_handlers/      # Crypto tool integrations
+│   │   │   ├── __init__.py
+│   │   │   ├── office_handler.py # msoffcrypto-tool integration
+│   │   │   ├── pdf_handler.py    # PyPDF2 integration
+│   │   │   └── zip_handler.py    # pyzipper integration
+│   │   └── password/             # Password handling modules
+│   │       ├── __init__.py
+│   │       ├── password_manager.py # Password reuse and validation
+│   │       └── password_list.py    # Password list file handling
 │   └── utils/                    # Utility modules
 │       ├── __init__.py
-│       └── recursive_processor.py # Directory recursion logic
+│       ├── logger.py             # Logging configuration
+│       └── config.py             # Configuration management
 ├── tests/                        # Test suite
 │   ├── __init__.py
+│   ├── test_cli.py
+│   ├── test_core.py
 │   ├── test_crypto_handlers.py
 │   ├── test_security.py
 │   ├── test_password_handling.py
@@ -130,6 +134,7 @@ fast_pass/
 ├── dev/                          # Development documentation
 │   └── fast_pass_specification.md
 ├── requirements.txt              # Python dependencies
+├── requirements-dev.txt          # Development dependencies
 ├── setup.py                      # Package setup
 └── README.md                     # User documentation
 ```
@@ -302,42 +307,160 @@ Exit Codes:
 
 ## High-Level Architecture Overview - Core Processing Flow
 
-> 💡 **IMPLEMENTATION CRITICAL**: This diagram provides the master reference for code organization. Every code block must map to a specific diagram element. When implementing, label each function/method with its corresponding diagram ID (e.g., `# A1a`, `# B3c`, etc.)
+> 💡 **IMPLEMENTATION CRITICAL**: This pseudocode provides the master reference for code organization. Every code block must map to a specific element ID (e.g., `# A1a`, `# B3c`, etc.)
 
-```mermaid
-flowchart TD
-    Start([User executes: fast_pass encrypt/decrypt file1 file2]) --> A[A: CLI Parsing & Initialization]
-    A --> ACheck{A_Exit: Special modes?}
-    ACheck -->|--help, --version, --list-supported| AExit[A_Exit: Display info and exit 0]
-    ACheck -->|Normal operation| B[B: Security & File Validation]
-    B --> BCheck{B_Exit: Validation passed?}
-    BCheck -->|Security violation| BExit[B_Exit: Sanitized error, exit 3]
-    BCheck -->|Format/access error| BExit2[B_Exit: Error message, exit 1]
-    BCheck -->|All validations pass| C[C: Crypto Tool Selection & Configuration]
-    C --> CCheck{C_Exit: Tools available?}
-    CCheck -->|Missing required tools| CExit[C_Exit: Tool availability error, exit 1]
-    CCheck -->|Tools ready| D[D: File Processing & Backup Operations]
-    D --> DCheck{D_Exit: Processing success?}
-    DCheck -->|Critical failures| DExit[D_Exit: Restore backups, exit 1]
-    DCheck -->|Partial/full success| E[E: Cleanup & Results Reporting]
-    E --> EExit[E_Exit: Report results, cleanup, exit with appropriate code]
+```python
+# MAIN PROGRAM ENTRY POINT
+def main():
+    """FastPass main entry point with complete error handling"""
+    try:
+        # A: CLI Parsing & Initialization
+        args = parse_command_line_arguments()
+        if args.help or args.version or args.list_supported:
+            display_information_and_exit(args)  # Exit code 0
+        
+        # B: Security & File Validation  
+        validated_files = perform_security_and_file_validation(args)
+        
+        # C: Crypto Tool Selection & Configuration
+        crypto_handlers = setup_crypto_tools_and_configuration(validated_files)
+        
+        # D: File Processing & Operations
+        processing_results = process_files_with_crypto_operations(
+            validated_files, crypto_handlers, args
+        )
+        
+        # E: Cleanup & Results Reporting
+        exit_code = cleanup_and_generate_final_report(processing_results)
+        sys.exit(exit_code)
+        
+    except SecurityViolationError as e:
+        log_sanitized_error(e)
+        sys.exit(3)  # Security violation
+    except FileFormatError as e:
+        log_error(f"File format error: {e}")
+        sys.exit(1)  # Format/access error
+    except CryptoToolError as e:
+        log_error(f"Crypto tool unavailable: {e}")
+        sys.exit(1)  # Tool availability error
+    except ProcessingError as e:
+        restore_backups_on_critical_failure()
+        sys.exit(1)  # Processing failure
+    except Exception as e:
+        log_error(f"Unexpected error: {e}")
+        sys.exit(2)  # General error
+
+# CONFIGURATION MANAGEMENT SYSTEM
+class FastPassConfig:
+    """Configuration management with multiple sources and precedence"""
+    VERSION = "1.0.0"
+    MAX_FILE_SIZE = 500 * 1024 * 1024  # 500MB
+    TEMP_DIR_PREFIX = "fastpass_"
+    BACKUP_SUFFIX_PATTERN = "_%Y%m%d_%H%M%S.bak"
+    SECURE_FILE_PERMISSIONS = 0o600
+    SUPPORTED_FORMATS = {
+        '.docx': 'msoffcrypto',
+        '.xlsx': 'msoffcrypto', 
+        '.pptx': 'msoffcrypto',
+        '.pdf': 'PyPDF2'
+    }
     
-    AExit --> End([Process terminates])
-    BExit --> End
-    BExit2 --> End
-    CExit --> End
-    DExit --> End
-    EExit --> End
+    # Configuration file locations (in order of precedence)
+    CONFIG_LOCATIONS = [
+        Path.home() / '.fastpass' / 'config.json',  # User config
+        Path.cwd() / 'fastpass.json',               # Project config
+        Path(__file__).parent / 'config.json'      # Default config
+    ]
     
-    classDef processBox fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
-    classDef decisionBox fill:#fff3e0,stroke:#ff9800,stroke-width:2px
-    classDef exitBox fill:#ffebee,stroke:#f44336,stroke-width:2px
-    classDef successBox fill:#e3f2fd,stroke:#2196f3,stroke-width:2px
+    @classmethod
+    def load_configuration(cls, cli_args: argparse.Namespace) -> Dict[str, Any]:
+        """Load configuration from multiple sources with precedence"""
+        config = cls._get_default_config()
+        
+        # 1. Load from config files (lowest precedence)
+        for config_path in cls.CONFIG_LOCATIONS:
+            if config_path.exists():
+                try:
+                    with open(config_path, 'r') as f:
+                        file_config = json.load(f)
+                        config.update(file_config)
+                except (json.JSONDecodeError, IOError) as e:
+                    print(f"Warning: Could not load config from {config_path}: {e}")
+        
+        # 2. Load from environment variables
+        env_config = cls._load_from_environment()
+        config.update(env_config)
+        
+        # 3. Override with CLI arguments (highest precedence)
+        cli_config = cls._extract_cli_config(cli_args)
+        config.update(cli_config)
+        
+        return config
     
-    class A,B,C,D,E processBox
-    class ACheck,BCheck,CCheck,DCheck decisionBox
-    class BExit,BExit2,CExit,DExit exitBox
-    class AExit,EExit successBox
+    @classmethod
+    def _get_default_config(cls) -> Dict[str, Any]:
+        """Default configuration values"""
+        return {
+            'max_file_size': cls.MAX_FILE_SIZE,
+            'temp_dir_prefix': cls.TEMP_DIR_PREFIX,
+            'secure_permissions': cls.SECURE_FILE_PERMISSIONS,
+            'supported_formats': cls.SUPPORTED_FORMATS.copy(),
+            'log_level': 'INFO',
+            'log_file': None,
+            'cleanup_on_error': True,
+            'password_reuse_enabled': True,
+            'backup_enabled': False
+        }
+    
+    @classmethod
+    def _load_from_environment(cls) -> Dict[str, Any]:
+        """Load configuration from environment variables"""
+        import os
+        config = {}
+        
+        # Environment variable mapping
+        env_mapping = {
+            'FASTPASS_MAX_FILE_SIZE': ('max_file_size', int),
+            'FASTPASS_LOG_LEVEL': ('log_level', str),
+            'FASTPASS_LOG_FILE': ('log_file', str),
+            'FASTPASS_CLEANUP_ON_ERROR': ('cleanup_on_error', bool),
+            'FASTPASS_PASSWORD_REUSE': ('password_reuse_enabled', bool),
+            'FASTPASS_BACKUP_ENABLED': ('backup_enabled', bool)
+        }
+        
+        for env_var, (config_key, type_func) in env_mapping.items():
+            if env_var in os.environ:
+                try:
+                    if type_func == bool:
+                        config[config_key] = os.environ[env_var].lower() in ('true', '1', 'yes')
+                    else:
+                        config[config_key] = type_func(os.environ[env_var])
+                except ValueError as e:
+                    print(f"Warning: Invalid environment variable {env_var}: {e}")
+        
+        return config
+    
+    @classmethod
+    def _extract_cli_config(cls, cli_args: argparse.Namespace) -> Dict[str, Any]:
+        """Extract configuration from CLI arguments"""
+        config = {}
+        
+        if hasattr(cli_args, 'debug') and cli_args.debug:
+            config['log_level'] = 'DEBUG'
+        
+        if hasattr(cli_args, 'no_password_reuse') and cli_args.no_password_reuse:
+            config['password_reuse_enabled'] = False
+            
+        if hasattr(cli_args, 'output_dir') and cli_args.output_dir:
+            config['output_directory'] = cli_args.output_dir
+        
+        return config
+    
+# CUSTOM EXCEPTION CLASSES
+class SecurityViolationError(Exception): pass
+class FileFormatError(Exception): pass  
+class CryptoToolError(Exception): pass
+class ProcessingError(Exception): pass
 ```
 
 ---
@@ -346,87 +469,284 @@ flowchart TD
 
 > **CODE MAPPING CRITICAL**: Each element below corresponds to specific code blocks that must be labeled with the exact IDs shown (e.g., `# A1a: sys.argv processing`)
 
-```mermaid
-flowchart TD
-    A1[A1: Parse command line arguments] --> A1a[A1a: Import sys, argparse, pathlib]
-    A1a --> A1b[A1b: Create ArgumentParser with description]
-    A1b --> A1c[A1c: Add -e/--encrypt and -d/--decrypt arguments]
-    A1c --> A1d[A1d: Add positional file arguments and -r/--recursive]
-    A1d --> A1e[A1e: Add -p password, --password-list, --no-password-reuse]
-    A1e --> A1f[A1f: Add output options -o, --backup]
-    A1f --> A1g[A1g: Add utility options --dry-run, --verify, --debug, -h, -v]
-    A1g --> A1h[A1h: Parse sys.argv and handle parse errors]
-    A1h --> A1i{A1i: Special mode check?}
-    A1i -->|--help| A1_help[A1_help: Display help, sys.exit 0]
-    A1i -->|--version| A1_version[A1_version: Display version, sys.exit 0]
-    A1i -->|--list-supported| A1_list[A1_list: Display formats, sys.exit 0]
-    A1i -->|--check-password| A1_check[A1_check: Check file password or validate password, sys.exit 0 or 1]
-    A1i -->|Normal operation| A2
+```python
+# A1: COMMAND LINE ARGUMENT PARSING
+def parse_command_line_arguments() -> argparse.Namespace:
+    import sys
+    import argparse
+    from pathlib import Path
+    from typing import List, Optional
     
-    A2[A2: Validate operation mode and required arguments] --> A2a[A2a: Check encrypt XOR decrypt flag set]
-    A2a --> A2b[A2b: Ensure files provided or recursive option set]
-    A2b --> A2c[A2c: Validate conflicting options backup + output-dir]
-    A2c --> A2d[A2d: Parse per-file passwords and validate pairing]
-    A2d --> A2e{A2e: Validation passed?}
-    A2e -->|No| A2_error[A2_error: Print usage error, sys.exit 2]
-    A2e -->|Yes| A3
+    # A1a: Create argument parser with custom actions
+    parser = argparse.ArgumentParser(
+        prog='fast_pass',
+        description='FastPass - Secure file encryption/decryption tool',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  fast_pass encrypt file.docx -p mypassword
+  fast_pass decrypt file.pdf --password-list passwords.txt
+  fast_pass encrypt *.xlsx -o ./encrypted/
+        '''
+    )
     
-    A3[A3: Setup logging and debug infrastructure] --> A3a[A3a: Import logging, datetime]
-    A3a --> A3b[A3b: Configure logging.basicConfig with format]
-    A3b --> A3c[A3c: Set log level based on args.debug flag]
-    A3c --> A3d[A3d: Create operation_log list for history]
-    A3d --> A3e[A3e: Log first entry: FastPass starting]
-    A3e --> A4
+    # A1b: Operation mode (encrypt XOR decrypt)
+    operation_group = parser.add_mutually_exclusive_group(required=True)
+    operation_group.add_argument('-e', '--encrypt', action='store_true',
+                                help='Encrypt files')
+    operation_group.add_argument('-d', '--decrypt', action='store_true', 
+                                help='Decrypt files')
     
-    A4[A4: Initialize crypto tool availability detection] --> A4a[A4a: Import subprocess, shutil]
-    A4a --> A4b[A4b: Test msoffcrypto-tool availability]
-    A4b --> A4c[A4c: Test pyzipper library availability]
-    A4c --> A4d[A4d: Test PyPDF2 import availability]
-    A4d --> A4e[A4e: Create crypto_tools availability dict]
-    A4e --> A4f{A4f: Required tools missing?}
-    A4f -->|Yes| A4_error[A4_error: Tool missing error, sys.exit 1]
-    A4f -->|No| A5
+    # A1c: File arguments with glob pattern support
+    parser.add_argument('files', nargs='*', type=str,  # Keep as string for glob processing
+                       help='Files to process (supports glob patterns like *.docx)')
+    parser.add_argument('-r', '--recursive', type=Path, metavar='DIR',
+                       help='Process directory recursively')
+    parser.add_argument('--include-pattern', type=str,
+                       help='Include files matching glob pattern (with -r)')
+    parser.add_argument('--exclude-pattern', type=str,
+                       help='Exclude files matching glob pattern (with -r)')
     
-    A5[A5: Load default configuration settings] --> A5a[A5a: Create config dict with hardcoded defaults]
-    A5a --> A5b[A5b: Set backup_suffix pattern with timestamp]
-    A5b --> A5c[A5c: Set secure file permissions]
-    A5c --> A5d[A5d: Set max_file_size limit 500MB]
-    A5d --> A5e[A5e: Create supported_formats mapping dict]
-    A5e --> A5f[A5f: Set cleanup and security policies]
-    A5f --> A6
+    # A1d: Password options with priority system and TTY handling
+    parser.add_argument('-p', '--password', action='append', dest='cli_passwords',
+                       help='Password (can be used multiple times, or "stdin" for JSON input)')
+    parser.add_argument('--password-list', type=Path,
+                       help='File containing passwords (one per line)')
+    parser.add_argument('--no-password-reuse', action='store_true',
+                       help='Disable automatic password reuse across files')
     
-    A6[A6: Create FastPass application object] --> A6a[A6a: Initialize FastPass class instance]
-    A6a --> A6b[A6b: Set operation_mode from args]
-    A6b --> A6c[A6c: Initialize empty file_processors dict]
-    A6c --> A6d[A6d: Create temp_files_created tracking list]
-    A6d --> A6e[A6e: Initialize password manager with reuse settings]
-    A6e --> A6f[A6f: Create backup_files_created tracking list]
-    A6f --> A6g[A6g: Record operation start time]
-    A6g --> A6h[A6h: Set state flags ready_for_processing = True]
-    A6h --> SectionB[Continue to Section B: Security Validation]
+    # A1e: Output and backup options  
+    parser.add_argument('-o', '--output-dir', type=Path,
+                       help='Output directory (default: in-place)')
     
-    classDef processBox fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
-    classDef subProcess fill:#f3e5f5,stroke:#9c27b0,stroke-width:1px
-    classDef decisionBox fill:#fff3e0,stroke:#ff9800,stroke-width:2px
-    classDef exitBox fill:#ffebee,stroke:#f44336,stroke-width:2px
+    # A1f: Utility options
+    parser.add_argument('--dry-run', action='store_true',
+                       help='Show what would be done without making changes')
+    parser.add_argument('--verify', action='store_true',
+                       help='Deep verification of processed files')
+    parser.add_argument('--list-supported', action='store_true',
+                       help='List supported file formats')
+    parser.add_argument('--debug', action='store_true',
+                       help='Enable detailed logging')
+    parser.add_argument('--log-file', type=Path,
+                       help='Write logs to specified file')
+    parser.add_argument('--report-format', choices=['text', 'json', 'csv'],
+                       default='text', help='Output report format')
+    parser.add_argument('-v', '--version', action='version',
+                       version=f'FastPass {FastPassConfig.VERSION}')
     
-    class A1,A2,A3,A4,A5,A6 processBox
-    class A1a,A1b,A1c,A1d,A1e,A1f,A1g,A1h,A2a,A2b,A2c,A2d,A3a,A3b,A3c,A3d,A3e,A4a,A4b,A4c,A4d,A4e,A5a,A5b,A5c,A5d,A5e,A5f,A6a,A6b,A6c,A6d,A6e,A6f,A6g subProcess
-    class A1i,A2e,A4f decisionBox
-    class A1_help,A1_version,A1_list,A1_check,A2_error,A4_error exitBox
+    # A1g: Parse arguments with error handling
+    try:
+        args = parser.parse_args()
+    except SystemExit as e:
+        if e.code != 0:
+            sys.exit(2)  # Invalid arguments
+        raise
+    
+    # A1h: Handle special modes
+    if args.list_supported:
+        display_supported_formats()
+        sys.exit(0)
+    
+    return args
+
+# A2: ARGUMENT VALIDATION AND NORMALIZATION
+def validate_operation_mode_and_arguments(args: argparse.Namespace) -> argparse.Namespace:
+    from pathlib import Path
+    
+    # A2a: Ensure files or recursive specified
+    if not args.files and not args.recursive:
+        raise ValueError("Must specify files or --recursive directory")
+    
+    if args.files and args.recursive:
+        raise ValueError("Cannot specify both files and --recursive")
+    
+    # A2b: Process glob patterns and normalize file paths
+    if args.files:
+        expanded_files = []
+        for file_pattern in args.files:
+            if any(char in file_pattern for char in ['*', '?', '[', ']']):
+                # Handle glob pattern - need to expand before shell does
+                import glob
+                matches = glob.glob(file_pattern, recursive=False)
+                if not matches:
+                    raise ValueError(f"No files match pattern: {file_pattern}")
+                expanded_files.extend(matches)
+            else:
+                # Regular file path
+                expanded_files.append(file_pattern)
+        
+        # Convert to Path objects and resolve
+        args.files = [Path(f).expanduser().resolve() for f in expanded_files]
+    
+    if args.recursive:
+        args.recursive = Path(args.recursive).expanduser().resolve()
+        if not args.recursive.is_dir():
+            raise ValueError(f"Recursive path is not a directory: {args.recursive}")
+    
+    # A2c: Validate output directory
+    if args.output_dir:
+        args.output_dir = Path(args.output_dir).expanduser().resolve()
+        if args.output_dir.exists() and not args.output_dir.is_dir():
+            raise ValueError(f"Output path exists but is not a directory: {args.output_dir}")
+    
+    # A2d: Set operation mode flag
+    args.operation = 'encrypt' if args.encrypt else 'decrypt'
+    
+    return args
+
+# A3: LOGGING SYSTEM INITIALIZATION
+def setup_logging_and_debug_infrastructure(args: argparse.Namespace) -> logging.Logger:
+    import logging
+    import sys
+    from datetime import datetime
+    
+    # A3a: Configure logging with TTY detection
+    log_level = logging.DEBUG if args.debug else logging.INFO
+    
+    # A3a-1: Configure console logging
+    console_handler = logging.StreamHandler(sys.stderr)
+    
+    # Check if stderr is a TTY for appropriate formatting
+    if sys.stderr.isatty():
+        console_format = '%(asctime)s - %(levelname)s - %(message)s'
+    else:
+        # Non-TTY output (e.g., redirected to file) - simpler format
+        console_format = '%(levelname)s: %(message)s'
+    
+    console_handler.setFormatter(logging.Formatter(console_format))
+    console_handler.setLevel(log_level)
+    
+    # A3a-2: Configure file logging if specified
+    handlers = [console_handler]
+    
+    if hasattr(args, 'log_file') and args.log_file:
+        try:
+            # Ensure log directory exists
+            args.log_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            file_handler = logging.FileHandler(args.log_file, mode='a')
+            file_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            file_handler.setFormatter(logging.Formatter(file_format))
+            file_handler.setLevel(logging.DEBUG)  # Always debug level for files
+            handlers.append(file_handler)
+            
+        except Exception as e:
+            print(f"Warning: Could not set up file logging to {args.log_file}: {e}")
+    
+    # A3a-3: Configure root logger
+    logger = logging.getLogger('fastpass')
+    logger.setLevel(log_level)
+    logger.handlers.clear()  # Remove any existing handlers
+    
+    for handler in handlers:
+        logger.addHandler(handler)
+    
+    logger = logging.getLogger('fastpass')
+    
+    # A3b: Log startup
+    logger.info(f"FastPass v{FastPassConfig.VERSION} starting - operation: {args.operation}")
+    
+    return logger
+
+def handle_password_input_sources(args: argparse.Namespace) -> None:
+    """A3c: Handle TTY detection and stdin password input"""
+    import sys
+    import json
+    
+    # Check if 'stdin' is specified in CLI passwords
+    if args.cli_passwords and 'stdin' in args.cli_passwords:
+        if sys.stdin.isatty():
+            raise ValueError("Cannot read JSON from stdin: terminal input detected")
+        
+        try:
+            # Read JSON password mapping from stdin
+            stdin_data = sys.stdin.read()
+            password_mapping = json.loads(stdin_data)
+            
+            # Remove 'stdin' from CLI passwords and store mapping
+            args.cli_passwords.remove('stdin')
+            args.stdin_password_mapping = password_mapping
+            
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in stdin password input: {e}")
+        except Exception as e:
+            raise ValueError(f"Error reading password input from stdin: {e}")
+    else:
+        args.stdin_password_mapping = {}
+
+# A4: CRYPTO TOOL AVAILABILITY DETECTION
+def initialize_crypto_tool_detection() -> Dict[str, bool]:
+    import subprocess
+    import importlib
+    
+    crypto_tools = {}
+    
+    # A4a: Test msoffcrypto-tool availability
+    try:
+        result = subprocess.run(['python', '-m', 'msoffcrypto.cli', '--version'], 
+                              capture_output=True, timeout=10)
+        crypto_tools['msoffcrypto'] = result.returncode == 0
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        crypto_tools['msoffcrypto'] = False
+    
+    # A4b: Test PyPDF2 availability
+    try:
+        importlib.import_module('PyPDF2')
+        crypto_tools['PyPDF2'] = True
+    except ImportError:
+        crypto_tools['PyPDF2'] = False
+    
+    # A4c: Check for missing required tools
+    required_tools = []
+    if not crypto_tools.get('msoffcrypto'):
+        required_tools.append('msoffcrypto-tool')
+    if not crypto_tools.get('PyPDF2'):
+        required_tools.append('PyPDF2')
+    
+    if required_tools:
+        raise CryptoToolError(f"Missing required tools: {', '.join(required_tools)}")
+    
+    return crypto_tools
+
+# A5: FASTPASS APPLICATION CLASS
+class FastPassApplication:
+    def __init__(self, args: argparse.Namespace, logger: logging.Logger):
+        # A5a: Initialize instance variables
+        self.args = args
+        self.logger = logger
+        self.operation_mode = args.operation
+        self.crypto_tools = initialize_crypto_tool_detection()
+        
+        # A5b: File tracking lists
+        self.temp_files_created: List[Path] = []
+        self.processing_results: Dict[Path, str] = {}
+        self.operation_start_time = datetime.now()
+        
+        # A5c: Load configuration and initialize password manager
+        self.config = FastPassConfig.load_configuration(args)
+        self.password_manager = PasswordManager(
+            cli_passwords=args.cli_passwords or [],
+            password_list_file=args.password_list,
+            reuse_enabled=self.config['password_reuse_enabled']
+        )
+        
+        # A5d: State flags
+        self.ready_for_processing = True
+        
+        self.logger.debug("FastPass application initialized successfully")
 ```
 
 **What's Actually Happening:**
-- **A1: Command Line Argument Processing**
-  - `sys.argv` contains raw command like `['fast_pass', 'decrypt', 'file1.docx', '-p', 'pwd1', 'file2.pdf', '-p', 'pwd2']`
-  - `argparse.ArgumentParser()` creates parser with custom action classes for per-file password pairing
+- **A1: Command Line Argument Processing with Glob Support**
+  - `sys.argv` processing with glob pattern expansion before shell interference
+  - Glob patterns like `'*.docx'`, `'report*.pdf'` expanded using `glob.glob()`
+  - Quoted patterns preserved from shell expansion: `fast_pass encrypt '*.txt'`
   - `args.operation` contains 'encrypt' or 'decrypt' as positional argument
-  - `args.files` becomes list of file paths with associated passwords
-  - `args.recursive` contains directory path if recursive mode specified
-  - `args.password_list` contains path to password list file if specified
+  - `args.files` becomes list of expanded file paths from glob patterns
+  - `args.include_pattern` and `args.exclude_pattern` for recursive filtering
   - `args.password_reuse_enabled` boolean flag (default True, disabled via --no-password-reuse)
-  - `args.output_dir` defaults to `None` (in-place modification)
-  - `args.backup` boolean flag for backup creation
+  - `args.stdin_password_mapping` contains JSON password mapping if '-p stdin' used
 
 - **A2: Operation Mode & File Path Validation**
   - Validate operation: `args.operation` must be 'encrypt' or 'decrypt'
@@ -438,13 +758,15 @@ flowchart TD
   - Build file list: `self.input_files = [{'path': Path, 'password': str, 'source': str}]`
   - Special modes: `--check-password`, `--list-supported` bypass normal password requirements
 
-- **A3: Logging System Configuration**
+- **A3: Logging System Configuration with TTY Detection**
+  - `sys.stderr.isatty()` detection for appropriate log formatting
+  - TTY output: Full timestamp format `'%(asctime)s - %(levelname)s - %(message)s'`
+  - Non-TTY output: Simple format `'%(levelname)s: %(message)s'` for file redirection
   - `logging.basicConfig()` with `level=logging.DEBUG` if `args.debug` enabled
-  - Log format: `'%(asctime)s - %(levelname)s - %(message)s'`
   - Handler: `sys.stderr` for console output, doesn't interfere with stdout
-  - First log entry: `"FastPass v1.0 starting - operation: {'encrypt' if args.encrypt else 'decrypt'}"`
-  - Memory logger: `self.operation_log = []` for operation history
-  - Debug flag: `self.debug_mode = args.debug`
+  - Password input validation: Check `sys.stdin.isatty()` when '-p stdin' specified
+  - JSON password parsing: Parse stdin JSON for per-file password mapping
+  - TTY safety: Prevent accidental password exposure in terminal input
 
 - **A4: Crypto Library Availability Detection**
   - Test msoffcrypto-tool: `import msoffcrypto` with ImportError handling
@@ -477,180 +799,253 @@ flowchart TD
 
 > **SECURITY CRITICAL**: Every security check must map to specific code with proper error handling and sanitization. Label each implementation block with the exact ID shown.
 
-```mermaid
-flowchart TD
-    B1[B1: File path resolution and normalization] --> B1a[B1a: Import os, pathlib, magic]
-    B1a --> B1b[B1b: Initialize validated_files empty list]
-    B1b --> B1c[B1c: Loop through each file in args.files]
-    B1c --> B1d[B1d: os.path.expanduser to resolve ~ paths]
-    B1d --> B1e[B1e: os.path.abspath for absolute paths]
-    B1e --> B1f[B1f: os.path.normpath to clean ../ patterns]
-    B1f --> B1g[B1g: pathlib.Path.resolve for canonical path]
-    B1g --> B1h[B1h: Check file existence with os.path.exists]
-    B1h --> B1i{B1i: File exists?}
-    B1i -->|No| B1_missing[B1_missing: Add to missing_files list]
-    B1i -->|Yes| B2
-    B1_missing --> B1j{B1j: More files to process?}
-    B1j -->|Yes| B1c
-    B1j -->|No| B1_error[B1_error: Missing files error, sys.exit 2]
+```python
+# B1: FILE PATH RESOLUTION AND SECURITY VALIDATION
+def perform_security_and_file_validation(args: argparse.Namespace) -> List[FileManifest]:
+    import os
+    import filetype
+    from pathlib import Path
+    from typing import List, Dict, Any
     
-    B2[B2: Path traversal security analysis] --> B2a[B2a: Extract path.parts for component analysis]
-    B2a --> B2b[B2b: Check for dangerous patterns]
-    B2b --> B2c[B2c: Define forbidden system paths]
-    B2c --> B2d[B2d: Get allowed directories user_home, cwd]
-    B2d --> B2e[B2e: Use os.path.commonpath for boundary check]
-    B2e --> B2f[B2f: Verify path within allowed boundaries]
-    B2f --> B2g{B2g: Security violation detected?}
-    B2g -->|Yes| B2_security[B2_security: Add to security_violations list]
-    B2g -->|No| B3
-    B2_security --> B2h[B2h: Sanitize error message]
-    B2h --> B2_exit[B2_exit: Security error, sys.exit 3]
+    validated_files: List[FileManifest] = []
     
-    B3[B3: File format validation using filetype library] --> B3a[B3a: Import filetype library]
-    B3a --> B3b[B3b: Call filetype.guess for format detection]
-    B3b --> B3c[B3c: Create expected_extensions mapping dict]
-    B3c --> B3d[B3d: Get actual file extension from path.suffix]
-    B3d --> B3e[B3e: Compare detected vs expected extension]
-    B3e --> B3f{B3f: Format mismatch detected?}
-    B3f -->|Yes| B3_format[B3_format: Add to format_violations list]
-    B3f -->|No| B4
-    B3_format --> B3j[B3j: Format mismatch error, sys.exit 3]
+    # B1a: Collect all files to process
+    files_to_process = []
+    if args.files:
+        files_to_process = args.files
+    elif args.recursive:
+        files_to_process = collect_files_recursively(args.recursive)
     
-    B4[B4: File access and permission verification] --> B4a[B4a: Test file read access with open in rb mode]
-    B4a --> B4b[B4b: Read sample 1024 bytes for accessibility]
-    B4b --> B4c[B4c: Check file size with os.path.getsize]
-    B4c --> B4d[B4d: Validate size limits vs max_file_size]
-    B4d --> B4e[B4e: Check empty file condition size == 0]
-    B4e --> B4f[B4f: Test output directory write access if specified]
-    B4f --> B4g{B4g: Access violations detected?}
-    B4g -->|Yes| B4_access[B4_access: Add to access_violations list]
-    B4g -->|No| B4h[B4h: Store file_metadata with size, accessibility]
-    B4h --> B5
-    B4_access --> B4_exit[B4_exit: Permission error, sys.exit 1]
+    for file_path in files_to_process:
+        # B1b: Path resolution and normalization
+        resolved_path = Path(file_path).expanduser().resolve()
+        
+        # B1c: Security validation - path traversal protection
+        validate_path_security(resolved_path)
+        
+        # B1d: File existence and access validation
+        validate_file_access(resolved_path)
+        
+        # B1e: File format validation
+        file_format = validate_file_format(resolved_path)
+        
+        # B1f: Encryption status detection
+        encryption_status = detect_encryption_status(resolved_path, file_format)
+        
+        # B1g: Build file manifest entry
+        manifest_entry = FileManifest(
+            path=resolved_path,
+            format=file_format,
+            size=resolved_path.stat().st_size,
+            is_encrypted=encryption_status,
+            crypto_tool=FastPassConfig.SUPPORTED_FORMATS[file_format.suffix]
+        )
+        
+        validated_files.append(manifest_entry)
     
-    B5[B5: Password protection status detection] --> B5a[B5a: Check file extension for crypto tool routing]
-    B5a --> B5b{B5b: Office document?}
-    B5b -->|Yes| B5c[B5c: Use msoffcrypto.OfficeFile to check encryption]
-    B5b -->|No| B5d{B5d: PDF file?}
-    B5c --> B5e[B5e: Call office file is_encrypted method]
-    B5e --> B5f[B5f: Store encryption status in password_status dict]
-    B5f --> B6
-    B5d -->|Yes| B5g[B5g: Use PyPDF2.PdfReader to check encryption]
-    B5d -->|No| B5h{B5h: ZIP archive?}
-    B5g --> B5i[B5i: Check pdf_reader.is_encrypted property]
-    B5i --> B5f
-    B5h -->|Yes| B5j[B5j: Test 7zip list command for password detection]
-    B5h -->|No| B5k[B5k: Unsupported format error]
-    B5j --> B5f
-    B5k --> B5_exit[B5_exit: Unsupported format, sys.exit 3]
+    if not validated_files:
+        raise FileFormatError("No valid files found to process")
     
-    B6[B6: Build validated file manifest] --> B6a[B6a: Initialize empty file_manifest list]
-    B6a --> B6b[B6b: Loop through all validated files]
-    B6b --> B6c[B6c: Create manifest_entry dict for each file]
-    B6c --> B6d[B6d: Set path, format, size, protection status]
-    B6d --> B6e[B6e: Map file extension to crypto_tool]
-    B6e --> B6f[B6f: Set backup_required flag based on operation]
-    B6f --> B6g[B6g: Append manifest_entry to file_manifest]
-    B6g --> B6h{B6h: More files to process?}
-    B6h -->|Yes| B6b
-    B6h -->|No| B6i[B6i: Calculate validation summary counts]
-    B6i --> B6j{B6j: Any critical errors detected?}
-    B6j -->|Yes| B6_error[B6_error: Validation summary error, sys.exit 3]
-    B6j -->|No| B6k[B6k: Set validation_complete = True]
-    B6k --> SectionC[Continue to Section C: Crypto Tool Selection]
+    return validated_files
+
+def validate_path_security(file_path: Path) -> None:
+    """B2: Path traversal and security validation"""
+    import os
+    from pathlib import Path
     
-    classDef processBox fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
-    classDef subProcess fill:#f3e5f5,stroke:#9c27b0,stroke-width:1px
-    classDef decisionBox fill:#fff3e0,stroke:#ff9800,stroke-width:2px
-    classDef exitBox fill:#ffebee,stroke:#f44336,stroke-width:2px
-    classDef securityBox fill:#fce4ec,stroke:#e91e63,stroke-width:2px
+    # B2a: Resolve absolute path and check for dangerous patterns
+    try:
+        # Get the absolute path of the intended base directories
+        user_home = Path.home().resolve()
+        current_dir = Path.cwd().resolve()
+        allowed_dirs = [user_home, current_dir]
+        
+        # Get the absolute path of the user-provided file path
+        resolved_path = file_path.resolve()
+        
+        # B2b: Check if the resolved path is within allowed directories
+        is_allowed = False
+        for base_dir in allowed_dirs:
+            try:
+                # Check if the resolved path is within the base directory
+                resolved_path.relative_to(base_dir)
+                is_allowed = True
+                break
+            except ValueError:
+                # Path is not relative to this base directory, try next
+                continue
+        
+        if not is_allowed:
+            raise SecurityViolationError("File access outside allowed directories")
+            
+        # B2c: Additional component analysis for dangerous patterns
+        for component in file_path.parts:
+            if component in ['..', '.', ''] or component.startswith('.'):
+                raise SecurityViolationError("Path traversal attempt detected")
+                
+    except (OSError, ValueError) as e:
+        raise SecurityViolationError("Invalid file path")
+
+def validate_file_access(file_path: Path) -> None:
+    """B3: File access and permission validation"""
+    # B3a: Existence check
+    if not file_path.exists():
+        raise FileNotFoundError(f"File not found: {file_path}")
     
-    class B1,B2,B3,B4,B5,B6 processBox
-    class B1a,B1b,B1c,B1d,B1e,B1f,B1g,B1h,B2a,B2b,B2c,B2d,B2e,B2f,B3a,B3b,B3c,B3d,B3e,B4a,B4b,B4c,B4d,B4e,B4f,B4h,B5a,B5c,B5e,B5f,B5g,B5i,B5j,B5k,B6a,B6b,B6c,B6d,B6e,B6f,B6g,B6i,B6k subProcess
-    class B1i,B1j,B2g,B3f,B4g,B5b,B5d,B5h,B6h,B6j decisionBox
-    class B1_missing,B1_error,B2_security,B2h,B2_exit,B3_format,B3j,B4_access,B4_exit,B5_exit,B6_error exitBox
-    class B2,B3 securityBox
+    # B3b: Read permission check
+    if not os.access(file_path, os.R_OK):
+        raise PermissionError(f"No read permission: {file_path}")
+    
+    # B3c: Size limit check
+    file_size = file_path.stat().st_size
+    if file_size > FastPassConfig.MAX_FILE_SIZE:
+        raise FileFormatError(f"File too large: {file_size} bytes")
+    
+    # B3d: Write permission check for in-place operations
+    parent_dir = file_path.parent
+    if not os.access(parent_dir, os.W_OK):
+        raise PermissionError(f"No write permission in directory: {parent_dir}")
+
+def validate_file_format(file_path: Path) -> str:
+    """B4: File format validation using magic number detection first"""
+    import filetype
+    
+    # B4a: Primary validation - magic number detection
+    detected_type = filetype.guess(str(file_path))
+    file_extension = file_path.suffix.lower()
+    
+    # B4b: Magic number to format mapping (primary authority)
+    magic_to_format = {
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx', 
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+        'application/pdf': '.pdf',
+        'application/zip': '.zip'  # Handle ZIP-based formats
+    }
+    
+    if detected_type and detected_type.mime in magic_to_format:
+        # Magic number detected - use this as authoritative format
+        authoritative_format = magic_to_format[detected_type.mime]
+        
+        # B4c: Cross-validate with file extension
+        if file_extension != authoritative_format:
+            # Log warning but trust magic number over extension
+            print(f"Warning: Extension mismatch for {file_path.name}: {file_extension} vs detected {authoritative_format}")
+        
+        # Check if detected format is supported
+        if authoritative_format not in FastPassConfig.SUPPORTED_FORMATS:
+            raise FileFormatError(f"Detected file format not supported: {authoritative_format}")
+            
+        return authoritative_format
+    
+    # B4d: Fallback to extension-based validation
+    if file_extension in FastPassConfig.SUPPORTED_FORMATS:
+        print(f"Warning: Could not detect magic number for {file_path.name}, trusting extension: {file_extension}")
+        return file_extension
+    
+    # B4e: Neither magic number nor extension indicate supported format
+    raise FileFormatError(f"Unsupported or undetectable file format: {file_extension}")
+
+def detect_encryption_status(file_path: Path, file_format: str) -> bool:
+    """B5: Detect if file is password protected"""
+    if file_format in ['.docx', '.xlsx', '.pptx']:
+        # B5a: Office document encryption detection
+        import msoffcrypto
+        with open(file_path, 'rb') as f:
+            office_file = msoffcrypto.OfficeFile(f)
+            return office_file.is_encrypted()
+    
+    elif file_format == '.pdf':
+        # B5b: PDF encryption detection
+        import PyPDF2
+        with open(file_path, 'rb') as f:
+            pdf_reader = PyPDF2.PdfReader(f)
+            return pdf_reader.is_encrypted
+    
+    return False
+
+@dataclass
+class FileManifest:
+    """File manifest entry for processing pipeline"""
+    path: Path
+    format: str
+    size: int
+    is_encrypted: bool
+    crypto_tool: str
 ```
 
 **What's Actually Happening:**
-- **B1: File Path Resolution & Normalization**
-  - For each file in `args.files`:
-  - `os.path.expanduser()` converts `~` to actual user home directory
-  - `os.path.abspath()` converts relative paths to full absolute paths
-  - `os.path.normpath()` resolves `../` patterns and normalizes separators
-  - `pathlib.Path(file_path).resolve()` gets canonical path resolving symlinks
-  - Store in `self.validated_files = [{'original_path': str, 'resolved_path': Path, 'exists': bool}]`
-  - Missing file handling: if `not path.exists()`, add to `missing_files[]` list
+- **B1: File Path Processing & Normalization**
+  - Input processing: `args.files` list or `args.recursive` directory path
+  - Path expansion: `os.path.expanduser('~/Documents/file.docx')` → `/home/user/Documents/file.docx`
+  - Canonical paths: `pathlib.Path.resolve()` resolves symlinks and relative paths
+  - File existence: `os.path.exists(file_path)` for each target file
+  - Build file list: `validated_files = [Path objects with metadata]`
+  - Missing files tracked: `missing_files = []` for error reporting
+  - If any files missing: exit with detailed error message listing all missing files
 
-- **B2: Security Analysis & Path Traversal Prevention**
-  - For each resolved path, extract path components: `path.parts`
-  - Check for dangerous patterns: `['..', '/', '\\', 'C:\\Windows\\', 'C:\\System32\\']`
-  - Validate against allowed directories: user home, current working directory, specified output dirs
-  - Use `os.path.commonpath()` to ensure files within allowed boundaries
-  - Path escape detection: `if not str(resolved_path).startswith(allowed_base_path):`
-  - Security violation: `self.security_violations.append({'file': filename, 'violation': 'path_traversal'})`
-  - If violations found: sanitize error message, `sys.exit(3)` with security error
+- **B2: Path Traversal Security Analysis**
+  - Absolute path resolution: `file_path.resolve()` to get canonical path with symlinks resolved
+  - Base directory validation: Check if resolved path is within `Path.home().resolve()` or `Path.cwd().resolve()`
+  - Containment checking: Use `resolved_path.relative_to(base_dir)` to verify path is within allowed boundaries
+  - Component analysis: Reject paths containing `..`, `.`, hidden files, or empty components
+  - System paths: Automatic rejection of paths outside user home and current working directory
+  - Error handling: Convert OSError/ValueError to SecurityViolationError with sanitized messages
+  - Critical exit: if security violations detected, `sys.exit(3)` with generic "security violation" message
 
-- **B3: File Format Validation Using Filetype Library**
-  - Import `filetype` library: `import filetype`
-  - For each file: `kind = filetype.guess(str(file_path))`
-  - Expected extension mapping:
+- **B3: File Format Magic Number Validation (Primary Authority)**
+  - **Priority 1**: Magic number detection via `filetype.guess(file_path)` - authoritative format detection
+  - **Priority 2**: File extension validation as fallback when magic number undetectable
+  - Magic number mapping (trusted authority):
     ```python
-    expected_extensions = {
-        '.docx': 'docx', '.xlsx': 'xlsx', '.pptx': 'pptx',
-        '.docm': 'docm', '.xlsm': 'xlsm', '.pptm': 'pptm',
-        '.pdf': 'pdf', '.zip': 'zip', '.7z': '7z'
+    magic_to_format = {
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+        'application/pdf': '.pdf',
+        'application/zip': '.zip'
     }
     ```
-  - Compare: `actual_extension = file_path.suffix.lower()`
-  - Validation: `if kind is None or kind.extension != expected_extensions.get(actual_extension):`
-  - Format mismatch: `self.format_violations.append({'file': filename, 'expected': expected_extensions.get(actual_extension), 'detected': kind.extension if kind else 'unknown'})`
+  - Cross-validation: When magic number and extension disagree, trust magic number but log warning
+  - Fallback strategy: If magic number undetectable, validate extension against supported formats
+  - Format violations: Unsupported formats (by either method) trigger `FileFormatError`
 
 - **B4: File Access & Permission Verification**
-  - Test read access: `with open(file_path, 'rb') as test: sample = test.read(1024)`
-  - File size check: `file_size = os.path.getsize(file_path)`
-  - Size limits: `if file_size > self.config['max_file_size']: flag as oversized`
-  - Empty file check: `if file_size == 0: flag as empty`
-  - Output directory write test: `os.access(output_dir, os.W_OK)` if specified
-  - Permission storage: `self.file_metadata[file_path] = {'size': int, 'readable': bool, 'writable_destination': bool}`
-  - Permission failures: add to `self.access_violations[]` for reporting
+  - Read access test: `open(file_path, 'rb')` with exception handling
+  - Sample read: read first 1024 bytes to verify file accessibility and detect corruption
+  - Size validation: `os.path.getsize(file_path)` vs `max_file_size = 500MB` limit
+  - Empty file check: `file_size == 0` indicates potential corruption or invalid file
+  - Output directory access: if `--output-dir` specified, test write access to target directory
+  - Permission violations: collected in `access_violations = []`
+  - If access violations: `sys.exit(1)` with detailed permission error messages
 
 - **B5: Password Protection Status Detection**
-  - **Office Documents**: Use msoffcrypto to check encryption
-    ```python
-    with open(file_path, 'rb') as f:
-        office_file = msoffcrypto.OfficeFile(f)
-        is_encrypted = office_file.is_encrypted()
-    ```
-  - **PDF Files**: Use PyPDF2 to check for password protection
-    ```python
-    with open(file_path, 'rb') as f:
-        pdf_reader = PyPDF2.PdfReader(f)
-        is_encrypted = pdf_reader.is_encrypted
-    ```
-  - **ZIP Archives**: Test with 7zip list command to detect password protection
-  - Store status: `self.password_status[file_path] = {'currently_protected': bool, 'protection_type': str}`
-  - Operation validation: if decrypt mode and not protected, log warning
-  - If encrypt mode and already protected, ask for confirmation or fail
+  - **Office Documents**: `msoffcrypto.OfficeFile(file_stream).is_encrypted()` returns boolean
+  - **PDF Files**: `PyPDF2.PdfReader(file_stream).is_encrypted` property check
+  - **ZIP Archives**: Test 7zip list command, look for password prompt or "wrong password" message
+  - Store status: `password_status = {'file_path': bool}` for each file
+  - **Special case**: If operation is 'encrypt' and file already encrypted, add to warnings
+  - **Special case**: If operation is 'decrypt' and file not encrypted, add to warnings
 
-- **B6: Validated File Manifest Creation**
-  - Compile validation results: `self.file_manifest = []`
-  - For each file that passed all validations:
+- **B6: Validated File Manifest Creation**  
+  - Build manifest: `file_manifest = []` containing complete file metadata
+  - Manifest entry structure:
     ```python
     manifest_entry = {
         'path': Path,
-        'format': str,
+        'extension': str,
+        'format': str, 
         'size': int,
-        'currently_protected': bool,
-        'crypto_tool': str,
-        'backup_required': bool
+        'is_password_protected': bool,
+        'crypto_tool': str,  # 'msoffcrypto', 'pypdf2', '7zip'
+        'backup_required': bool,
+        'temp_file_needed': bool
     }
     ```
-  - Route to crypto tools: map file extensions to handlers
-  - Validation summary: `total_files = len(self.file_manifest)`
-  - Error summary: `security_errors = len(self.security_violations)`
-  - If any critical errors: `sys.exit(3)` with detailed error report
-  - Success state: `self.validation_complete = True`
+  - Tool assignment: map file extension to appropriate crypto tool
+  - Summary calculation: `total_files = len(file_manifest)`, `protected_files = count(is_password_protected)`
+  - If critical errors: `sys.exit(3)` with validation summary
+  - Success state: `validation_complete = True`, ready for crypto tool setup
 
 ---
 
@@ -658,122 +1053,159 @@ flowchart TD
 
 > **TOOL INTEGRATION CRITICAL**: Each crypto tool handler must be implemented exactly as diagrammed. Label each handler class and method with corresponding IDs.
 
-```mermaid
-flowchart TD
-    C1[C1: Analyze file formats and determine required tools] --> C1a[C1a: Loop through validated file_manifest]
-    C1a --> C1b[C1b: Create tool_mapping extension dict]
-    C1b --> C1c[C1c: Map .docx/.xlsx/.pptx to msoffcrypto]
-    C1c --> C1d[C1d: Map .pdf to PyPDF2]
-    C1d --> C1e[C1e: Map .zip/.7z to pyzipper]
-    C1e --> C1f[C1f: Assign crypto_tool to each file entry]
-    C1f --> C1g[C1g: Group files by tool into tool_groups dict]
-    C1g --> C1h[C1h: Check required tools vs availability]
-    C1h --> C1i{C1i: Required tools missing?}
-    C1i -->|Yes| C1_error[C1_error: Tool availability error, sys.exit 1]
-    C1i -->|No| C2
+```python
+# C1: CRYPTO TOOL HANDLER SETUP
+def setup_crypto_tools_and_configuration(validated_files: List[FileManifest]) -> Dict[str, Any]:
+    """Initialize and configure crypto tool handlers based on file types"""
     
-    C2[C2: Initialize crypto tool handler classes] --> C2a[C2a: Create crypto_handlers empty dict]
-    C2a --> C2b{C2b: Need msoffcrypto handler?}
-    C2b -->|Yes| C2c[C2c: Initialize OfficeHandler class]
-    C2b -->|No| C2d{C2d: Need PDF handler?}
-    C2c --> C2e[C2e: Set OfficeHandler.tool_path]
-    C2e --> C2f[C2f: Initialize OfficeHandler.temp_files list]
-    C2f --> C2d
-    C2d -->|Yes| C2g[C2g: Initialize PDFHandler class]
-    C2d -->|No| C2h{C2h: Need ZIP handler?}
-    C2g --> C2i[C2i: Initialize PyPDF2 library settings]
-    C2i --> C2j[C2j: Set PDFHandler encryption options]
-    C2j --> C2h
-    C2h -->|Yes| C2k[C2k: Initialize PyZipperHandler class]
-    C2h -->|No| C3
-    C2k --> C2l[C2l: Initialize pyzipper library settings]
-    C2l --> C2m[C2m: Set PyZipperHandler compression defaults]
-    C2m --> C3
+    # C1a: Determine required tools
+    required_tools = set(manifest.crypto_tool for manifest in validated_files)
     
-    C3[C3: Configure msoffcrypto tool handler] --> C3a{C3a: msoffcrypto needed?}
-    C3a -->|No| C4
-    C3a -->|Yes| C3b[C3b: Test subprocess msoffcrypto.cli --version]
-    C3b --> C3c{C3c: Tool test successful?}
-    C3c -->|No| C3_error[C3_error: msoffcrypto unavailable, sys.exit 1]
-    C3c -->|Yes| C3d[C3d: Create office_config dict]
-    C3d --> C3e[C3e: Set password_method to standard]
-    C3e --> C3f[C3f: Set temp_dir to temp_working_dir]
-    C3f --> C3g[C3g: Set preserve_metadata to True]
-    C3g --> C3h[C3h: Apply config to office_handler]
-    C3h --> C3i[C3i: Store handler in crypto_handlers dict]
-    C3i --> C4
+    crypto_handlers = {}
     
-    C4[C4: Configure PDF tool handler] --> C4a{C4a: PDF handler needed?}
-    C4a -->|No| C5
-    C4a -->|Yes| C4b[C4b: Initialize PyPDF2 library]
-    C4b --> C4c{C4c: PyPDF2 compatible version?}
-    C4c -->|Yes| C4d[C4d: Set pdf_library = PyPDF2]
-    C4c -->|No| C4e[C4e: Show PyPDF2 version warning]
-    C4d --> C4f[C4f: Create pdf_config dict]
-    C4e --> C4f
-    C4f --> C4g[C4g: Set encryption_algorithm to AES-256]
-    C4g --> C4h[C4h: Define permissions dict print/modify/copy]
-    C4h --> C4i[C4i: Set user_password and owner_password None]
-    C4i --> C4j[C4j: Apply config to pdf_handler]
-    C4j --> C4k[C4k: Store handler in crypto_handlers dict]
-    C4k --> C5
+    # C1b: Initialize Office document handler
+    if 'msoffcrypto' in required_tools:
+        crypto_handlers['msoffcrypto'] = OfficeDocumentHandler()
     
-    C5[C5: Configure pyzipper library handler] --> C5a{C5a: ZIP handler needed?}
-    C5a -->|No| C6
-    C5a -->|Yes| C5b[C5b: Import pyzipper library]
-    C5b --> C5c[C5c: Test pyzipper.AESZipFile availability]
-    C5c --> C5d[C5d: Verify AES encryption support]
-    C5d --> C5e{C5e: pyzipper fully functional?}
-    C5e -->|No| C5_error[C5_error: pyzipper unavailable, sys.exit 1]
-    C5e -->|Yes| C5g[C5g: Create pyzipper_config dict]
-    C5g --> C5h[C5h: Set encryption_method to AES256]
-    C5h --> C5i[C5i: Set compression_type to ZIP_DEFLATED]
-    C5i --> C5j[C5j: Set compression_level to 6]
-    C5j --> C5k[C5k: Set AES key length to 256 bits]
-    C5k --> C5l[C5l: Configure compression settings]
-    C5l --> C5m[C5m: Apply config to pyzipper_handler]
-    C5m --> C5n[C5n: Store handler in crypto_handlers dict]
-    C5n --> C6
+    # C1c: Initialize PDF handler  
+    if 'PyPDF2' in required_tools:
+        crypto_handlers['PyPDF2'] = PDFHandler()
     
-    C6[C6: Configure tool-specific options and validation] --> C6a[C6a: Loop through each crypto_handler]
-    C6a --> C6b[C6b: Set metadata preservation for Office docs]
-    C6b --> C6c[C6c: Configure PDF permission settings]
-    C6c --> C6d[C6d: Set ZIP compression and encryption]
-    C6d --> C6e[C6e: Validate passwords meet tool requirements]
-    C6e --> C6f[C6f: Configure timeout values for each tool]
-    C6f --> C6g[C6g: Setup per-tool debug logging if enabled]
-    C6g --> C7
+    return crypto_handlers
+
+class OfficeDocumentHandler:
+    """Handler for Office document encryption/decryption using msoffcrypto"""
     
-    C7[C7: Create processing pipeline and task queue] --> C7a[C7a: Initialize processing_queue empty list]
-    C7a --> C7b[C7b: Loop through file_manifest entries]
-    C7b --> C7c[C7c: Create task dict for each file]
-    C7c --> C7d[C7d: Set task file_path from manifest]
-    C7d --> C7e[C7e: Set task operation encrypt/decrypt]
-    C7e --> C7f[C7f: Assign crypto_handler from crypto_handlers]
-    C7f --> C7g[C7g: Set password from args or prompt]
-    C7g --> C7h[C7h: Calculate output_path based on options]
-    C7h --> C7i[C7i: Generate backup_path with timestamp]
-    C7i --> C7j[C7j: Initialize temp_files empty list]
-    C7j --> C7k[C7k: Add completed task to processing_queue]
-    C7k --> C7l{C7l: More files to process?}
-    C7l -->|Yes| C7b
-    C7l -->|No| C7m[C7m: Sort queue by file size for optimal processing]
-    C7m --> C7n[C7n: Validate all tasks have required inputs]
-    C7n --> C7o[C7o: Set pipeline_ready = True]
-    C7o --> C7p[C7p: Set total tasks count]
-    C7p --> SectionD[Continue to Section D: File Processing]
+    def __init__(self):
+        import msoffcrypto
+        self.msoffcrypto = msoffcrypto
+        
+    def encrypt_file(self, input_path: Path, output_path: Path, password: str) -> None:
+        """C2a: Encrypt Office document"""
+        # Note: msoffcrypto primarily supports decryption
+        # For encryption, we'd need to use Office automation or other tools
+        raise NotImplementedError("Office encryption requires different approach")
     
-    classDef processBox fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
-    classDef subProcess fill:#f3e5f5,stroke:#9c27b0,stroke-width:1px
-    classDef decisionBox fill:#fff3e0,stroke:#ff9800,stroke-width:2px
-    classDef exitBox fill:#ffebee,stroke:#f44336,stroke-width:2px
-    classDef toolBox fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    def decrypt_file(self, input_path: Path, output_path: Path, password: str) -> None:
+        """C2b: Decrypt Office document"""
+        with open(input_path, 'rb') as input_file:
+            office_file = self.msoffcrypto.OfficeFile(input_file)
+            office_file.load_key(password=password)
+            
+            with open(output_path, 'wb') as output_file:
+                office_file.save(output_file)
     
-    class C1,C2,C3,C4,C5,C6,C7 processBox
-    class C1a,C1b,C1c,C1d,C1e,C1f,C1g,C1h,C2a,C2c,C2e,C2f,C2g,C2i,C2j,C2k,C2l,C2m,C3b,C3d,C3e,C3f,C3g,C3h,C3i,C4b,C4d,C4e,C4f,C4g,C4h,C4i,C4j,C4k,C5b,C5c,C5d,C5g,C5h,C5i,C5j,C5k,C5l,C5m,C5n,C6a,C6b,C6c,C6d,C6e,C6f,C6g,C7a,C7b,C7c,C7d,C7e,C7f,C7g,C7h,C7i,C7j,C7k,C7m,C7n,C7o,C7p subProcess
-    class C1i,C2b,C2d,C2h,C3a,C3c,C4a,C4c,C5a,C5e,C5f,C7l decisionBox
-    class C1_error,C3_error,C5_error exitBox
-    class C3,C4,C5 toolBox
+    def test_password(self, file_path: Path, password: str) -> bool:
+        """C2c: Test if password works for Office document"""
+        try:
+            with open(file_path, 'rb') as f:
+                office_file = self.msoffcrypto.OfficeFile(f)
+                office_file.load_key(password=password)
+                return True
+        except Exception:
+            return False
+
+class PDFHandler:
+    """Handler for PDF encryption/decryption using PyPDF2"""
+    
+    def __init__(self):
+        import PyPDF2
+        self.PyPDF2 = PyPDF2
+        
+    def encrypt_file(self, input_path: Path, output_path: Path, password: str) -> None:
+        """C3a: Encrypt PDF document"""
+        with open(input_path, 'rb') as input_file:
+            pdf_reader = self.PyPDF2.PdfReader(input_file)
+            pdf_writer = self.PyPDF2.PdfWriter()
+            
+            # Copy all pages
+            for page in pdf_reader.pages:
+                pdf_writer.add_page(page)
+            
+            # Encrypt with password
+            pdf_writer.encrypt(password)
+            
+            with open(output_path, 'wb') as output_file:
+                pdf_writer.write(output_file)
+    
+    def decrypt_file(self, input_path: Path, output_path: Path, password: str) -> None:
+        """C3b: Decrypt PDF document"""
+        with open(input_path, 'rb') as input_file:
+            pdf_reader = self.PyPDF2.PdfReader(input_file)
+            
+            if pdf_reader.is_encrypted:
+                pdf_reader.decrypt(password)
+            
+            pdf_writer = self.PyPDF2.PdfWriter()
+            
+            # Copy all pages
+            for page in pdf_reader.pages:
+                pdf_writer.add_page(page)
+            
+            with open(output_path, 'wb') as output_file:
+                pdf_writer.write(output_file)
+    
+    def test_password(self, file_path: Path, password: str) -> bool:
+        """C3c: Test if password works for PDF"""
+        try:
+            with open(file_path, 'rb') as f:
+                pdf_reader = self.PyPDF2.PdfReader(f)
+                if pdf_reader.is_encrypted:
+                    return pdf_reader.decrypt(password) == 1
+                return True
+        except Exception:
+            return False
+
+# C4: PASSWORD MANAGEMENT SYSTEM
+class PasswordManager:
+    """Manages password priority system and validation"""
+    
+    def __init__(self, cli_passwords: List[str], password_list_file: Optional[Path]):
+        self.cli_passwords = cli_passwords or []
+        self.password_list_file = password_list_file
+        self.password_list: List[str] = []
+        
+        # C4a: Load password list from file
+        if password_list_file:
+            self.load_password_list()
+    
+    def load_password_list(self) -> None:
+        """C4b: Load passwords from file"""
+        try:
+            with open(self.password_list_file, 'r', encoding='utf-8') as f:
+                self.password_list = [line.strip() for line in f if line.strip()]
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Password list file not found: {self.password_list_file}")
+    
+    def get_password_candidates(self, file_path: Path) -> List[str]:
+        """C4c: Get password candidates in priority order"""
+        candidates = []
+        
+        # Priority 1: CLI passwords
+        candidates.extend(self.cli_passwords)
+        
+        # Priority 2: Password list file
+        candidates.extend(self.password_list)
+        
+        # Remove duplicates while preserving order
+        seen = set()
+        unique_candidates = []
+        for pwd in candidates:
+            if pwd not in seen:
+                seen.add(pwd)
+                unique_candidates.append(pwd)
+        
+        return unique_candidates
+    
+    def find_working_password(self, file_path: Path, crypto_handler: Any) -> Optional[str]:
+        """C4d: Find working password for file"""
+        candidates = self.get_password_candidates(file_path)
+        
+        for password in candidates:
+            if crypto_handler.test_password(file_path, password):
+                return password
+        
+        return None
 ```
 
 **What's Actually Happening:**
@@ -910,700 +1342,841 @@ flowchart TD
 
 ---
 
-## Section D: File Processing & Backup Operations
+## Section D: File Processing & Operations
 
-> **CRYPTO OPERATIONS CRITICAL**: Each crypto tool operation must be implemented with exact error handling. Every processing step must map to specific code labeled with IDs below.
+> **PROCESSING CRITICAL**: Each step must handle errors gracefully with proper cleanup. Map every processing step to exact code implementation.
 
-```mermaid
-flowchart TD
-    D1[D1: Create secure temporary working directory] --> D1a[D1a: Import tempfile, datetime, os]
-    D1a --> D1b[D1b: Generate unique temp dir name with timestamp and PID]
-    D1b --> D1c[D1c: Call tempfile.mkdtemp with FastPass prefix]
-    D1c --> D1d[D1d: Set directory permissions to 0o700 owner only]
-    D1d --> D1e[D1e: Add temp_working_dir to cleanup_registry]
-    D1e --> D1f[D1f: Create subdirectories backups/, processing/, output/]
-    D1f --> D1g[D1g: Log temp directory creation with path]
-    D1g --> D2
+```python
+# D1: SECURE TEMPORARY DIRECTORY SETUP
+def create_secure_temporary_directory() -> Path:
+    """Create secure temporary working directory with proper permissions"""
+    import tempfile
+    import os
+    from datetime import datetime
     
-    D2[D2: Create in-place backup files if --backup flag set] --> D2a{D2a: Backup flag enabled?}
-    D2a -->|No| D3[D3: Move input files to temp processing directory]
-    D2a -->|Yes| D2b[D2b: Loop through each input file]
-    D2b --> D2c[D2c: Generate timestamp for backup filename]
-    D2c --> D2d[D2d: Create backup_name with _backup_timestamp pattern]
-    D2d --> D2e[D2e: Check if backup filename conflicts in same directory]
-    D2e --> D2f{D2f: Backup filename already exists?}
-    D2f -->|Yes| D2g[D2g: Append counter to filename]
-    D2f -->|No| D2h[D2h: Use generated backup filename]
-    D2g --> D2h
-    D2h --> D2i[D2i: Use shutil.copy2 to create backup in same directory]
-    D2i --> D2j[D2j: Verify backup file creation and size]
-    D2j --> D2k{D2k: Backup creation successful?}
-    D2k -->|No| D2_error[D2_error: Backup failed, sys.exit 1]
-    D2k -->|Yes| D2l[D2l: Store backup info in backup_files dict]
-    D2l --> D2m{D2m: More files to backup?}
-    D2m -->|Yes| D2b
-    D2m -->|No| D3
+    # D1a: Generate unique temp directory name
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    pid = os.getpid()
+    temp_name = f"{FastPassConfig.TEMP_DIR_PREFIX}{timestamp}_{pid}"
     
-    D3[D3: Move input files to temp processing directory] --> D3a[D3a: Create temp/processing/ subdirectory]
-    D3a --> D3b[D3b: Loop through each input file]
-    D3b --> D3c[D3c: Generate unique temp filename]
-    D3c --> D3d[D3d: Copy input file to temp/processing/ with shutil.copy2]
-    D3d --> D3e[D3e: Store temp path mapping in processing_files dict]
-    D3e --> D3f{D3f: More files to copy?}
-    D3f -->|Yes| D3b
-    D3f -->|No| D4
+    # D1b: Create temp directory with secure permissions
+    temp_dir = Path(tempfile.mkdtemp(prefix=temp_name))
+    os.chmod(temp_dir, 0o700)  # Owner read/write/execute only
     
-    D4[D4: Process each temp file through appropriate crypto pipeline] --> D4a[D4a: Loop through temp processing files]
-    D4a --> D4b{D4b: What crypto tool for this temp file?}
-    D4b -->|msoffcrypto| D4c[D4c: Office document processing branch]
-    D4b -->|pypdf2| D4d[D4d: PDF processing branch]
-    D4b -->|pyzipper| D4e[D4e: ZIP archive processing branch]
+    # D1c: Create subdirectories
+    (temp_dir / 'processing').mkdir()
+    (temp_dir / 'output').mkdir()
     
-    D4c --> D4c1[D4c1: Open temp file with open in rb mode]
-    D4c1 --> D4c2[D4c2: Create msoffcrypto.OfficeFile object]
-    D4c2 --> D4c3{D4c3: Operation is decrypt?}
-    D4c3 -->|Yes| D4c4[D4c4: Call office_file.load_key with password]
-    D4c3 -->|No| D4c8[D4c8: Encrypt operation branch]
-    D4c4 --> D4c5[D4c5: Open temp output file in wb mode]
-    D4c5 --> D4c6[D4c6: Call office_file.decrypt to output]
-    D4c6 --> D4c7[D4c7: Close input and output files]
-    D4c7 --> D5
-    D4c8 --> D4c9[D4c9: Call office_file.encrypt with password]
-    D4c9 --> D4c10[D4c10: Write encrypted output to temp file]
-    D4c10 --> D4c7
+    return temp_dir
+
+# D1d: ENHANCED TEMPORARY FILE MANAGEMENT WITH CLEANUP TRACKING
+class TempFileManager:
+    """Centralized temporary file management with guaranteed cleanup"""
     
-    D4d --> D4d1[D4d1: Import PyPDF2, use PdfReader on temp file]
-    D4d1 --> D4d2{D4d2: Operation is decrypt?}
-    D4d2 -->|Yes| D4d3[D4d3: Check is_encrypted, decrypt with password]
-    D4d2 -->|No| D4d4[D4d4: Use PdfWriter to encrypt with password]
-    D4d3 --> D4d5[D4d5: Save decrypted to temp output]
-    D4d4 --> D4d6[D4d6: Save encrypted to temp output]
-    D4d5 --> D5
-    D4d6 --> D5
+    def __init__(self):
+        self.temp_directories = []
+        self.temp_files = []
+        self.cleanup_registered = False
     
-    D4e --> D4e1{D4e1: Operation is decrypt?}
-    D4e1 -->|Yes| D4e2[D4e2: Open encrypted ZIP with pyzipper]
-    D4e1 -->|No| D4e6[D4e6: Create encrypted ZIP with pyzipper]
-    D4e2 --> D4e3[D4e3: Set password and extract files to temp dir]
-    D4e3 --> D4e4[D4e4: Read files from encrypted ZIP archive]
-    D4e4 --> D4e5[D4e5: Validate extraction success]
-    D4e5 --> D4e9
-    D4e6 --> D4e7[D4e7: Create new ZIP with AES encryption]
-    D4e7 --> D4e8[D4e8: Add files to encrypted ZIP archive]
-    D4e8 --> D4e5
-    D4e9 --> D5
+    def create_temp_directory(self) -> Path:
+        """Create tracked temporary directory with automatic cleanup registration"""
+        temp_dir = create_secure_temporary_directory()
+        self.temp_directories.append(temp_dir)
+        
+        if not self.cleanup_registered:
+            import atexit
+            atexit.register(self.emergency_cleanup)
+            self.cleanup_registered = True
+            
+        return temp_dir
     
-    D5[D5: Validate processing success for each operation] --> D5a[D5a: Check for exceptions during crypto operations]
-    D5a --> D5b[D5b: Verify temp output file exists]
-    D5b --> D5c[D5c: Check output file size > 0 and reasonable]
-    D5c --> D5d[D5d: Run magic number check on output file]
-    D5d --> D5e{D5e: All validations passed?}
-    D5e -->|No| D5f[D5f: Log detailed error information]
-    D5f --> D5g[D5g: Add file to processing_errors list]
-    D5g --> D7
-    D5e -->|Yes| D5h[D5h: Add file to successful_operations list]
-    D5h --> D6
+    def emergency_cleanup(self):
+        """Emergency cleanup for atexit registration"""
+        for temp_dir in self.temp_directories:
+            try:
+                cleanup_temporary_directory(temp_dir)
+            except Exception:
+                pass  # Silent emergency cleanup
+
+# D1e: CONTEXT MANAGER FOR SECURE TEMPORARY DIRECTORIES
+class SecureTempDirectory:
+    """Context manager ensuring automatic cleanup even on exceptions"""
     
-    D6[D6: Verify file integrity and accessibility] --> D6a[D6a: Run magic number check on processed file]
-    D6a --> D6b{D6b: Office document?}
-    D6b -->|Yes| D6c[D6c: Test with python-docx or openpyxl basic structure]
-    D6b -->|No| D6d{D6d: PDF file?}
-    D6c --> D6f
-    D6d -->|Yes| D6e[D6e: Test with PyPDF2 for readable PDF structure]
-    D6d -->|No| D6g{D6g: ZIP archive?}
-    D6e --> D6f
-    D6g -->|Yes| D6h[D6h: Test with pyzipper library to verify archive integrity]
-    D6g -->|No| D6f
-    D6h --> D6f
-    D6f --> D6i{D6i: Operation was encrypt?}
-    D6i -->|Yes| D6j[D6j: Test that password is now required]
-    D6i -->|No| D6k[D6k: Test that file opens without password]
-    D6j --> D6l[D6l: Store verification results in dict]
-    D6k --> D6l
-    D6l --> D6m{D6m: Verification successful?}
-    D6m -->|No| D7
-    D6m -->|Yes| D8
+    def __init__(self):
+        self.temp_dir = None
     
-    D7[D7: Handle processing errors and restore from backup] --> D7a[D7a: Restore original from backup using shutil.copy2]
-    D7a --> D7b[D7b: Preserve original timestamps with copy2]
-    D7b --> D7c[D7c: Remove any partial temp outputs created]
-    D7c --> D7d[D7d: Collect detailed error information for reporting]
-    D7d --> D7e[D7e: Log restoration with filename]
-    D7e --> D7f{D7f: Continue with next file or exit?}
-    D7f -->|Continue| D7g{D7g: More files in queue?}
-    D7f -->|Exit| D9
-    D7g -->|Yes| D4a
-    D7g -->|No| D9
+    def __enter__(self) -> Path:
+        self.temp_dir = create_secure_temporary_directory()
+        return self.temp_dir
     
-    D8[D8: Move processed temp files to final destination] --> D8a[D8a: Loop through successfully processed temp files]
-    D8a --> D8b{D8b: In-place modification requested?}
-    D7a -->|Yes| D7b[D7b: Set final_path = original_file_path]
-    D7a -->|No| D7c{D7c: Output directory specified?}
-    D7b --> D7e
-    D7c -->|Yes| D7d[D7d: Set final_path = output_dir / processed_filename]
-    D7c -->|No| D7f[D7f: Set final_path = original_parent / processed_filename]
-    D7d --> D7e
-    D7f --> D7e
-    D7e --> D7g{D7g: Final path already exists?}
-    D7g -->|Yes| D7h[D7h: Append counter _001, _002 etc to filename]
-    D7g -->|No| D7i[D7i: Use calculated final_path as-is]
-    D7h --> D7i
-    D7i --> D7j[D7j: Move from temp to final using shutil.move]
-    D7j --> D7k[D7k: Update output_files tracking list]
-    D7k --> D9
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.temp_dir:
+            cleanup_temporary_directory(self.temp_dir)
+
+# D2: FILE PROCESSING PIPELINE
+def process_files_with_crypto_operations(
+    validated_files: List[FileManifest], 
+    crypto_handlers: Dict[str, Any],
+    args: argparse.Namespace
+) -> ProcessingResults:
+    """Main file processing pipeline with crypto operations"""
     
-    D8[D8: Handle critical errors and prepare for exit] --> D8a[D8a: Clean up temp working directory with rmtree]
-    D8a --> D8b[D8b: Restore all files from backups if requested]
-    D8b --> D8c[D8c: Generate comprehensive error report]
-    D8c --> D8d[D8d: Set exit code to 1 for processing errors]
-    D8d --> D8_exit[D8_exit: sys.exit 1]
+    # D2a: Create secure temporary directory
+    temp_dir = create_secure_temporary_directory()
     
-    D9[D9: Update file permissions and metadata] --> D9a[D9a: Set output file permissions appropriately]
-    D9a --> D9b[D9b: Preserve original timestamps where appropriate]
-    D9b --> D9c[D9c: Update file metadata creation/modification times]
-    D9c --> D9d[D9d: Generate file checksums using hashlib.sha256]
-    D9d --> D9e[D9e: Store final metadata in final_file_metadata dict]
-    D9e --> SectionE[Continue to Section E: Cleanup & Results]
+    try:
+        processing_results = ProcessingResults()
+        
+        for file_manifest in validated_files:
+            try:
+                # D2b: Process individual file
+                result = process_single_file(
+                    file_manifest, 
+                    crypto_handlers[file_manifest.crypto_tool],
+                    temp_dir,
+                    args
+                )
+                processing_results.successful_files.append(result)
+                
+            except Exception as e:
+                error_info = FileProcessingError(
+                    file_path=file_manifest.path,
+                    error_message=str(e),
+                    error_type=type(e).__name__
+                )
+                # Sanitize error message before storing
+                error_info.error_message = sanitize_error_message(error_info.error_message)
+                processing_results.failed_files.append(error_info)
+                
+                # Clean up any partial processing for this file
+                cleanup_failed_file_processing(file_manifest.path)
+        
+        return processing_results
+        
+    finally:
+        # D2c: Guaranteed cleanup with error isolation
+        try:
+            cleanup_temporary_directory(temp_dir)
+        except Exception as cleanup_error:
+            # Log cleanup failure but don't mask processing results
+            print(f"Warning: Cleanup failed for {temp_dir}: {cleanup_error}")
+
+def process_single_file(
+    file_manifest: FileManifest,
+    crypto_handler: Any,
+    temp_dir: Path,
+    args: argparse.Namespace
+) -> FileProcessingResult:
+    """D3: Process a single file through crypto operations"""
     
-    classDef processBox fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
-    classDef subProcess fill:#f3e5f5,stroke:#9c27b0,stroke-width:1px
-    classDef decisionBox fill:#fff3e0,stroke:#ff9800,stroke-width:2px
-    classDef exitBox fill:#ffebee,stroke:#f44336,stroke-width:2px
-    classDef cryptoBox fill:#fff8e1,stroke:#f57c00,stroke-width:2px
+    # D3a: Find working password
+    password = crypto_handler.password_manager.find_working_password(
+        file_manifest.path, crypto_handler
+    )
     
-    class D1,D2,D3,D4,D5,D6,D7,D8,D9 processBox
-    class D1a,D1b,D1c,D1d,D1e,D1f,D1g,D2a,D2b,D2c,D2d,D2e,D2f,D2g,D2i,D2j,D3a,D3c1,D3c2,D3c4,D3c5,D3c6,D3c7,D3c8,D3c9,D3c10,D3d2,D3d4,D3d5,D3d6,D3d8,D3d9,D3d10,D3d11,D3e2,D3e3,D3e4,D3e5,D3e6,D3e7,D3e8,D3e9,D4a,D4b,D4c,D4d,D4f,D4g,D4h,D5a,D5c,D5e,D5h,D5j,D5k,D5l,D6a,D6b,D6c,D6d,D6e,D7b,D7d,D7f,D7h,D7i,D7j,D7k,D8a,D8b,D8c,D8d,D9a,D9b,D9c,D9d,D9e subProcess
-    class D2h,D2k,D3b,D3c3,D3d1,D3d3,D3d7,D3e1,D4e,D5b,D5d,D5g,D5i,D5m,D6f,D6g,D7a,D7c,D7g decisionBox
-    class D2_error,D8_exit exitBox
-    class D3c,D3d,D3e cryptoBox
+    if not password:
+        raise ProcessingError(f"No working password found for {file_manifest.path}")
+    
+    # D3b: Setup temporary file paths
+    temp_input = temp_dir / 'processing' / f"input_{file_manifest.path.name}"
+    temp_output = temp_dir / 'output' / f"output_{file_manifest.path.name}"
+    
+    # D3c: Copy input to temp location
+    shutil.copy2(file_manifest.path, temp_input)
+    
+    # D3d: Perform crypto operation
+    if args.operation == 'encrypt':
+        crypto_handler.encrypt_file(temp_input, temp_output, password)
+    else:  # decrypt
+        crypto_handler.decrypt_file(temp_input, temp_output, password)
+    
+    # D3e: Validate output file
+    validate_processed_file(temp_output, args.operation, crypto_handler)
+    
+    # D3f: Atomic move to final destination with error handling
+    final_path = determine_output_path(file_manifest.path, args.output_dir)
+    
+    try:
+        # Ensure target directory exists
+        final_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Atomic move to final destination
+        shutil.move(temp_output, final_path)
+    except Exception as e:
+        # Clean up temp output file if move fails
+        if temp_output.exists():
+            temp_output.unlink()
+        raise ProcessingError(f"Failed to move processed file to destination: {e}")
+    
+    return FileProcessingResult(
+        original_path=file_manifest.path,
+        final_path=final_path,
+        operation=args.operation,
+        password_used=password,
+        file_size_before=file_manifest.size,
+        file_size_after=final_path.stat().st_size
+    )
+
+def validate_processed_file(output_path: Path, operation: str, crypto_handler: Any) -> None:
+    """D4: Validate that processed file is correct"""
+    
+    # D4a: Check file exists and has reasonable size
+    if not output_path.exists():
+        raise ProcessingError("Output file was not created")
+    
+    if output_path.stat().st_size == 0:
+        raise ProcessingError("Output file is empty")
+    
+    # D4b: Format-specific validation
+    file_format = output_path.suffix.lower()
+    
+    if file_format in ['.docx', '.xlsx', '.pptx']:
+        validate_office_document(output_path, operation)
+    elif file_format == '.pdf':
+        validate_pdf_document(output_path, operation)
+
+def validate_office_document(file_path: Path, operation: str) -> None:
+    """D4c: Validate Office document integrity"""
+    import msoffcrypto
+    
+    try:
+        with open(file_path, 'rb') as f:
+            office_file = msoffcrypto.OfficeFile(f)
+            
+            if operation == 'encrypt':
+                # After encryption, file should be encrypted
+                if not office_file.is_encrypted():
+                    raise ProcessingError("File was not properly encrypted")
+            else:  # decrypt
+                # After decryption, file should not be encrypted
+                if office_file.is_encrypted():
+                    raise ProcessingError("File was not properly decrypted")
+    except Exception as e:
+        raise ProcessingError(f"Office document validation failed: {e}")
+
+def validate_pdf_document(file_path: Path, operation: str) -> None:
+    """D4d: Validate PDF document integrity"""
+    import PyPDF2
+    
+    try:
+        with open(file_path, 'rb') as f:
+            pdf_reader = PyPDF2.PdfReader(f)
+            
+            if operation == 'encrypt':
+                # After encryption, PDF should be encrypted
+                if not pdf_reader.is_encrypted:
+                    raise ProcessingError("PDF was not properly encrypted")
+            else:  # decrypt
+                # After decryption, PDF should not be encrypted
+                if pdf_reader.is_encrypted:
+                    raise ProcessingError("PDF was not properly decrypted")
+                    
+            # Test that we can read at least one page
+            if len(pdf_reader.pages) == 0:
+                raise ProcessingError("PDF has no readable pages")
+                
+    except Exception as e:
+        raise ProcessingError(f"PDF validation failed: {e}")
+
+@dataclass
+class ProcessingResults:
+    successful_files: List[FileProcessingResult] = field(default_factory=list)
+    failed_files: List[FileProcessingError] = field(default_factory=list)
+
+@dataclass  
+class FileProcessingResult:
+    original_path: Path
+    final_path: Path
+    operation: str
+    password_used: str
+    file_size_before: int
+    file_size_after: int
+
+@dataclass
+class FileProcessingError:
+    file_path: Path
+    error_message: str
+    error_type: str
+
+def cleanup_failed_file_processing(file_path: Path) -> None:
+    """Clean up processing artifacts for a failed file"""
+    import tempfile
+    import shutil
+    
+    try:
+        # Remove any temporary files associated with this file
+        temp_patterns = [
+            f"*{file_path.stem}*",
+            f"temp_{file_path.name}*",
+            f"processing_{file_path.name}*"
+        ]
+        
+        # Clean up from common temp locations
+        temp_dirs = [Path.cwd() / 'temp', Path('/tmp'), Path(tempfile.gettempdir())]
+        
+        for temp_dir in temp_dirs:
+            if temp_dir.exists():
+                for pattern in temp_patterns:
+                    for temp_file in temp_dir.glob(pattern):
+                        try:
+                            if temp_file.is_file():
+                                temp_file.unlink()
+                            elif temp_file.is_dir():
+                                shutil.rmtree(temp_file)
+                        except Exception:
+                            # Continue cleanup even if some files can't be removed
+                            pass
+                            
+    except Exception:
+        # Don't let cleanup errors propagate
+        pass
 ```
 
 **What's Actually Happening:**
 - **D1: Secure Temporary Directory Setup**
-  - Create session temp directory: 
-    ```python
-    import tempfile
-    self.temp_working_dir = Path(tempfile.mkdtemp(
-        prefix='FastPass_', 
-        suffix=f'_{datetime.now().strftime("%Y%m%d_%H%M%S")}_{os.getpid()}'
-    ))
-    ```
-  - Set secure permissions: `os.chmod(self.temp_working_dir, 0o700)` (owner access only)
-  - Register for cleanup: `self.cleanup_registry.append(self.temp_working_dir)`
-  - Create subdirectories: `backups/`, `processing/`, `output/` within temp directory
-  - Log creation: `"Created secure temp directory: {self.temp_working_dir}"`
+  - Generate unique temp directory: `temp_name = f'FastPass_{datetime.now():%Y%m%d_%H%M%S}_{os.getpid()}'`
+  - Create with secure permissions: `tempfile.mkdtemp(prefix=temp_name)` then `os.chmod(temp_dir, 0o700)`
+  - Directory structure: `temp_dir/processing/` for input files, `temp_dir/output/` for processed files
+  - Cleanup tracking: `self.temp_directories_created = [temp_dir]` for later cleanup
 
-- **D2: In-Place Backup File Creation**
-  - If `--backup` flag is set, for each input file:
-  - Generate backup filename in same directory as original:
-    ```python
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    backup_name = f"{file_path.stem}_backup_{timestamp}{file_path.suffix}"
-    backup_path = file_path.parent / backup_name
-    
-    # Handle filename conflicts with disambiguation
-    counter = 1
-    while backup_path.exists():
-        backup_name = f"{file_path.stem}_backup_{timestamp}_{counter:03d}{file_path.suffix}"
-        backup_path = file_path.parent / backup_name
-        counter += 1
-    ```
-  - Create backup: `shutil.copy2(file_path, backup_path)` (preserves metadata)
-  - Verify backup: check file size matches, basic accessibility test
-  - Store backup info: `self.backup_files[file_path] = {'backup_path': backup_path, 'created': datetime.now()}`
-  - If backup fails: `sys.exit(1)` with "Failed to create backup for: {filename}"
+- **D2: Processing Pipeline Execution**
+  - Queue processing: `for task in self.processing_queue:`
+  - File isolation: copy each file to `temp_dir/processing/` before processing
+  - Tool routing: select appropriate crypto handler based on file format
+  - Password application: use `password_manager.find_working_password()` for each file
+  - Operation dispatch: call `handler.encrypt()` or `handler.decrypt()` based on mode
+  - Output validation: verify processed file integrity and correct encryption status
+  - Error handling: collect failures in `failed_files = []`, continue processing remaining files
 
-- **D3: Move Files to Temporary Processing Directory**
-  - Before any crypto operations, copy all input files to temp directory:
-    ```python
-    temp_file_path = self.temp_working_dir / 'processing' / f"temp_{uuid.uuid4().hex}_{file_path.name}"
-    shutil.copy2(file_path, temp_file_path)  # Preserve metadata
-    self.processing_files[file_path] = temp_file_path
-    ```
-  - All crypto operations happen on temp copies, never on original files
-  - This ensures complete isolation and atomic operations
+- **D3: Individual File Processing**
+  - **Input preparation**: Copy file to temp location with `shutil.copy2(original, temp_input)`
+  - **Password validation**: Test password with crypto tool before processing
+  - **Processing execution**: 
+    - For Office files: use msoffcrypto library via subprocess or direct API
+    - For PDF files: use PyPDF2 with PdfReader/PdfWriter classes
+    - For ZIP files: use pyzipper with AES encryption
+  - **Output verification**: Confirm processed file has correct encryption status
+  - **File movement**: Move from temp location to final destination (in-place or output directory)
 
-- **D3: Crypto Processing Pipeline Execution**
-  - **Office Document Processing (msoffcrypto)**:
-    ```python
-    def process_office_file(self, file_path, operation, password):
-        with open(file_path, 'rb') as input_file:
-            office_file = msoffcrypto.OfficeFile(input_file)
-            if operation == 'decrypt':
-                office_file.load_key(password=password)
-                with open(temp_output, 'wb') as output_file:
-                    office_file.decrypt(output_file)
-            elif operation == 'encrypt':
-                # Use msoffcrypto encrypt functionality
-                office_file.encrypt(password=password, output_file=temp_output)
-    ```
-  
-  - **PDF Processing (PyPDF2)**:
-    ```python
-    def process_pdf_file(self, file_path, operation, password):
-        import PyPDF2
-        if operation == 'decrypt':
-            with open(file_path, 'rb') as input_file:
-                reader = PyPDF2.PdfReader(input_file)
-                if reader.is_encrypted:
-                    reader.decrypt(password)
-                writer = PyPDF2.PdfWriter()
-                for page in reader.pages:
-                    writer.add_page(page)
-                with open(temp_output, 'wb') as output_file:
-                    writer.write(output_file)
-        elif operation == 'encrypt':
-            with open(file_path, 'rb') as input_file:
-                reader = PyPDF2.PdfReader(input_file) 
-                writer = PyPDF2.PdfWriter()
-                for page in reader.pages:
-                    writer.add_page(page)
-                writer.encrypt(password)
-                with open(temp_output, 'wb') as output_file:
-                    writer.write(output_file)
-    ```
-  
-  - **ZIP Processing (pyzipper)**:
-    ```python
-    def process_zip_file(self, file_path, operation, password):
-        if operation == 'decrypt':
-            with pyzipper.AESZipFile(file_path) as zf:
-                zf.setpassword(password.encode('utf-8'))
-                # Extract to unencrypted ZIP
-                with zipfile.ZipFile(temp_output, 'w') as new_zf:
-                    for file_info in zf.infolist():
-                        file_data = zf.read(file_info.filename)
-                        new_zf.writestr(file_info.filename, file_data)
-        elif operation == 'encrypt':
-            with pyzipper.AESZipFile(temp_output, 'w', compression=pyzipper.ZIP_DEFLATED) as zf:
-                zf.setpassword(password.encode('utf-8'))
-                zf.setencryption(pyzipper.WZ_AES, nbits=256)
-                # Add files from input ZIP or directory
-                zf.write(file_path, file_path.name)
-    ```
+- **D4: File Integrity Validation**
+  - **Existence check**: Verify output file was created and is non-empty
+  - **Format validation**: Ensure file still opens correctly with appropriate tool
+  - **Encryption status**: Verify encrypt/decrypt operation achieved expected result:
+    - After encryption: file should be password-protected
+    - After decryption: file should not require password
+  - **Content integrity**: For PDFs, verify at least one page readable; for Office docs, verify document structure intact
+  - **Size sanity check**: File size should be reasonable (not 0 bytes, not dramatically different unless expected)
 
-- **D4: Processing Success Validation**
-  - Check for exceptions during crypto operations: `try/except` blocks around library calls
-  - Verify output file creation: `if not temp_output_path.exists():`
-  - Basic file size validation: ensure output file has reasonable size (> 0, not suspiciously different)
-  - Format validation: run magic number check on output to ensure proper format
-  - Library-specific validation: test file can be opened by respective crypto library
-  - If any validation fails: log error details, increment `self.processing_errors`
-  - Success tracking: `self.successful_operations.append(file_path)`
+- **D5: Enhanced Temporary File Management**
+  - **Cleanup tracking**: `TempFileManager` class tracks all temporary files and directories
+  - **Emergency cleanup**: `atexit.register()` ensures cleanup even on unexpected termination
+  - **Context managers**: `SecureTempDirectory` provides automatic cleanup with `try`/`finally`
+  - **Retry logic**: Multiple cleanup attempts with exponential backoff for permission issues
+  - **Secure deletion**: Overwrite sensitive temporary files with zeros before deletion
+  - **Error isolation**: Cleanup failures don't mask original processing errors
 
-- **D5: File Integrity & Accessibility Verification**  
-  - **Format verification**: Run magic number check on processed file
-  - **Accessibility test**: Try to open file with appropriate tool/library
-  - **Office documents**: Test with `python-docx` or `openpyxl` for basic structure
-  - **PDF files**: Test with PyPDF2 to ensure readable PDF structure
-  - **ZIP archives**: Test with pyzipper library to verify archive integrity
-  - **Password verification**: For encrypt operations, test that password is required
-  - **For decrypt operations**: Test that file opens without password
-  - Store verification results: `self.verification_results[file_path] = {'format_ok': bool, 'accessible': bool, 'password_status_correct': bool}`
-
-- **D6: Error Handling & Backup Restoration**
-  - If processing fails: restore original from backup
-  - Restoration process: `shutil.copy2(backup_path, original_path)`
-  - Preserve original timestamps: use `shutil.copy2` to maintain metadata
-  - Clean up partial outputs: remove any temporary files created during failed processing
-  - Error reporting: collect detailed error information for user
-  - Log restoration: `"Restored {filename} from backup due to processing failure"`
-  - Continue with next file or exit based on error severity
-
-- **D7: Final File Placement & Conflict Resolution**
-  - Determine final output location:
-    ```python
-    if args.in_place:
-        final_path = original_file_path
-    elif args.output_dir:
-        final_path = Path(args.output_dir) / processed_file_name
-    else:
-        final_path = original_file_path.parent / processed_file_name
-    ```
-  - Handle filename conflicts: if file exists, append counter `_001`, `_002`, etc.
-  - Move from temp to final: `shutil.move(temp_processed_file, final_path)`
-  - Update file tracking: `self.output_files.append({'original': original_path, 'final': final_path})`
-
-- **D8: Error Exit & Cleanup**
-  - If critical errors occurred: prepare for early exit
-  - Cleanup temp files: `shutil.rmtree(self.temp_working_dir, ignore_errors=True)`
-  - Restore all files from backups if requested
-  - Generate error report: summarize what failed and why
-  - Set exit code: `sys.exit(1)` for processing errors
-
-- **D9: File Permissions & Metadata Finalization**
-  - Set appropriate permissions on output files: `os.chmod(output_file, 0o644)` (readable by all, writable by owner)
-  - Preserve original timestamps where appropriate
-  - Update file metadata: creation time, modification time based on operation type
-  - For encrypted files: may want to set more restrictive permissions `0o600`
-  - Generate file checksums: `hashlib.sha256()` for integrity verification
-  - Store final metadata: `self.final_file_metadata[output_path] = {'size': int, 'checksum': str, 'permissions': oct}`
+- **D6: Error Handling & Recovery**
+  - **Per-file errors**: Collect in `processing_errors = []` with details, continue processing other files
+  - **Critical errors**: Stop processing, restore all backups, cleanup temp files
+  - **Password errors**: Distinguish between wrong password vs crypto tool failure
+  - **File corruption**: Detect if input file becomes corrupted during processing
+  - **Partial success**: Some files succeed, some fail - report both with detailed status
 
 ---
 
 ## Section E: Cleanup & Results Reporting
 
-> **CLEANUP & SECURITY CRITICAL**: Memory cleanup and proper exit codes are essential for security. Every cleanup operation must be implemented with corresponding ID labels.
+> **CLEANUP CRITICAL**: All temporary files, passwords in memory, and system state must be properly cleaned up. Map every cleanup operation to code.
 
-```mermaid
-flowchart TD
-    E1[E1: Summarize processing results and calculate metrics] --> E1a[E1a: Calculate total files processed count]
-    E1a --> E1b[E1b: Count successful_operations length]
-    E1b --> E1c[E1c: Count processing_errors length]
-    E1c --> E1d[E1d: Count skipped_files length]
-    E1d --> E1e[E1e: Calculate operation duration from start_time]
-    E1e --> E1f[E1f: Create summary dict with all counts]
-    E1f --> E1g[E1g: Categorize results by operation type and format]
-    E1g --> E1h[E1h: Calculate file size changes original vs processed]
-    E1h --> E1i[E1i: Generate performance metrics files/second]
-    E1i --> E1j[E1j: Group errors by type password/format/permission]
-    E1j --> E2
+```python
+# E1: RESULTS SUMMARIZATION AND CLEANUP
+def cleanup_and_generate_final_report(processing_results: ProcessingResults) -> int:
+    """Generate final report and determine exit code"""
     
-    E2[E2: Cleanup temporary files and directories] --> E2a[E2a: Try shutil.rmtree on temp_working_dir]
-    E2a --> E2b{E2b: Cleanup successful?}
-    E2b -->|No| E2c[E2c: Log warning about cleanup failure]
-    E2b -->|Yes| E2d[E2d: Log debug message temp directory cleaned]
-    E2c --> E2e[E2e: Loop through temp_files_created list]
-    E2d --> E2e
-    E2e --> E2f[E2f: Remove individual temp files if exist]
-    E2f --> E2g[E2g: Call cleanup methods on crypto tool handlers]
-    E2g --> E2h[E2h: Verify temp directories no longer exist]
-    E2h --> E2i[E2i: Calculate disk space freed by cleanup]
-    E2i --> E2j[E2j: Log cleanup results with counts and size]
-    E2j --> E3
+    # E1a: Calculate summary statistics
+    total_files = len(processing_results.successful_files) + len(processing_results.failed_files)
+    successful_count = len(processing_results.successful_files)
+    failed_count = len(processing_results.failed_files)
     
-    E3[E3: Generate comprehensive operation report] --> E3a{E3a: All operations successful?}
-    E3a -->|Yes| E3b[E3b: Generate success report format]
-    E3a -->|No| E3c[E3c: Generate error report format]
-    E3b --> E3d[E3d: Format: FastPass Operation Complete header]
-    E3c --> E3e[E3e: Format: FastPass Operation Completed with Errors]
-    E3d --> E3f[E3f: Add operation type encrypt/decrypt]
-    E3e --> E3f
-    E3f --> E3g[E3g: Add files processed count successful/total]
-    E3g --> E3h[E3h: Add output location directory path]
-    E3h --> E3i[E3i: Add total processing time duration]
-    E3i --> E3j[E3j: List successful files with checkmark]
-    E3j --> E3k{E3k: Any failures occurred?}
-    E3k -->|Yes| E3l[E3l: List failed files with X mark and reasons]
-    E3k -->|No| E3m[E3m: Include file locations and sizes]
-    E3l --> E3m
-    E3m --> E3n[E3n: Add backup locations if failures occurred]
-    E3n --> E3o[E3o: Provide next steps or troubleshooting guidance]
-    E3o --> E4
+    # E1b: Generate report
+    generate_operation_report(processing_results, total_files, successful_count, failed_count)
     
-    E4[E4: Handle backup file retention and cleanup policy] --> E4a{E4a: All operations successful?}
-    E4a -->|Yes| E4b{E4b: Keep backups requested?}
-    E4a -->|No| E4j[E4j: Keep backups for failed operations]
-    E4b -->|No| E4c[E4c: Loop through backup_files values]
-    E4b -->|Yes| E4i[E4i: Keep all backups, inform user of location]
-    E4c --> E4d[E4d: Call unlink on each backup path]
-    E4d --> E4e[E4e: Remove backup from backup_files dict]
-    E4e --> E4f{E4f: More backups to remove?}
-    E4f -->|Yes| E4c
-    E4f -->|No| E4g[E4g: Log backup cleanup completion]
-    E4g --> E4h[E4h: Set backup retention policy 7 days auto-cleanup]
-    E4h --> E4k
-    E4i --> E4k
-    E4j --> E4k[E4k: Generate backup manifest with timestamps]
-    E4k --> E4l[E4l: Log backup status with count and location]
-    E4l --> E5
+    # E1c: Clear sensitive data from memory
+    clear_sensitive_data()
     
-    E5[E5: Clear sensitive data from memory securely] --> E5a{E5a: Passwords stored in memory?}
-    E5a -->|Yes| E5b[E5b: Loop through passwords list/dict]
-    E5a -->|No| E5f[E5f: Clear password-related data structures]
-    E5b --> E5c[E5c: Overwrite each password with X characters]
-    E5c --> E5d[E5d: Delete password variables with del]
-    E5d --> E5e{E5e: More passwords to clear?}
-    E5e -->|Yes| E5b
-    E5e -->|No| E5f
-    E5f --> E5g[E5g: Force garbage collection]
-    E5g --> E5h[E5h: Clear command-line arg references with passwords]
-    E5h --> E5i[E5i: Log security cleanup completion]
-    E5i --> E6
+    # E1d: Determine exit code
+    if failed_count == 0 and successful_count > 0:
+        return 0  # Success
+    elif failed_count > 0 and successful_count > 0:
+        return 1  # Partial success
+    elif failed_count > 0 and successful_count == 0:
+        return 1  # Complete failure
+    else:
+        return 2  # No files processed
+
+def generate_operation_report(
+    processing_results: ProcessingResults,
+    total_files: int,
+    successful_count: int, 
+    failed_count: int,
+    report_format: str = 'text'
+) -> None:
+    """E2: Generate comprehensive operation report in specified format"""
     
-    E6[E6: Determine appropriate exit code based on results] --> E6a[E6a: Check processing_errors list length]
-    E6a --> E6b[E6b: Check successful_operations list length]
-    E6b --> E6c{E6c: Zero errors and >0 successful?}
-    E6c -->|Yes| E6d[E6d: Set exit_code = 0]
-    E6c -->|No| E6e{E6e: Processing errors occurred?}
-    E6d --> E6l[E6l: Set exit_reason = All operations successful]
-    E6e -->|Yes| E6f[E6f: Set exit_code = 1]
-    E6e -->|No| E6g{E6g: Security violations occurred?}
-    E6f --> E6m[E6m: Set exit_reason = Processing failures]
-    E6g -->|Yes| E6h[E6h: Set exit_code = 3]
-    E6g -->|No| E6i{E6i: Authentication errors occurred?}
-    E6h --> E6n[E6n: Set exit_reason = Security violations]
-    E6i -->|Yes| E6j[E6j: Set exit_code = 4]
-    E6i -->|No| E6k[E6k: Set exit_code = 2]
-    E6j --> E6o[E6o: Set exit_reason = Authentication failures]
-    E6k --> E6p[E6p: Set exit_reason = Invalid arguments]
-    E6l --> E7
-    E6m --> E7
-    E6n --> E7
-    E6o --> E7
-    E6p --> E7
+    if report_format == 'json':
+        generate_json_report(processing_results, total_files, successful_count, failed_count)
+    elif report_format == 'csv':
+        generate_csv_report(processing_results, total_files, successful_count, failed_count)
+    else:  # text format (default)
+        generate_text_report(processing_results, total_files, successful_count, failed_count)
+
+def generate_text_report(
+    processing_results: ProcessingResults,
+    total_files: int,
+    successful_count: int,
+    failed_count: int
+) -> None:
+    """Generate human-readable text report"""
     
-    E7[E7: Evaluate overall operation success and branch] --> E7a{E7a: exit_code == 0?}
-    E7a -->|Yes| E7b[E7b: Log info: Operation completed successfully]
-    E7a -->|No| E7c[E7c: Log error: Operation completed with errors]
-    E7b --> E7d[E7d: Console output: checkmark All files processed successfully]
-    E7c --> E7e[E7e: Console output: warning Operation completed with N errors]
-    E7d --> E8
-    E7e --> E9
+    print("\n" + "="*50)
+    print("FastPass Operation Complete")
+    print("="*50)
     
-    E8[E8: Handle successful exit with positive messaging] --> E8a[E8a: Display success message with summary stats]
-    E8a --> E8b[E8b: Show output file locations and paths]
-    E8b --> E8c{E8c: Generated passwords used?}
-    E8c -->|Yes| E8d[E8d: Display generated passwords securely]
-    E8c -->|No| E8e[E8e: Provide usage tips or next steps]
-    E8d --> E8e
-    E8e --> E8f[E8f: Final log entry: FastPass completed successfully]
-    E8f --> E8g[E8g: sys.exit 0]
+    # E2a: Summary statistics
+    print(f"Total files processed: {total_files}")
+    print(f"Successful: {successful_count}")
+    print(f"Failed: {failed_count}")
     
-    E9[E9: Handle error exit with troubleshooting guidance] --> E9a[E9a: Display error summary with specific failure details]
-    E9a --> E9b[E9b: Show troubleshooting guidance based on error types]
-    E9b --> E9c[E9c: Indicate backup file locations for recovery]
-    E9c --> E9d[E9d: Suggest command corrections if applicable]
-    E9d --> E9e[E9e: Final log entry: FastPass completed with errors code]
-    E9e --> E9f[E9f: sys.exit with exit_code]
+    # E2b: List successful files
+    if processing_results.successful_files:
+        print(f"\n✓ Successful files:")
+        for result in processing_results.successful_files:
+            size_change = result.file_size_after - result.file_size_before
+            size_indicator = f"({size_change:+d} bytes)" if size_change != 0 else ""
+            print(f"  • {result.original_path.name} → {result.final_path.name} {size_indicator}")
     
-    classDef processBox fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
-    classDef subProcess fill:#f3e5f5,stroke:#9c27b0,stroke-width:1px
-    classDef decisionBox fill:#fff3e0,stroke:#ff9800,stroke-width:2px
-    classDef exitBox fill:#ffebee,stroke:#f44336,stroke-width:2px
-    classDef successBox fill:#e3f2fd,stroke:#2196f3,stroke-width:2px
-    classDef securityBox fill:#fce4ec,stroke:#e91e63,stroke-width:2px
+    # E2c: List failed files
+    if processing_results.failed_files:
+        print(f"\n✗ Failed files:")
+        for error in processing_results.failed_files:
+            print(f"  • {error.file_path.name}: {error.error_message}")
     
-    class E1,E2,E3,E4,E6,E7 processBox
-    class E1a,E1b,E1c,E1d,E1e,E1f,E1g,E1h,E1i,E1j,E2a,E2c,E2d,E2e,E2f,E2g,E2h,E2i,E2j,E3d,E3e,E3f,E3g,E3h,E3i,E3j,E3l,E3m,E3n,E3o,E4c,E4d,E4e,E4g,E4h,E4i,E4j,E4k,E4l,E5b,E5c,E5d,E5f,E5g,E5h,E5i,E6a,E6b,E6d,E6f,E6h,E6j,E6k,E6l,E6m,E6n,E6o,E6p,E7b,E7c,E7d,E7e,E8a,E8b,E8d,E8e,E8f,E9a,E9b,E9c,E9d,E9e subProcess
-    class E2b,E3a,E3k,E4a,E4b,E4f,E5a,E5e,E6c,E6e,E6g,E6i,E7a,E8c decisionBox
-    class E8g,E9f exitBox
-    class E8 successBox
-    class E5 securityBox
+    # E2d: Next steps
+    if failed_count > 0:
+        print(f"\nTroubleshooting:")
+        print("- Verify passwords are correct")
+        print("- Check file permissions")
+        print("- Ensure files are not corrupted")
+
+def generate_json_report(
+    processing_results: ProcessingResults,
+    total_files: int,
+    successful_count: int,
+    failed_count: int
+) -> None:
+    """Generate machine-readable JSON report"""
+    import json
+    from datetime import datetime
+    
+    report = {
+        "timestamp": datetime.now().isoformat(),
+        "summary": {
+            "total_files": total_files,
+            "successful": successful_count,
+            "failed": failed_count,
+            "success_rate": successful_count / total_files if total_files > 0 else 0
+        },
+        "successful_files": [
+            {
+                "original_path": str(result.original_path),
+                "final_path": str(result.final_path),
+                "operation": result.operation,
+                "file_size_before": result.file_size_before,
+                "file_size_after": result.file_size_after,
+                "size_change": result.file_size_after - result.file_size_before
+            }
+            for result in processing_results.successful_files
+        ],
+        "failed_files": [
+            {
+                "file_path": str(error.file_path),
+                "error_message": error.error_message,
+                "error_type": error.error_type
+            }
+            for error in processing_results.failed_files
+        ]
+    }
+    
+    print(json.dumps(report, indent=2))
+
+def generate_csv_report(
+    processing_results: ProcessingResults,
+    total_files: int,
+    successful_count: int,
+    failed_count: int
+) -> None:
+    """Generate CSV format report"""
+    import csv
+    import sys
+    
+    writer = csv.writer(sys.stdout)
+    
+    # Write header
+    writer.writerow(['file_path', 'status', 'operation', 'size_before', 'size_after', 'error_message'])
+    
+    # Write successful files
+    for result in processing_results.successful_files:
+        writer.writerow([
+            str(result.original_path),
+            'success',
+            result.operation,
+            result.file_size_before,
+            result.file_size_after,
+            ''
+        ])
+    
+    # Write failed files
+    for error in processing_results.failed_files:
+        writer.writerow([
+            str(error.file_path),
+            'failed',
+            '',
+            '',
+            '',
+            error.error_message
+        ])
+
+def clear_sensitive_data() -> None:
+    """E3: Clear passwords and sensitive data from memory"""
+    import gc
+    
+    # E3a: This would be implemented to overwrite password variables
+    # In practice, Python doesn't provide direct memory overwriting
+    # but we can delete variables and force garbage collection
+    
+    # Clear any global password variables
+    globals_to_clear = [k for k in globals().keys() if 'password' in k.lower()]
+    for var_name in globals_to_clear:
+        if var_name in globals():
+            del globals()[var_name]
+    
+    # Force garbage collection
+    gc.collect()
+
+def cleanup_temporary_directory(temp_dir: Path) -> None:
+    """E4: Secure cleanup with retry logic and secure file deletion"""
+    import shutil
+    import time
+    import os
+    
+    if not temp_dir.exists():
+        return
+    
+    # E4a: Multiple cleanup attempts with exponential backoff
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        try:
+            # E4b: Secure deletion of sensitive files (attempt to overwrite)
+            for file_path in temp_dir.rglob('*'):
+                if file_path.is_file():
+                    try:
+                        file_size = file_path.stat().st_size
+                        # Only attempt secure deletion for reasonably sized files
+                        if 0 < file_size < 10 * 1024 * 1024:  # < 10MB
+                            with open(file_path, 'r+b') as f:
+                                f.write(b'\x00' * file_size)
+                                f.flush()
+                                os.fsync(f.fileno())
+                    except Exception:
+                        # Secure deletion failed, continue with normal deletion
+                        pass
+            
+            # E4c: Remove entire directory tree
+            shutil.rmtree(temp_dir)
+            return  # Success - exit retry loop
+            
+        except (PermissionError, OSError) as e:
+            if attempt < max_attempts - 1:
+                # Exponential backoff for retry
+                time.sleep(0.1 * (2 ** attempt))
+                continue
+            else:
+                print(f"Warning: Could not clean up temp directory {temp_dir}: {e}")
+                break
 ```
 
 **What's Actually Happening:**
-- **E1: Operation Results Summarization**
-  - Calculate success metrics:
-    ```python
-    summary = {
-        'total_files': len(self.file_manifest),
-        'successful': len(self.successful_operations),
-        'failed': len(self.processing_errors),
-        'skipped': len(self.skipped_files),
-        'operation_duration': (datetime.now() - self.operation_start_time).total_seconds()
-    }
-    ```
-  - Categorize results by operation type and file format
-  - Track file size changes: compare original vs processed file sizes
-  - Generate performance metrics: files per second, average processing time
-  - Error categorization: group errors by type (password, format, permission, etc.)
+- **E1: Operation Summary & Statistics Calculation**
+  - Count files: `total_files = len(self.processing_results)`
+  - Success rate: `successful_files = len([r for r in results if r.status == 'success'])`
+  - Failure breakdown: categorize failures by type (password, permission, corruption, tool failure)
+  - Processing time: `total_time = datetime.now() - self.operation_start_time`
+  - Performance stats: files per second, total bytes processed, average file size
 
-- **E2: Temporary File & Directory Cleanup**
-  - Clean up temp working directory:
-    ```python
-    try:
-        shutil.rmtree(self.temp_working_dir)
-        self.log_debug(f"Cleaned up temp directory: {self.temp_working_dir}")
-    except Exception as e:
-        self.log_warning(f"Failed to cleanup temp directory: {e}")
+- **E2: Comprehensive Results Report Generation**
+  - **Header section**: FastPass version, operation mode, timestamp
+  - **Summary statistics**: Total files, success count, failure count, processing time
+  - **Successful files list**: 
     ```
-  - Remove individual temp files tracked: `for temp_file in self.temp_files_created:`
-  - Clear crypto tool temporary files: call cleanup methods on handlers
-  - Verify cleanup completion: check that temp directories no longer exist
-  - Free disk space calculation: measure space freed by cleanup
-  - Log cleanup results: "Cleanup completed: {count} files removed, {size}MB freed"
+    ✓ Successful files:
+      • document1.docx → document1.docx (encrypted, +1,247 bytes)
+      • report.pdf → secured/report.pdf (decrypted, -892 bytes)
+      • data.xlsx → data.xlsx (encrypted, +2,156 bytes)
+    ```
+  - **Failed files list**: 
+    ```
+    ✗ Failed files:
+      • protected.pdf: Wrong password
+      • corrupt.docx: File format error
+      • readonly.xlsx: Permission denied
+    ```
+  - **Troubleshooting section**: If failures occurred, provide specific guidance based on failure types
 
-- **E3: Operation Report Generation**
-  - **Success Report**:
-    ```
-    FastPass Operation Complete
-    ===========================
-    Operation: encrypt
-    Files processed: 5/5 successful
-    Output location: ./encrypted/
-    Total time: 23.4 seconds
-    
-    Files:
-      ✓ document.docx → document_encrypted.docx
-      ✓ spreadsheet.xlsx → spreadsheet_encrypted.xlsx
-      ✓ presentation.pptx → presentation_encrypted.pptx
-    ```
-  - **Error Report**:
-    ```
-    FastPass Operation Completed with Errors
-    ========================================
-    Files processed: 2/5 successful, 3 failed
-    
-    Successful:
-      ✓ document.docx
-      ✓ spreadsheet.xlsx
-    
-    Failed:
-      ✗ protected.pdf - Wrong password
-      ✗ corrupt.docx - File format error
-      ✗ readonly.xlsx - Permission denied
-    ```
-  - Include file locations, sizes, processing times
-  - Show backup locations if failures occurred
-  - Provide next steps or troubleshooting guidance
+- **E3: Sensitive Data Memory Cleanup**
+  - **Password variables**: Explicitly delete all password variables from memory
+  - **Command line args**: Clear args.passwords, args.password_list contents  
+  - **Processing state**: Clear password_manager.password_pool and password_reuse_cache
+  - **Garbage collection**: Force `gc.collect()` to ensure memory cleanup
+  - **Note**: Python doesn't guarantee memory overwriting, but this is best effort cleanup
 
-- **E4: Backup File Management**
-  - **Success case**: Remove backups if processing successful and not requested to keep
-    ```python
-    if not args.keep_backups and all_operations_successful:
-        for backup_path in self.backup_files.values():
-            backup_path['backup_path'].unlink()
-    ```
-  - **Failure case**: Keep backups and inform user of location
-  - **Partial success**: Keep backups only for failed operations
-  - Backup retention policy: auto-cleanup after 7 days unless `--keep-backups` specified
-  - Generate backup manifest: list of all backups created with timestamps
-  - Log backup status: "Backups retained: {count} files in {location}"
+- **E4: Temporary File & Directory Cleanup**
+  - **Temp directory removal**: `shutil.rmtree(temp_dir)` for each temp directory created
+  - **Backup cleanup**: Remove backup files if processing fully successful and not requested to keep
+  - **Intermediate files**: Clean up any partial processing files left behind
+  - **Lock files**: Remove any file locks or temp markers created during processing
+  - **Error handling**: Log warnings for cleanup failures but don't fail the operation
 
-- **E5: Sensitive Data Memory Cleanup**
-  - Clear password variables:
-    ```python
-    if hasattr(self, 'passwords'):
-        for pwd in self.passwords:
-            # Overwrite memory (Python limitation, best effort)
-            pwd = 'X' * len(pwd)
-        del self.passwords
-    ```
-  - Clear password-related data structures
-  - Force garbage collection: `import gc; gc.collect()`
-  - Clear command-line argument references that might contain passwords
-  - Log security cleanup: "Sensitive data cleared from memory"
+- **E5: Final Exit Code Determination**
+  - **Exit Code 0**: All files processed successfully, no errors
+  - **Exit Code 1**: Some files failed, some succeeded (partial success)
+  - **Exit Code 2**: All files failed to process, or no files processed
+  - **Exit Code 3**: Security violation detected, operation aborted
+  - **Exit Code 4**: Authentication failure (wrong passwords for all files)
 
-- **E6: Exit Code Determination**
-  - **Exit Code 0**: All operations successful, no errors
-    ```python
-    if len(self.processing_errors) == 0 and len(self.successful_operations) > 0:
-        return 0
-    ```
-  - **Exit Code 1**: Processing errors (file access, crypto tool failures, wrong passwords)
-  - **Exit Code 2**: Invalid command-line arguments or usage errors  
-  - **Exit Code 3**: Security violations (path traversal, format validation failures)
-  - **Exit Code 4**: Authentication errors (wrong passwords, access denied)
-  - Mixed results: return non-zero if any failures occurred
-  - Store exit reason: `self.exit_reason = "3 files failed processing"`
-
-- **E7: Success/Failure Branch Logic**
-  - Evaluate overall operation success:
-    ```python
-    if self.exit_code == 0:
-        self.log_info("Operation completed successfully")
-        self.console_output("✓ All files processed successfully")
-    else:
-        self.log_error(f"Operation completed with errors: {self.exit_reason}")
-        self.console_output(f"⚠ Operation completed with {len(self.processing_errors)} errors")
-    ```
-
-- **E8: Successful Exit Handling**
-  - Display success message with summary
-  - Show output file locations
-  - Display any generated passwords (if --generate-password used)
-  - Provide usage tips or next steps
-  - Final log entry: "FastPass completed successfully - exiting with code 0"
-  - Clean exit: `sys.exit(0)`
-
-- **E9: Error Exit Handling**
-  - Display error summary with specific failure details
-  - Show troubleshooting guidance based on error types
-  - Indicate backup file locations for recovery
-  - Suggest command corrections if applicable
-  - Final log entry: "FastPass completed with errors - exiting with code {self.exit_code}"
-  - Error exit: `sys.exit(self.exit_code)`
+- **E6: Operation State Reset**
+  - Clear processing queues: `self.processing_queue = []`
+  - Reset file manifests: `self.file_manifest = []`
+  - Clear handler references: `self.crypto_handlers = {}`
+  - Reset application state: `self.ready_for_processing = False`
+  - Final log entry: `logger.info(f"FastPass operation completed in {total_time} with {successful_count}/{total_files} files successful")`
 
 ---
 
-## Implementation Guidance & Code Organization
+## Implementation Status & Next Steps
 
-### **Code-to-Diagram Mapping Protocol**
+### Current Development Phase
+- **Phase**: Architecture specification complete
+- **Status**: Ready for implementation
+- **Next Priority**: Begin implementation of Section A (CLI Parsing & Initialization)
 
-When implementing FastPass, **every function, method, and significant code block MUST be labeled with its corresponding diagram element ID**. This ensures complete traceability between design and implementation.
+### Implementation Order
+1. **Section A**: CLI parsing and basic application structure
+2. **Section B**: Security validation and file format detection  
+3. **Section C**: Crypto tool integration and handler classes
+4. **Section D**: File processing pipeline with error handling
+5. **Section E**: Cleanup, reporting, and finalization
 
-**Example Implementation Pattern:**
+### Key Implementation Notes
+- Each code section must be labeled with exact IDs from this specification (e.g., `# A1a`, `# B3c`)
+- All error handling must follow the patterns defined in the pseudocode
+- Security validations are mandatory and cannot be simplified or skipped
+- Password handling must implement the complete priority system as specified
+- File processing must use the secure temporary directory approach
+
+### Comprehensive Testing Strategy
+
+#### Unit Testing Framework
+- **Framework**: pytest with coverage reporting (pytest-cov)
+- **Test Structure**: Mirror source code structure in tests/ directory
+- **Coverage Target**: Minimum 85% code coverage for all modules
+- **Mocking**: Use unittest.mock for external dependencies and file system operations
+
+#### Test Categories
+
+**1. Security Testing (Critical Priority)**
 ```python
-# A1a: Import sys, argparse, pathlib
-import sys
-import argparse
-from pathlib import Path
+# tests/test_security.py
+class TestPathTraversalSecurity:
+    def test_reject_parent_directory_traversal(self):
+        """Test rejection of '../' path traversal attempts"""
+    
+    def test_reject_absolute_paths_outside_allowed(self):
+        """Test rejection of paths outside user home/current directory"""
+    
+    def test_symlink_resolution_security(self):
+        """Test proper handling of symbolic links"""
+    
+    def test_windows_path_traversal_patterns(self):
+        """Test Windows-specific path traversal patterns"""
+    
+    def test_url_encoded_path_injection(self):
+        """Test rejection of URL-encoded traversal attempts"""
 
-# A1b: Create ArgumentParser with description
-def create_argument_parser():
-    parser = argparse.ArgumentParser(
-        description="FastPass: Universal file encryption/decryption tool"
-    )
+class TestPasswordSecurity:
+    def test_password_memory_clearing(self):
+        """Test password variables are cleared from memory"""
     
-    # A1c: Add positional encrypt/decrypt argument
-    parser.add_argument(
-        'operation', 
-        choices=['encrypt', 'decrypt'],
-        help='Operation mode: add or remove password protection'
-    )
+    def test_password_not_logged(self):
+        """Test passwords never appear in log outputs"""
     
-    # A1d: Add -f/--file argument with action=append
-    parser.add_argument(
-        '-f', '--file',
-        action='append',
-        required=True,
-        help='Path to file to encrypt/decrypt (can be repeated for batch)'
-    )
+    def test_error_message_sanitization(self):
+        """Test sensitive data removed from error messages"""
+
+class TestFileFormatSecurity:
+    def test_magic_number_validation(self):
+        """Test file format detection via magic numbers"""
     
-    return parser
+    def test_malicious_file_rejection(self):
+        """Test rejection of files with mismatched extensions"""
+    
+    def test_large_file_rejection(self):
+        """Test rejection of files exceeding size limits"""
 ```
 
-### **Security Implementation Requirements**
+**2. Crypto Handler Testing**
+```python
+# tests/test_crypto_handlers.py
+class TestOfficeDocumentHandler:
+    def test_encrypt_docx_file(self):
+        """Test DOCX encryption with valid password"""
+    
+    def test_decrypt_protected_xlsx(self):
+        """Test XLSX decryption with correct password"""
+    
+    def test_wrong_password_handling(self):
+        """Test graceful handling of incorrect passwords"""
+    
+    def test_corrupted_file_detection(self):
+        """Test detection and handling of corrupted Office files"""
 
-Following the FastRedline precedent project patterns:
+class TestPDFHandler:
+    def test_pdf_encryption_standard(self):
+        """Test PDF encryption with standard security"""
+    
+    def test_pdf_decryption_validation(self):
+        """Test PDF decryption and integrity validation"""
+    
+    def test_pdf_permission_handling(self):
+        """Test handling of PDF permission restrictions"""
+```
 
-1. **File Isolation**: All operations use secure temporary directories with 0o700 permissions
-2. **Automatic Backups**: Every file modification creates timestamped backups before processing
-3. **Magic Number Validation**: File format verification prevents spoofing attacks
-4. **Path Traversal Prevention**: Strict path validation blocks directory escape attempts
-5. **Error Message Sanitization**: All error messages filtered to prevent information disclosure
-6. **Memory Security**: Passwords cleared from memory after use with overwrite and garbage collection
+**3. Integration Testing**
+```python
+# tests/test_integration.py
+class TestEndToEndWorkflows:
+    def test_full_encryption_workflow(self):
+        """Test complete file encryption from CLI to output"""
+    
+    def test_batch_processing_mixed_formats(self):
+        """Test processing multiple file types in single operation"""
+    
+    def test_recursive_directory_processing(self):
+        """Test recursive directory processing with filters"""
+    
+    def test_error_recovery_and_cleanup(self):
+        """Test system recovery from processing errors"""
 
-### **Crypto Tool Integration Architecture**
+class TestPasswordManagement:
+    def test_password_priority_system(self):
+        """Test CLI > list file > reuse priority order"""
+    
+    def test_password_reuse_across_files(self):
+        """Test automatic password reuse functionality"""
+    
+    def test_stdin_json_password_input(self):
+        """Test JSON password input via stdin"""
+```
 
-**msoffcrypto-tool Integration:**
-- Office documents (.docx, .xlsx, .pptx, .doc, .xls, .ppt)
-- Uses `msoffcrypto.OfficeFile` for encryption/decryption operations
-- Supports both legacy and modern Office formats
+**4. Error Handling Testing**
+```python
+# tests/test_error_handling.py
+class TestErrorScenarios:
+    def test_missing_file_handling(self):
+        """Test graceful handling of missing input files"""
+    
+    def test_permission_denied_scenarios(self):
+        """Test handling of read/write permission failures"""
+    
+    def test_disk_space_exhaustion(self):
+        """Test behavior when disk space runs out during processing"""
+    
+    def test_crypto_tool_unavailable(self):
+        """Test fallback when required crypto tools missing"""
+    
+    def test_partial_processing_cleanup(self):
+        """Test cleanup of partially processed files on failure"""
+```
 
-**PDF Processing Integration:**
-- Prioritizes `pikepdf` library for superior AES-256 encryption
-- Falls back to `PyPDF2` if pikepdf unavailable
-- Handles both user and owner password scenarios
+**5. Performance Testing**
+```python
+# tests/test_performance.py
+class TestPerformanceBenchmarks:
+    def test_large_file_processing_time(self):
+        """Test processing time for files up to size limit"""
+    
+    def test_batch_processing_scalability(self):
+        """Test performance with increasing number of files"""
+    
+    def test_memory_usage_monitoring(self):
+        """Test memory usage stays within reasonable bounds"""
+```
 
-**7zip CLI Integration:**
-- ZIP and 7z archive password protection
-- Subprocess execution with proper error handling
-- AES-256 encryption with configurable compression levels
+#### Test Data Management
+- **Test Fixtures**: Create representative Office/PDF files for testing
+- **Encrypted Samples**: Pre-encrypted files with known passwords
+- **Malicious Samples**: Files designed to test security vulnerabilities
+- **Large Files**: Test files of various sizes up to the limit
+- **Corrupted Files**: Intentionally corrupted files for error testing
 
-### **Error Handling & Exit Code Strategy**
+#### Continuous Integration
+- **GitHub Actions**: Run tests on multiple Python versions (3.8+)
+- **Platform Testing**: Test on Windows, macOS, and Linux
+- **Security Scanning**: Integrate SAST tools (bandit, safety)
+- **Coverage Reporting**: Automated coverage reports and enforcement
 
-- **Exit Code 0**: All operations successful, no errors
-- **Exit Code 1**: Processing errors (file access, crypto tool failures)
-- **Exit Code 2**: Invalid command-line arguments or usage errors
-- **Exit Code 3**: Security violations (path traversal, format validation failures)
-- **Exit Code 4**: Authentication errors (wrong passwords, access denied)
+#### Manual Testing Checklist
+- **User Acceptance Testing**: Manual testing of CLI workflows
+- **Cross-Platform Testing**: Verify behavior across operating systems
+- **Edge Cases**: Manual testing of unusual file combinations
+- **Documentation Validation**: Ensure examples in docs actually work
 
-### **Development Priorities**
+#### Test Execution Commands
+```bash
+# Run all tests with coverage
+pytest tests/ --cov=src --cov-report=html --cov-report=term
 
-1. **Phase 1**: Implement CLI parsing and validation (Section A)
-2. **Phase 2**: Build security validation framework (Section B)
-3. **Phase 3**: Integrate crypto tool handlers (Section C)
-4. **Phase 4**: Implement file processing pipeline (Section D)
-5. **Phase 5**: Add cleanup and reporting (Section E)
+# Run only security tests
+pytest tests/test_security.py -v
 
-### **Testing Strategy**
+# Run performance benchmarks
+pytest tests/test_performance.py --benchmark-only
 
-Each diagram element should have corresponding unit tests:
-- **Security tests**: Path traversal, magic number validation, error sanitization
-- **Integration tests**: Each crypto tool with various file formats
-- **Error handling tests**: Wrong passwords, missing tools, corrupt files
-- **Performance tests**: Large files, batch operations, memory usage
+# Run integration tests
+pytest tests/test_integration.py -v
+```
 
-This specification provides complete implementation guidance with every line of code traceable to specific design decisions and security requirements.
+### Implementation Quality Gates
+
+**Phase 1 - Security Foundation (Must Pass)**
+- All security tests pass (path traversal, file validation, password handling)
+- Error message sanitization verified
+- Temporary file cleanup confirmed
+
+**Phase 2 - Core Functionality (Must Pass)**  
+- All crypto handler tests pass
+- File processing pipeline tests pass
+- Configuration management tests pass
+
+**Phase 3 - Integration & Performance (Must Pass)**
+- End-to-end workflow tests pass
+- Performance benchmarks meet targets
+- Error recovery tests pass
+
+**Phase 4 - Production Readiness (Must Pass)**
+- 85%+ code coverage achieved
+- All manual test scenarios pass
+- Documentation examples verified
+
+---
+
+This specification serves as the complete blueprint for FastPass implementation. All code must conform to this architecture, implement the exact pseudocode patterns shown above, and pass the comprehensive testing strategy before deployment.

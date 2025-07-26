@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FastPass - Complete Code-Level Implementation Flowchart</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+        .legend {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #f57c00;
+        }
+        .legend h3 {
+            margin-top: 0;
+            color: #f57c00;
+        }
+        .legend ul {
+            margin: 10px 0;
+            list-style-type: none;
+            padding: 0;
+        }
+        .legend li {
+            padding: 5px 0;
+            border-left: 3px solid transparent;
+            padding-left: 10px;
+        }
+        .legend .business-logic { border-left-color: #f57c00; background-color: #fff8e1; }
+        .legend .security { border-left-color: #e91e63; background-color: #fce4ec; }
+        .legend .process { border-left-color: #4caf50; background-color: #e8f5e8; }
+        .legend .decision { border-left-color: #ff9800; background-color: #fff3e0; }
+        .mermaid {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 20px;
+            overflow: auto;
+            text-align: center;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            background-color: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #005a85;
+        }
+        .zoom-info {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>FastPass - Complete Code-Level Implementation Flowchart</h1>
+        <div class="subtitle">Every code block, edge case, and implementation detail mapped to flowchart elements</div>
+        
+        <div class="legend">
+            <h3>🎯 Legend: Every Code Block Represented</h3>
+            <ul>
+                <li class="business-logic"><strong>Business Logic (Orange):</strong> Password handling, crypto operations, temp files</li>
+                <li class="security">Security Operations (Pink): Path validation, access control, sanitization</li>
+                <li class="process">Standard Processing (Green): I/O, parsing, validation, cleanup</li>
+                <li class="decision">Decision Points (Orange): All branching logic and conditionals</li>
+            </ul>
+            <p><strong>Note:</strong> Each box represents a specific code block that will be labeled in the final implementation.</p>
+        </div>
+        
+        <div class="controls">
+            <button onclick="zoomIn()">🔍 Zoom In</button>
+            <button onclick="zoomOut()">🔍 Zoom Out</button>
+            <button onclick="resetZoom()">↻ Reset Zoom</button>
+            <button onclick="downloadSVG()">💾 Download SVG</button>
+            <button onclick="printChart()">🖨️ Print</button>
+        </div>
+        
+        <div class="zoom-info">
+            💡 Use Ctrl+Scroll to zoom. Each box maps to specific code blocks that will be labeled in implementation.
+        </div>
+        
+        <div class="mermaid" id="diagram">
+flowchart TD
+    %% PROGRAM ENTRY POINT
+    Start(["Program Startup<br/>FastPass application begins execution<br/>System checks if run directly (not imported)"]) --> Main
+    
+    %% MAIN FUNCTION EXCEPTION WRAPPER
+    Main["Main Control Center<br/>Sets up error handling for entire program<br/>Prepares to read user's command-line instructions"] --> A1a
+    
+    %% SECTION A: DETAILED CLI PARSING
+    A1a["A1a: Load System Tools<br/>Gather required system utilities<br/>Command-line parsing, file handling, and type checking tools"] --> A1b
+    
+    A1b["A1b: Initialize Command Reader<br/>Create a system to understand user commands<br/>Set up FastPass name and help description"] --> A1c
+    
+    A1c["A1c: Define Main Operation Choice<br/>User must choose either encrypt OR decrypt<br/>Cannot do both operations simultaneously"] --> A1d
+    
+    A1d["A1d: Set Up File Input Options with Glob Support<br/>Accept individual files, glob patterns, or entire folder processing<br/>Handle quoted patterns like '*.docx' to prevent shell expansion"] --> A1e
+    
+    A1e["A1e: Configure Password Options with TTY Detection<br/>Accept passwords from CLI, password file, or JSON stdin<br/>Support TTY detection for secure password input"] --> A1f
+    
+    A1f["A1f: Set Output Location Options<br/>Choose where processed files should be saved<br/>Default: replace original files in same location"] --> A1g
+    
+    A1g["A1g: Add Helper Features with Enhanced Logging<br/>Test mode, file verification, format listing<br/>Debug mode, file logging, report formats (text/JSON/CSV)"] --> A1h
+    
+    A1h["A1h: Read User's Commands<br/>Process the command-line instructions user provided<br/>Handle cases where user asks for help or makes errors"] --> A1hCheck
+    
+    A1hCheck{"A1h_Check: Command Processing Result?<br/>Did user provide valid commands or ask for help?<br/>Handle different outcomes appropriately"}
+    A1hCheck -->|"Invalid commands"| A1hError["A1h_Error: Invalid User Input<br/>Show error message explaining what went wrong<br/>Exit program with error status"]
+    A1hCheck -->|"Help requested"| A1hHelp["A1h_Help: Show Help Information<br/>Display usage instructions or version info<br/>Exit normally after showing requested information"]
+    A1hCheck -->|"No exception"| A1i
+    
+    A1i["A1i: Handle Information Requests<br/>Check if user wants to see supported file formats<br/>Show list and exit if that's all they wanted"] --> A1iCheck
+    
+    A1iCheck{"A1i_Check: Information Request Mode?<br/>Did user ask to see supported formats only?<br/>Or do they want to actually process files?"}
+    A1iCheck -->|"Show formats requested"| A1iList["A1i_List: Show Supported File Types<br/>Display list of file formats FastPass can handle<br/>(.docx, .xlsx, .pptx, .pdf, etc.)"]
+    A1iCheck -->|"Normal operation"| A2a
+    
+    %% ARGUMENT VALIDATION WITH GLOB PROCESSING
+    A2a["A2a: Check Input Requirements<br/>User must specify either files or folder to process<br/>Cannot proceed without something to work on"] --> A2aCheck
+    
+    A2aCheck{"A2a_Check: Valid Input Method Provided?<br/>User must choose files OR folder processing<br/>Both options together would be confusing"}
+    A2aCheck -->|"No input specified"| A2aError["A2a_Error: Nothing to Process<br/>Tell user they must specify files or use folder mode<br/>Exit with helpful error message"]
+    A2aCheck -->|"Conflicting options"| A2aBothError["A2a_Both_Error: Conflicting Instructions<br/>User specified both individual files AND folder processing<br/>Exit with clarification about choosing one method"]
+    A2aCheck -->|"Valid specification"| A2b
+    
+    A2b["A2b: Process Glob Patterns and Prepare Paths<br/>Expand glob patterns like '*.docx' before shell processing<br/>Handle shortcuts like ~ for home directory"] --> A2bGlob
+    
+    A2bGlob["A2b_Glob: Expand Glob Patterns<br/>Use glob.glob() to expand patterns like '*.pdf'<br/>Validate that patterns match at least one file"] --> A2bLoop
+    
+    A2bLoop["A2b_Loop: Process Each Expanded File Path<br/>Go through expanded file list from glob processing<br/>Handle each file path one at a time"] --> A2bExpand
+    
+    A2bExpand["A2b_Expand: Convert Path to Full Address<br/>Transform user shortcuts into complete file locations<br/>Resolve any symbolic links to actual files"] --> A2bCheck
+    
+    A2bCheck{"A2b_Check: Valid File Path?<br/>Can the system find and access this file location?<br/>Handle cases where paths don't exist or are invalid"}
+    A2bCheck -->|"Path invalid"| A2bPathError["A2b_Path_Error: File Path Problem<br/>Record which file path couldn't be found<br/>Save error details for final error report"]
+    A2bCheck -->|"Path resolved successfully"| A2bNext
+    
+    A2bNext{"A2b_Next: More Files in List?<br/>Are there additional files to check?<br/>Continue with next file or move to next step"}
+    A2bNext -->|"More files remaining"| A2bLoop
+    A2bNext -->|"All files processed"| A2c
+    
+    A2c["A2c: Verify Folder for Batch Processing<br/>If user chose folder mode, check the folder exists<br/>Ensure program can read files from that folder"] --> A2cCheck
+    
+    A2cCheck{"A2c_Check: Folder Accessible?<br/>Is the specified path actually a folder?<br/>Does the program have permission to read it?"}
+    A2cCheck -->|"Not a folder"| A2cDirError["A2c_Dir_Error: Path Is Not a Folder<br/>User specified something that's not a folder<br/>Exit with explanation of the problem"]
+    A2cCheck -->|"Access denied"| A2cAccessError["A2c_Access_Error: Folder Permission Problem<br/>Program doesn't have permission to read folder contents<br/>Exit with permission error explanation"]
+    A2cCheck -->|"Valid directory"| A2d
+    
+    A2d["A2d: Check Output Destination<br/>If user specified where to save processed files<br/>Verify the output location is valid and writable"] --> A2dCheck
+    
+    A2dCheck{"A2d_Check: Output Location Usable?<br/>Can files be saved to the specified location?<br/>Is it a valid folder or can one be created?"}
+    A2dCheck -->|"Location exists but wrong type"| A2dTypeError["A2d_Type_Error: Output Path Is File, Not Folder<br/>User specified a file name where folder is needed<br/>Exit with explanation of the problem"]
+    A2dCheck -->|"Cannot create folder"| A2dCreateError["A2d_Create_Error: Unable to Create Output Folder<br/>System won't allow creation of new folder<br/>Exit with permission or disk space error"]
+    A2dCheck -->|"Valid output path"| A2e
+    
+    A2e["A2e: Remember User's Main Choice<br/>Store whether user wants to add or remove passwords<br/>This choice affects all file processing operations"] --> A3a
+    
+    %% ENHANCED LOGGING SETUP WITH TTY DETECTION
+    A3a["A3a: Configure Console and File Logging<br/>Detect TTY for appropriate log formatting<br/>Set up both console and optional file logging"] --> A3b
+    
+    A3b["A3b: Set Up TTY-Aware Progress Tracking<br/>TTY: Full timestamp format for console display<br/>Non-TTY: Simple format for file redirection"] --> A3c
+    
+    A3c["A3c: Initialize Multi-Handler Logger<br/>Create console handler with TTY-specific formatting<br/>Add file handler if --log-file specified"] --> A3d
+    
+    A3d["A3d: Handle Stdin Password Input<br/>Check for 'stdin' in CLI passwords<br/>Parse JSON password mapping from stdin if specified"] --> A3e
+    
+    A3e["A3e: Record Program Startup with Config<br/>Log FastPass startup with configuration sources<br/>Record version, operation, and active config settings"] --> A4a
+    
+    %% CRYPTO TOOL DETECTION
+    A4a["A4a: Load Encryption Tool Support<br/>Import libraries needed to work with different file types<br/>Office documents and PDF handling capabilities"] --> A4b
+    
+    A4b["A4b: Check Office Document Tool<br/>Test if system can handle Microsoft Office files<br/>Try running Office encryption tool with timeout"] --> A4bCheck
+    
+    A4bCheck{"A4b_Check: Office Tool Working?<br/>Did the Office encryption tool respond properly?<br/>Is it installed and ready to use?"}
+    A4bCheck -->|"Tool missing"| A4bError["A4b_Error: Office Tool Not Found<br/>Mark Office document processing as unavailable<br/>Add to list of missing required tools"]
+    A4bCheck -->|"Tool not responding"| A4bTimeout["A4b_Timeout: Office Tool Hanging<br/>Tool exists but not responding properly<br/>Mark as unavailable due to system issues"]
+    A4bCheck -->|"Tool working"| A4bSuccess["A4b_Success: Office Tool Ready<br/>Office document encryption is available<br/>System can process .docx, .xlsx, .pptx files"]
+    
+    A4bError --> A4c
+    A4bTimeout --> A4c
+    A4bSuccess --> A4c
+    
+    A4c["A4c: Check PDF Processing Tool<br/>Test if system can handle PDF document encryption<br/>Try loading PDF processing library"] --> A4cCheck
+    
+    A4cCheck{"A4c_Check: PDF Tool Available?<br/>Did the PDF processing library load successfully?<br/>Is it properly installed and functional?"}
+    A4cCheck -->|"Library missing"| A4cError["A4c_Error: PDF Tool Not Found<br/>Mark PDF processing as unavailable<br/>Add to list of missing required tools"]
+    A4cCheck -->|"Library loaded"| A4cSuccess["A4c_Success: PDF Tool Ready<br/>PDF encryption/decryption is available<br/>System can process .pdf files"]
+    
+    A4cError --> A4d
+    A4cSuccess --> A4d
+    
+    A4d["A4d: Verify All Tools Present<br/>Check if all needed encryption tools are available<br/>Build list of any missing critical tools"] --> A4dLoop
+    
+    A4dLoop["A4d_Loop: Iterate Through Tools<br/>Check each tool in crypto_tools dict<br/>Build list of missing required tools"] --> A4dCheck
+    
+    A4dCheck{"A4d_Check: Tool Available?<br/>if not crypto_tools.get(tool_name):<br/>  required_tools.append(tool_name)"}
+    A4dCheck -->|"Tool missing"| A4dMissing["A4d_Missing: Add to Missing List<br/>required_tools.append(tool_name)<br/>Track for error reporting"]
+    A4dCheck -->|"Tool available"| A4dNext
+    
+    A4dMissing --> A4dNext
+    A4dNext{"A4d_Next: More Tools to Check?<br/>Continue loop if more tools remain<br/>Process all entries in crypto_tools"}
+    A4dNext -->|"More tools"| A4dLoop
+    A4dNext -->|"All tools checked"| A4e
+    
+    A4e["A4e: Validate All Tools Present<br/>if required_tools:<br/>  raise CryptoToolError(f'Missing: {required_tools}')"] --> A4eCheck
+    
+    A4eCheck{"A4e_Check: All Required Tools Available?<br/>len(required_tools) == 0<br/>All crypto tools are functional"}
+    A4eCheck -->|"Tools missing"| A4eError["A4e_Error: Tools Missing<br/>error_msg = f'Missing required tools: {required_tools}'<br/>logger.error(error_msg); sys.exit(1)"]
+    A4eCheck -->|"All tools available"| A5a
+    
+    %% FASTPASS APPLICATION INITIALIZATION
+    A5a["A5a: Create FastPassApplication Class<br/>class FastPassApplication:<br/>  def __init__(self, args, logger):"] --> A5b
+    
+    A5b["A5b: Initialize Instance Variables<br/>self.args = args; self.logger = logger<br/>self.operation_mode = args.operation"] --> A5c
+    
+    A5c["A5c: Initialize Tracking Lists<br/>self.temp_files_created = []<br/>self.processing_results = {}"] --> A5d
+    
+    A5d["A5d: Record Operation Start Time<br/>self.operation_start_time = datetime.now()<br/>For performance metrics and timing"] --> A5e
+    
+    A5e["A5e: Initialize Password Manager<br/>self.password_manager = PasswordManager(<br/>  cli_passwords=args.cli_passwords or [])"] --> A5f
+    
+    A5f["A5f: Set Application State Flags<br/>self.ready_for_processing = True<br/>self.cleanup_required = True"] --> A5g
+    
+    A5g["A5g: Log Application Initialized<br/>self.logger.debug('FastPass application initialized')<br/>Confirm successful setup"] --> B1a
+    
+    %% SECTION B: DETAILED SECURITY & FILE VALIDATION
+    B1a["B1a: Import Security Libraries<br/>import os, pathlib, filetype<br/>import stat, pwd, grp (for permissions)"] --> B1b
+    
+    B1b["B1b: Initialize File Collections<br/>validated_files = []<br/>security_violations = []"] --> B1c
+    
+    B1c["B1c: Determine Files to Process<br/>if args.files: files_to_process = args.files<br/>elif args.recursive: files_to_process = collect_recursive()"] --> B1cCheck
+    
+    B1cCheck{"B1c_Check: File Collection Method?<br/>Determine if processing individual files<br/>or collecting from recursive directory"}
+    B1cCheck -->|"Individual files"| B1cFiles["B1c_Files: Use Individual Files<br/>files_to_process = args.files<br/>Process provided file list"]
+    B1cCheck -->|"Recursive directory"| B1cRecursive["B1c_Recursive: Collect Files Recursively<br/>files_to_process = collect_files_recursively(args.recursive)<br/>Walk directory tree for supported formats"]
+    
+    B1cFiles --> B1d
+    B1cRecursive --> B1d
+    
+    B1d["B1d: Start File Processing Loop<br/>for file_path in files_to_process:<br/>  process each file individually"] --> B1e
+    
+    B1e["B1e: Get Complete File Address<br/>Convert user path to full system path<br/>Handle home directory shortcuts and follow links"] --> B1eCheck
+    
+    B1eCheck{"B1e_Check: File Address Valid?<br/>Was the system able to find the complete file path?<br/>Handle cases where file location is unclear"}
+    B1eCheck -->|"Address unclear"| B1eError["B1e_Error: Cannot Locate File<br/>System cannot determine exact file location<br/>Add to list of files that couldn't be processed"]
+    B1eCheck -->|"Resolution successful"| B1f
+    
+    B1f["B1f: Verify File Actually Exists<br/>Check if the file is really there at that location<br/>Record any files that can't be found"] --> B1fCheck
+    
+    B1fCheck{"B1f_Check: File Found and Accessible?<br/>Does the file exist at the specified location?<br/>Is it actually a file (not a folder or link)?"}
+    B1fCheck -->|"File not found"| B1fMissing["B1f_Missing: File Does Not Exist<br/>Add to list of missing files<br/>Record error for final report to user"]
+    B1fCheck -->|"Not a file"| B1fType["B1f_Type: Path Points to Folder or Link<br/>User specified something that's not a regular file<br/>Skip this entry as it cannot be encrypted"]
+    B1fCheck -->|"File exists"| B2a
+    
+    %% ENHANCED SECURITY VALIDATION WITH ABSOLUTE PATH CHECKING
+    B2a["B2a: Resolve Absolute Paths for Security<br/>Use Path.resolve() to get canonical paths<br/>Eliminate symlinks and relative references"] --> B2b
+    
+    B2b["B2b: Validate Against Allowed Directories<br/>Check if resolved path is within user home or current directory<br/>Use relative_to() method for containment verification"] --> B2bCheck
+    
+    B2bCheck{"B2b_Check: Path Within Security Boundaries?<br/>resolved_path.relative_to(allowed_dir) succeeds<br/>Path is contained within approved locations"}
+    B2bCheck -->|"Outside allowed directories"| B2bDanger["B2b_Danger: Security Violation Detected<br/>File path outside user home/current directory<br/>Terminate with sanitized security error"]
+    B2bCheck -->|"Within security boundaries"| B2c
+    
+    B2c["B2c: Check Each Path Element<br/>Examine every folder and file name in the path<br/>Ensure each part follows security rules"] --> B2cLoop
+    
+    B2cLoop["B2c_Loop: Examine Path Elements One by One<br/>Go through each folder/file name in the path<br/>Check each element for validity and security"] --> B2cCheck
+    
+    B2cCheck{"B2c_Check: Path Element Safe?<br/>Is this folder/file name safe and valid?<br/>Check for illegal characters or reserved names"}
+    B2cCheck -->|"Unsafe element"| B2cInvalid["B2c_Invalid: Unsafe Path Element Found<br/>This folder/file name violates security rules<br/>Flag for administrator security review"]
+    B2cCheck -->|"Valid component"| B2cNext
+    
+    B2cInvalid --> B2cNext
+    B2cNext{"B2c_Next: More Path Elements to Check?<br/>Are there more folder/file names to examine?<br/>Continue until entire path is validated"}
+    B2cNext -->|"More components"| B2cLoop
+    B2cNext -->|"All components checked"| B2d
+    
+    B2d["B2d: Set Security Boundaries<br/>Define which folders the program is allowed to access<br/>Include user's home folder and current directory"] --> B2e
+    
+    B2e["B2e: Verify File Within Safe Zone<br/>Check if file is inside allowed security boundaries<br/>Prevent access to system or other users' files"] --> B2eCheck
+    
+    B2eCheck{"B2e_Check: File in Safe Area?<br/>Is the file within approved security zones?<br/>Block access to unauthorized system areas"}
+    B2eCheck -->|"Outside safe zone"| B2eSecurity["B2e_Security: File Access Blocked<br/>File is outside approved security boundaries<br/>Terminate processing to prevent security breach"]
+    B2eCheck -->|"Within allowed boundaries"| B3a
+    
+    %% ENHANCED FILE FORMAT VALIDATION (MAGIC NUMBER PRIORITY)
+    B3a["B3a: Load Magic Number Detection Tools<br/>Prepare filetype library for content-based detection<br/>Prioritize magic numbers over file extensions"] --> B3b
+    
+    B3b["B3b: Detect Format via Magic Numbers (Primary)<br/>Use filetype.guess() for authoritative format detection<br/>Trust file contents over extension claims"] --> B3bCheck
+    
+    B3bCheck{"B3b_Check: Magic Number Detection Successful?<br/>filetype.guess() returned recognized MIME type<br/>File signature matches supported format"}
+    B3bCheck -->|"Magic number detected"| B3bSuccess["B3b_Success: Use Magic Number Result<br/>Authoritative format from file contents<br/>Cross-validate with extension (warn if mismatch)"]
+    B3bCheck -->|"Magic number undetectable"| B3bFallback["B3b_Fallback: Use Extension Validation<br/>Magic number failed, try extension-based detection<br/>Log warning about undetectable format"]
+    
+    B3bFailed --> B3c
+    
+    B3bSuccess --> B3c
+    B3bFallback --> B3c
+    
+    B3c["B3c: Validate Extension Against Supported Formats<br/>Check file extension against SUPPORTED_FORMATS dict<br/>Apply as fallback when magic number unavailable"] --> B3d
+    
+    B3d["B3d: Verify FastPass Can Handle This Format<br/>Check if this file type is supported by FastPass<br/>Compare against list of formats we can encrypt"] --> B3dCheck
+    
+    B3dCheck{"B3d_Check: File Type Supported?<br/>Can FastPass encrypt/decrypt this type of file?<br/>Is it in our list of supported formats?"}
+    B3dCheck -->|"Format not supported"| B3dUnsupported["B3d_Unsupported: File Type Not Supported<br/>FastPass cannot handle this file format<br/>Exit with explanation of supported formats"]
+    B3dCheck -->|"Format supported"| B3e
+    
+    B3e["B3e: Double-Check File Type Consistency<br/>Compare file extension with actual file contents<br/>Make sure file isn't pretending to be something else"] --> B3eCheck
+    
+    B3eCheck{"B3e_Check: File Extension Matches Contents?<br/>Does the file extension match what's actually inside?<br/>Detect files disguised as different formats"}
+    B3eCheck -->|"Mismatch detected"| B3eMismatch["B3e_Mismatch: Format Mismatch<br/>logger.warning(f'Extension {file_extension} != detected {mime_type}')<br/>Flag for manual review"]
+    B3eCheck -->|"Formats match"| B4a
+    
+    B3eMismatch --> B4a
+    
+    %% FILE ACCESS VALIDATION
+    B4a["B4a: Test File Reading Capability<br/>Try to open and read a small sample from the file<br/>Verify the program can actually access file contents"] --> B4aCheck
+    
+    B4aCheck{"B4a_Check: File Readable by Program?<br/>Can the program open and read from this file?<br/>Check both permissions and file accessibility"}
+    B4aCheck -->|"Cannot read file"| B4aRead["B4a_Read: File Reading Blocked<br/>Program doesn't have permission to read this file<br/>Exit with permission error explanation"]
+    B4aCheck -->|"File readable"| B4b
+    
+    B4b["B4b: Check File Size Limits<br/>Measure how big the file is<br/>Ensure it's not too large for processing"] --> B4bCheck
+    
+    B4bCheck{"B4b_Check: File Size Reasonable?<br/>Is the file smaller than 500MB and not empty?<br/>Reject files that are too large or have no content"}
+    B4bCheck -->|"File too big"| B4bLarge["B4b_Large: File Exceeds Size Limit<br/>File is larger than 500MB processing limit<br/>Exit with explanation of size restrictions"]
+    B4bCheck -->|"File has no content"| B4bEmpty["B4b_Empty: File Contains No Data<br/>File exists but has zero bytes of content<br/>Skip empty file as there's nothing to encrypt"]
+    B4bCheck -->|"Size acceptable"| B4c
+    
+    B4c["B4c: Check File Modification Permission<br/>Test if program can modify files in this location<br/>Verify write access to the file's folder"] --> B4cCheck
+    
+    B4cCheck{"B4c_Check: Can Modify Files Here?<br/>Does the program have permission to save changes?<br/>Can new files be created in this folder?"}
+    B4cCheck -->|"Cannot modify files"| B4cWrite["B4c_Write: File Modification Blocked<br/>Program lacks permission to save changes here<br/>Exit with write permission error explanation"]
+    B4cCheck -->|"Write access available"| B4d
+    
+    B4d["B4d: Test Output Directory Access<br/>if args.output_dir:<br/>  test write access to output location"] --> B4dCheck
+    
+    B4dCheck{"B4d_Check: Output Directory Writable?<br/>If output_dir specified, ensure writable<br/>Create directory if it doesn't exist"}
+    B4dCheck -->|"Output not writable"| B4dOutput["B4d_Output: Output Directory Error<br/>logger.error(f'Cannot write to output: {args.output_dir}')<br/>raise PermissionError()"]
+    B4dCheck -->|"Output writable"| B5a
+    
+    %% ENCRYPTION STATUS DETECTION
+    B5a["B5a: Determine File Type Handler<br/>crypto_tool = SUPPORTED_FORMATS[file_extension]<br/>Select appropriate detection method"] --> B5aCheck
+    
+    B5aCheck{"B5a_Check: Which Crypto Tool?<br/>Based on file extension, route to<br/>appropriate encryption detection method"}
+    B5aCheck -->|"Office document"| B5aOffice["B5a_Office: Office Document Detection<br/>Use msoffcrypto.OfficeFile.is_encrypted()<br/>Handle Office-specific encryption"]
+    B5aCheck -->|"PDF document"| B5aPDF["B5a_PDF: PDF Document Detection<br/>Use PyPDF2.PdfReader.is_encrypted<br/>Handle PDF-specific encryption"]
+    
+    B5aOffice --> B5b
+    B5aPDF --> B5b
+    
+    B5b["B5b: Test Encryption Status<br/>with open(resolved_path, 'rb') as f:<br/>  perform format-specific encryption test"] --> B5bCheck
+    
+    B5bCheck{"B5b_Check: Encryption Test Successful?<br/>Detection method completed without errors<br/>Got definitive encryption status"}
+    B5bCheck -->|"Detection failed"| B5bFailed["B5b_Failed: Encryption Detection Failed<br/>logger.warning(f'Cannot detect encryption: {resolved_path}')<br/>Assume unencrypted and proceed with caution"]
+    B5bCheck -->|"Detection successful"| B5c
+    
+    B5bFailed --> B5c
+    
+    B5c["B5c: Store Encryption Status<br/>is_encrypted = detection_result<br/>Add to file manifest for processing"] --> B6a
+    
+    %% BUILD FILE MANIFEST
+    B6a["B6a: Create FileManifest Object<br/>manifest_entry = FileManifest(<br/>  path=resolved_path, format=file_extension, ...)"] --> B6b
+    
+    B6b["B6b: Add File Metadata<br/>manifest_entry.size = file_size<br/>manifest_entry.is_encrypted = is_encrypted"] --> B6c
+    
+    B6c["B6c: Map to Crypto Tool<br/>manifest_entry.crypto_tool = SUPPORTED_FORMATS[file_extension]<br/>Store handler reference"] --> B6d
+    
+    B6d["B6d: Add Security Flags<br/>manifest_entry.security_checked = True<br/>manifest_entry.access_verified = True"] --> B6e
+    
+    B6e["B6e: Add to Validated Files<br/>validated_files.append(manifest_entry)<br/>Build complete processing list"] --> B6f
+    
+    B6f["B6f: Log File Validation<br/>logger.debug(f'Validated: {resolved_path}')<br/>Record successful validation"] --> B6g
+    
+    B6g{"B6g: More Files to Process?<br/>Continue loop if more files in<br/>files_to_process list remain"}
+    B6g -->|"More files"| B1d
+    B6g -->|"All files processed"| B6h
+    
+    B6h["B6h: Validate Final Results<br/>if not validated_files:<br/>  raise FileFormatError('No valid files found')"] --> B6hCheck
+    
+    B6hCheck{"B6h_Check: Any Files Successfully Validated?<br/>len(validated_files) > 0<br/>At least one file ready for processing"}
+    B6hCheck -->|"No valid files"| B6hNoFiles["B6h_NoFiles: No Valid Files Error<br/>logger.error('No valid files found to process')<br/>sys.exit(2)"]
+    B6hCheck -->|"Files validated"| C1a
+    
+    %% SECTION C: CRYPTO TOOL SETUP (Detailed)
+    C1a["C1a: Analyze Required Tools<br/>required_tools = set(manifest.crypto_tool<br/>  for manifest in validated_files)"] --> C1b
+    
+    C1b["C1b: Initialize Handler Dictionary<br/>crypto_handlers = {}<br/>Will store instantiated crypto tool handlers"] --> C1c
+    
+    C1c["C1c: Check msoffcrypto Requirement<br/>if 'msoffcrypto' in required_tools:<br/>  need to initialize Office handler"] --> C1cCheck
+    
+    C1cCheck{"C1c_Check: msoffcrypto Needed?<br/>Any Office documents in file list<br/>(.docx, .xlsx, .pptx files present)"}
+    C1cCheck -->|"msoffcrypto needed"| C1cOffice["C1c_Office: Initialize Office Handler<br/>from office_handler import OfficeDocumentHandler<br/>crypto_handlers['msoffcrypto'] = OfficeDocumentHandler()"]
+    C1cCheck -->|"msoffcrypto not needed"| C1d
+    
+    C1cOffice --> C1d
+    
+    C1d["C1d: Check PyPDF2 Requirement<br/>if 'PyPDF2' in required_tools:<br/>  need to initialize PDF handler"] --> C1dCheck
+    
+    C1dCheck{"C1d_Check: PyPDF2 Needed?<br/>Any PDF documents in file list<br/>(.pdf files present)"}
+    C1dCheck -->|"PyPDF2 needed"| C1dPDF["C1d_PDF: Initialize PDF Handler<br/>from pdf_handler import PDFHandler<br/>crypto_handlers['PyPDF2'] = PDFHandler()"]
+    C1dCheck -->|"PyPDF2 not needed"| C2a
+    
+    C1dPDF --> C2a
+    
+    %% HANDLER CONFIGURATION
+    C2a["C2a: Configure Office Handler<br/>if 'msoffcrypto' in crypto_handlers:<br/>  configure Office-specific settings"] --> C2aCheck
+    
+    C2aCheck{"C2a_Check: Office Handler Exists?<br/>Handler was initialized successfully<br/>Ready for configuration"}
+    C2aCheck -->|"Handler exists"| C2aConfig["C2a_Config: Configure Office Settings<br/>handler.set_timeout(30)<br/>handler.set_encryption_algorithm('AES-256')"]
+    C2aCheck -->|"No handler"| C2b
+    
+    C2aConfig --> C2b
+    
+    C2b["C2b: Configure PDF Handler<br/>if 'PyPDF2' in crypto_handlers:<br/>  configure PDF-specific settings"] --> C2bCheck
+    
+    C2bCheck{"C2b_Check: PDF Handler Exists?<br/>Handler was initialized successfully<br/>Ready for configuration"}
+    C2bCheck -->|"Handler exists"| C2bConfig["C2b_Config: Configure PDF Settings<br/>handler.set_encryption_method('AES-256')<br/>handler.set_user_password_length(128)"]
+    C2bCheck -->|"No handler"| C3a
+    
+    C2bConfig --> C3a
+    
+    %% PASSWORD MANAGEMENT SYSTEM (Detailed)
+    C3a["C3a: Initialize PasswordManager Class<br/>class PasswordManager:<br/>  def __init__(self, cli_passwords, password_list_file)"] --> C3b
+    
+    C3b["C3b: Remember User's Passwords<br/>Store passwords provided by user on command line<br/>Also remember if user provided a password file"] --> C3c
+    
+    C3c["C3c: Prepare Password Storage<br/>Set up empty lists to hold all available passwords<br/>Track which passwords work for which files"] --> C3d
+    
+    C3d["C3d: Load Passwords from File<br/>If user provided a password file, read it now<br/>Each line in the file becomes a password to try"] --> C3dCheck
+    
+    C3dCheck{"C3d_Check: User Provided Password File?<br/>Did user specify a file containing passwords?<br/>Or are we only using command-line passwords?"}
+    C3dCheck -->|"File provided"| C3dLoad["C3d_Load: Read Passwords from File<br/>Open the password file and read each line<br/>Each line becomes a password to try on files"]
+    C3dCheck -->|"No file specified"| C3e
+    
+    C3dLoad --> C3dLoadCheck
+    
+    C3dLoadCheck{"C3d_Load_Check: Password File Successfully Read?<br/>Was the program able to open and read the file?<br/>Does it contain valid passwords to use?"}
+    C3dLoadCheck -->|"File reading failed"| C3dLoadError["C3d_Load_Error: Cannot Read Password File<br/>File is missing, corrupted, or access denied<br/>Continue using only command-line passwords"]
+    C3dLoadCheck -->|"File read successfully"| C3dLoadSuccess["C3d_Load_Success: Passwords Successfully Loaded<br/>Password file read and passwords are ready to use<br/>Report how many passwords were found"]
+    
+    C3dLoadError --> C3e
+    C3dLoadSuccess --> C3e
+    
+    C3e["C3e: Set Up Password Priority System<br/>Create system to try passwords in best order<br/>Command-line passwords first, then file passwords"] --> C4a
+    
+    %% PASSWORD PRIORITY ALGORITHM (Detailed)
+    C4a["C4a: Start Building Password List<br/>Create empty list to hold passwords in order<br/>Will arrange by priority for best success rate"] --> C4b
+    
+    C4b["C4b: Add Command-Line Passwords First<br/>Put passwords user typed in command first<br/>These have highest priority since user specified them"] --> C4c
+    
+    C4c["C4c: Add File Passwords Second<br/>Add passwords from password file after command-line ones<br/>These have lower priority but provide more options"] --> C4d
+    
+    C4d["C4d: Remove Duplicate Passwords<br/>Eliminate passwords that appear multiple times<br/>Keep original order but avoid testing same password twice"] --> C4dLoop
+    
+    C4dLoop["C4d_Loop: Check Each Password for Duplicates<br/>Go through password list one by one<br/>Skip passwords we've already seen before"] --> C4dCheck
+    
+    C4dCheck{"C4d_Check: Have We Seen This Password Before?<br/>Is this password already in our final list?<br/>Skip if duplicate, keep if new"}
+    C4dCheck -->|"Duplicate password"| C4dNext
+    C4dCheck -->|"New password"| C4dAdd["C4d_Add: Add New Password to List<br/>Mark this password as seen<br/>Add it to our final password list"]
+    
+    C4dAdd --> C4dNext
+    C4dNext{"C4d_Next: More Passwords to Check?<br/>Are there more passwords in our original list?<br/>Continue until all are checked for duplicates"}
+    C4dNext -->|"More passwords"| C4dLoop
+    C4dNext -->|"All processed"| C4e
+    
+    C4e["C4e: Finalize Password List<br/>Return complete list ready for testing<br/>Ordered by priority with no duplicates"] --> C5a
+    
+    %% PASSWORD TESTING MECHANISM
+    C5a["C5a: Set Up Password Testing System<br/>Create system to try passwords against encrypted files<br/>Test each password until one works or all fail"] --> C5b
+    
+    C5b["C5b: Get Passwords to Try<br/>Use our priority system to get ordered password list<br/>Command-line passwords first, then file passwords"] --> C5c
+    
+    C5c["C5c: Begin Trying Passwords<br/>Go through password list one by one<br/>Test each password to see if it unlocks the file"] --> C5d
+    
+    C5d["C5d: Try Current Password<br/>Attempt to unlock the file with this password<br/>Use appropriate tool for file type (Office/PDF)"] --> C5dCheck
+    
+    C5dCheck{"C5d_Check: Password Works?<br/>Did this password successfully unlock the file?<br/>Can we now read the file contents?"}
+    C5dCheck -->|"Password unlocks file"| C5dSuccess["C5d_Success: Found Working Password<br/>This password successfully unlocks the file<br/>Remember it for processing this file"]
+    C5dCheck -->|"Password failed"| C5dNext
+    
+    C5dNext{"C5d_Next: More Passwords to Try?<br/>Are there more passwords in our list to test?<br/>Keep trying until we find one that works"}
+    C5dNext -->|"More candidates"| C5c
+    C5dNext -->|"All passwords failed"| C5dFailed["C5d_Failed: No Password Works<br/>Tried all available passwords but none unlock this file<br/>Cannot process this file - user needs correct password"]
+    
+    C5dSuccess --> D1a
+    C5dFailed --> ErrorHandling
+    
+    %% SECTION D: ENHANCED FILE PROCESSING WITH CLEANUP TRACKING
+    D1a["D1a: Initialize TempFileManager<br/>Create TempFileManager for centralized cleanup<br/>Register atexit handler for emergency cleanup"] --> D1b
+    
+    D1b["D1b: Create Secure Temp Directory<br/>Use SecureTempDirectory context manager<br/>Automatic cleanup even on exceptions"] --> D1c
+    
+    D1c["D1c: Set Enhanced Secure Permissions<br/>temp_dir.chmod(0o700) + subdirs with 0o700<br/>processing/, output/, backup/ subdirectories"] --> D1d
+    
+    D1d["D1d: Register Emergency Cleanup<br/>atexit.register(emergency_cleanup_temp_directory)<br/>Ensure cleanup even on unexpected termination"] --> D1e
+    
+    D1e["D1e: Initialize Retry-Based Cleanup<br/>Implement exponential backoff for cleanup failures<br/>Secure file deletion with zero-overwrite"] --> D1f
+    
+    D1f["D1f: Track All Temp Resources<br/>TempFileManager tracks directories and files<br/>Centralized cleanup with error isolation"] --> D2a
+    
+    %% FILE PROCESSING PIPELINE
+    D2a["D2a: Initialize Processing Results<br/>processing_results = ProcessingResults()<br/>successful_files = []; failed_files = []"] --> D2b
+    
+    D2b["D2b: Start Main Processing Loop<br/>for file_manifest in validated_files:<br/>  process each validated file"] --> D2c
+    
+    D2c["D2c: Get Crypto Handler<br/>handler = crypto_handlers[file_manifest.crypto_tool]<br/>Select appropriate handler for file type"] --> D2d
+    
+    D2d["D2d: Find Working Password<br/>password = password_manager.find_working_password(<br/>  file_manifest.path, handler)"] --> D2dCheck
+    
+    D2dCheck{"D2d_Check: Password Found?<br/>find_working_password() returned valid password<br/>File can be processed"}
+    D2dCheck -->|"No password found"| D2dNoPassword["D2d_NoPassword: Password Failure<br/>error = FileProcessingError(file_manifest.path, 'No password')<br/>failed_files.append(error)"]
+    D2dCheck -->|"Password found"| D2e
+    
+    D2dNoPassword --> D2zNext
+    
+    D2e["D2e: Setup Temp File Paths<br/>temp_input = temp_dir / 'processing' / f'input_{file_manifest.path.name}'<br/>temp_output = temp_dir / 'output' / f'output_{file_manifest.path.name}'"] --> D2f
+    
+    D2f["D2f: Copy Input to Temp<br/>shutil.copy2(file_manifest.path, temp_input)<br/>Preserve metadata and timestamps"] --> D2fCheck
+    
+    D2fCheck{"D2f_Check: Copy Successful?<br/>File copied without errors<br/>temp_input exists and has correct size"}
+    D2fCheck -->|"Copy failed"| D2fError["D2f_Error: Copy Failed<br/>error = f'Failed to copy {file_manifest.path} to temp'<br/>failed_files.append(FileProcessingError(...))"]
+    D2fCheck -->|"Copy successful"| D2g
+    
+    D2fError --> D2zNext
+    
+    D2g["D2g: Determine Crypto Operation<br/>if args.operation == 'encrypt':<br/>  call handler.encrypt_file()"] --> D2gCheck
+    
+    D2gCheck{"D2g_Check: Which Operation?<br/>args.operation is 'encrypt' or 'decrypt'<br/>Route to appropriate handler method"}
+    D2gCheck -->|"Encrypt operation"| D2gEncrypt["D2g_Encrypt: Perform Encryption<br/>handler.encrypt_file(temp_input, temp_output, password)<br/>Add password protection to file"]
+    D2gCheck -->|"Decrypt operation"| D2gDecrypt["D2g_Decrypt: Perform Decryption<br/>handler.decrypt_file(temp_input, temp_output, password)<br/>Remove password protection from file"]
+    
+    D2gEncrypt --> D2h
+    D2gDecrypt --> D2h
+    
+    D2h["D2h: Crypto Operation Exception Handling<br/>try: perform crypto operation<br/>except Exception as e: handle crypto errors"] --> D2hCheck
+    
+    D2hCheck{"D2h_Check: Crypto Operation Successful?<br/>No exceptions raised during operation<br/>temp_output file was created"}
+    D2hCheck -->|"Operation failed"| D2hError["D2h_Error: Crypto Operation Failed<br/>logger.error(f'Crypto operation failed: {e}')<br/>failed_files.append(FileProcessingError(...))"]
+    D2hCheck -->|"Operation successful"| D3a
+    
+    D2hError --> D2zNext
+    
+    %% OUTPUT VALIDATION (Detailed)
+    D3a["D3a: Validate Output File Exists<br/>if not temp_output.exists():<br/>  raise ProcessingError('Output not created')"] --> D3aCheck
+    
+    D3aCheck{"D3a_Check: Output File Created?<br/>temp_output.exists() and temp_output.is_file()<br/>Crypto operation produced valid output"}
+    D3aCheck -->|"Output missing"| D3aError["D3a_Error: Output File Missing<br/>error = 'Crypto operation did not create output file'<br/>failed_files.append(FileProcessingError(...))"]
+    D3aCheck -->|"Output exists"| D3b
+    
+    D3aError --> D2zNext
+    
+    D3b["D3b: Check Output File Size<br/>output_size = temp_output.stat().st_size<br/>if output_size == 0: raise ProcessingError('Empty output')"] --> D3bCheck
+    
+    D3bCheck{"D3b_Check: Output Size Reasonable?<br/>output_size > 0 and output_size < MAX_SIZE<br/>File has content and isn't corrupted"}
+    D3bCheck -->|"Empty or too large"| D3bSize["D3b_Size: Invalid Output Size<br/>error = f'Invalid output size: {output_size} bytes'<br/>failed_files.append(FileProcessingError(...))"]
+    D3bCheck -->|"Size acceptable"| D3c
+    
+    D3bSize --> D2zNext
+    
+    D3c["D3c: Format-Specific Validation<br/>file_format = file_manifest.format<br/>perform format-specific integrity checks"] --> D3cCheck
+    
+    D3cCheck{"D3c_Check: Which File Format?<br/>Based on file extension, perform<br/>appropriate format validation"}
+    D3cCheck -->|"Office document"| D3cOffice["D3c_Office: Validate Office Document<br/>try opening with appropriate Office library<br/>verify document structure integrity"]
+    D3cCheck -->|"PDF document"| D3cPDF["D3c_PDF: Validate PDF Document<br/>try opening with PyPDF2<br/>verify PDF structure and readability"]
+    
+    D3cOffice --> D3d
+    D3cPDF --> D3d
+    
+    D3d["D3d: Validate Encryption Status Changed<br/>if operation == 'encrypt': verify file now encrypted<br/>if operation == 'decrypt': verify file no longer encrypted"] --> D3dCheck
+    
+    D3dCheck{"D3d_Check: Encryption Status Correct?<br/>Post-operation encryption status matches<br/>expected result of encrypt/decrypt operation"}
+    D3dCheck -->|"Status incorrect"| D3dStatus["D3d_Status: Encryption Status Error<br/>error = f'Encryption status not changed correctly'<br/>failed_files.append(FileProcessingError(...))"]
+    D3dCheck -->|"Status correct"| D4a
+    
+    D3dStatus --> D2zNext
+    
+    %% ENHANCED FILE MOVEMENT WITH ERROR HANDLING
+    D4a["D4a: Determine Final Output Path with Validation<br/>Ensure target directory exists (create if needed)<br/>Handle filename conflicts and permission checks"] --> D4aCheck
+    
+    D4aCheck{"D4a_Check: Output Directory Specified?<br/>args.output_dir is not None<br/>User wants files in specific directory"}
+    D4aCheck -->|"Output dir specified"| D4aOutput["D4a_Output: Use Output Directory<br/>final_path = args.output_dir / file_manifest.path.name<br/>Preserve original filename"]
+    D4aCheck -->|"In-place modification"| D4aInPlace["D4a_InPlace: In-Place Modification<br/>final_path = file_manifest.path<br/>Replace original file"]
+    
+    D4aOutput --> D4b
+    D4aInPlace --> D4b
+    
+    D4b["D4b: Handle Filename Conflicts<br/>if final_path.exists():<br/>  handle existing file appropriately"] --> D4bCheck
+    
+    D4bCheck{"D4b_Check: Final Path Already Exists?<br/>final_path.exists() and not in-place mode<br/>Need to handle filename conflict"}
+    D4bCheck -->|"Conflict exists"| D4bConflict["D4b_Conflict: Resolve Filename Conflict<br/>if not in_place: generate unique name<br/>else: prepare for overwrite"]
+    D4bCheck -->|"No conflict"| D4c
+    
+    D4bConflict --> D4c
+    
+    D4c["D4c: Atomic Move with Error Handling<br/>Ensure target directory exists before move<br/>Clean up temp file if move fails"] --> D4cCheck
+    
+    D4cCheck{"D4c_Check: Atomic Move Successful?<br/>shutil.move() completed without errors<br/>Temp file cleaned up on failure"}
+    D4cCheck -->|"Move failed"| D4cError["D4c_Error: File Move Failed with Cleanup<br/>Clean up temp_output file if move fails<br/>Sanitize error message before logging"]
+    D4cCheck -->|"Move successful"| D4d
+    
+    D4cError --> D2zNext
+    
+    D4d["D4d: Update File Permissions<br/>os.chmod(final_path, SECURE_FILE_PERMISSIONS)<br/>Set appropriate file permissions"] --> D4e
+    
+    D4e["D4e: Generate File Checksum<br/>import hashlib<br/>checksum = hashlib.sha256(final_path.read_bytes()).hexdigest()"] --> D4f
+    
+    D4f["D4f: Create Processing Result<br/>result = FileProcessingResult(<br/>  original_path=file_manifest.path, final_path=final_path, ...)"] --> D4g
+    
+    D4g["D4g: Add to Successful Files<br/>successful_files.append(result)<br/>logger.info(f'Successfully processed: {file_manifest.path}')"] --> D2zNext
+    
+    %% LOOP CONTINUATION
+    D2zNext{"D2z_Next: More Files to Process?<br/>Continue main processing loop<br/>Process all files in validated_files"}
+    D2zNext -->|"More files"| D2b
+    D2zNext -->|"All files processed"| E1a
+    
+    %% SECTION E: ENHANCED CLEANUP WITH ERROR SANITIZATION
+    E1a["E1a: Calculate Processing Metrics<br/>total_files, success_rate, processing_duration<br/>Sanitize all error messages before reporting"] --> E1b
+    
+    E1b["E1b: Calculate Processing Duration<br/>end_time = datetime.now()<br/>duration = end_time - self.operation_start_time"] --> E1c
+    
+    E1c["E1c: Generate Performance Statistics<br/>files_per_second = total_files / duration.total_seconds()<br/>average_file_size = sum(sizes) / len(sizes)"] --> E1d
+    
+    E1d["E1d: Categorize Processing Results<br/>results_by_format = defaultdict(list)<br/>errors_by_type = defaultdict(list)"] --> E1e
+    
+    E1e["E1e: Build Results Summary<br/>processing_summary = {<br/>  'total': total_files, 'successful': len(successful_files), ...}"] --> E2a
+    
+    %% ENHANCED CLEANUP WITH RETRY AND SECURE DELETION
+    E2a["E2a: Start Enhanced Cleanup Process<br/>Use TempFileManager.cleanup_all()<br/>Retry logic with exponential backoff"] --> E2b
+    
+    E2b["E2b: Secure Temp Directory Cleanup<br/>Overwrite sensitive files with zeros<br/>Multiple cleanup attempts with retry logic"] --> E2bCheck
+    
+    E2bCheck{"E2b_Check: Enhanced Cleanup Successful?<br/>Secure deletion and retry cleanup completed<br/>All temporary resources removed"}
+    E2bCheck -->|"Cleanup failed after retries"| E2bError["E2b_Error: Cleanup Failed After Retries<br/>Log sanitized warning about cleanup failure<br/>Don't fail operation due to cleanup issues"]
+    E2bCheck -->|"Cleanup successful"| E2c
+    
+    E2bError --> E2c
+    
+    E2c["E2c: Remove Individual Temp Files<br/>for temp_file in self.temp_files_created:<br/>  try: temp_file.unlink()"] --> E2cLoop
+    
+    E2cLoop["E2c_Loop: Cleanup Individual Files<br/>for temp_file_path in temp_files_created:<br/>  attempt to remove each tracked file"] --> E2cCheck
+    
+    E2cCheck{"E2c_Check: File Removal Successful?<br/>temp_file.unlink() completed without error<br/>File successfully deleted"}
+    E2cCheck -->|"Removal failed"| E2cError["E2c_Error: File Removal Failed<br/>logger.warning(f'Failed to remove: {temp_file_path}')<br/>Continue with remaining files"]
+    E2cCheck -->|"Removal successful"| E2cNext
+    
+    E2cError --> E2cNext
+    E2cNext{"E2c_Next: More Temp Files?<br/>Continue removing remaining tracked files<br/>Clean up all temporary artifacts"}
+    E2cNext -->|"More files"| E2cLoop
+    E2cNext -->|"All files processed"| E2d
+    
+    E2d["E2d: Call Handler Cleanup<br/>for handler in crypto_handlers.values():<br/>  handler.cleanup()"] --> E2e
+    
+    E2e["E2e: Verify Cleanup Completion<br/>check that all temp directories removed<br/>log cleanup results"] --> E2f
+    
+    E2f["E2f: Calculate Disk Space Freed<br/>space_freed = sum(temp_file_sizes)<br/>logger.info(f'Cleanup freed {space_freed} bytes')"] --> E3a
+    
+    %% ENHANCED SENSITIVE DATA CLEARING WITH SANITIZATION
+    E3a["E3a: Sanitize Error Messages<br/>Apply sanitize_error_message() to all errors<br/>Remove paths, passwords, sensitive patterns"] --> E3aSanitize
+    
+    E3aSanitize["E3a_Sanitize: Pattern-Based Sanitization<br/>Remove password=<value>, IP addresses, email addresses<br/>Replace absolute paths with <path>/filename"] --> E3aLoop
+    
+    E3aLoop["E3a_Loop: Overwrite Password Memory<br/>for password in all_password_references:<br/>  attempt to overwrite memory"] --> E3aCheck
+    
+    E3aCheck{"E3a_Check: Password Variable Found?<br/>Locate all variables containing passwords<br/>Include CLI args, loaded lists, working passwords"}
+    E3aCheck -->|"Password variable found"| E3aOverwrite["E3a_Overwrite: Overwrite Password<br/>password_var = 'X' * len(password_var)<br/>del password_var"]
+    E3aCheck -->|"No more password vars"| E3b
+    
+    E3aOverwrite --> E3aNext
+    E3aNext{"E3a_Next: More Password Variables?<br/>Continue clearing all password references<br/>Ensure no passwords remain in memory"}
+    E3aNext -->|"More variables"| E3aLoop
+    E3aNext -->|"All cleared"| E3b
+    
+    E3b["E3b: Delete Password Manager<br/>del self.password_manager<br/>del args.cli_passwords"] --> E3c
+    
+    E3c["E3c: Force Garbage Collection<br/>import gc; gc.collect()<br/>Force Python garbage collection"] --> E3d
+    
+    E3d["E3d: Clear CLI Argument References<br/>del args # if contains passwords<br/>Clear any remaining password references"] --> E4a
+    
+    %% ENHANCED REPORT GENERATION WITH MULTIPLE FORMATS
+    E4a["E4a: Generate Multi-Format Report<br/>Support text, JSON, CSV report formats<br/>Include sanitized error messages only"] --> E4aCheck
+    
+    E4aCheck{"E4a_Check: Report Format Selection<br/>args.report_format determines output format<br/>Generate appropriate structured report"}
+    E4aCheck -->|"Text format"| E4aText["E4a_Text: Generate Human-Readable Report<br/>Traditional console output with visual indicators<br/>Include troubleshooting guidance for failures"]
+    E4aCheck -->|"JSON format"| E4aJSON["E4a_JSON: Generate Machine-Readable Report<br/>Structured JSON with timestamps and metrics<br/>Include success rate and performance data"]
+    E4aCheck -->|"CSV format"| E4aCSV["E4a_CSV: Generate CSV Report<br/>Tabular format for spreadsheet analysis<br/>Per-file status with sanitized error messages"]
+    
+    E4aText --> E4b
+    E4aJSON --> E4b
+    E4aCSV --> E4b
+    
+    E4b["E4b: List Successful Files<br/>if successful_files:<br/>  for result in successful_files: print(f'✓ {result.path}')"] --> E4c
+    
+    E4c["E4c: List Failed Files<br/>if failed_files:<br/>  for error in failed_files: print(f'✗ {error.path}: {error.message}')"] --> E4d
+    
+    E4d["E4d: Add Performance Metrics<br/>print(f'Total processing time: {duration}')<br/>print(f'Average processing speed: {files_per_second} files/sec')"] --> E4e
+    
+    E4e["E4e: Add Troubleshooting Guidance<br/>if failed_files:<br/>  print('Troubleshooting suggestions:')"] --> E5a
+    
+    %% EXIT CODE DETERMINATION
+    E5a["E5a: Analyze Results for Exit Code<br/>success_count = len(successful_files)<br/>failure_count = len(failed_files)"] --> E5b
+    
+    E5b["E5b: Apply Exit Code Logic<br/>if failure_count == 0 and success_count > 0:<br/>  exit_code = 0"] --> E5bCheck
+    
+    E5bCheck{"E5b_Check: Exit Code Determination<br/>Based on success/failure counts<br/>and error types encountered"}
+    E5bCheck -->|"Perfect success"| E5bSuccess["E5b_Success: Exit Code 0<br/>exit_code = 0<br/>exit_reason = 'All operations successful'"]
+    E5bCheck -->|"Mixed results"| E5bMixed["E5b_Mixed: Exit Code 1<br/>exit_code = 1<br/>exit_reason = 'Some operations failed'"]
+    E5bCheck -->|"Complete failure"| E5bFailure["E5b_Failure: Exit Code 1<br/>exit_code = 1<br/>exit_reason = 'All operations failed'"]
+    
+    E5bSuccess --> E5c
+    E5bMixed --> E5c
+    E5bFailure --> E5c
+    
+    E5c["E5c: Log Final Status<br/>logger.info(f'FastPass completed: {exit_reason}')<br/>logger.info(f'Exit code: {exit_code}')"] --> E5d
+    
+    E5d["E5d: System Exit<br/>sys.exit(exit_code)<br/>Terminate program with appropriate code"] --> ProgramEnd
+    
+    %% ERROR HANDLING PATHS
+    ErrorHandling["Error Handling: Exception Caught<br/>logger.error(f'Unhandled exception: {e}')<br/>Perform emergency cleanup"] --> EmergencyCleanup
+    
+    EmergencyCleanup["Emergency Cleanup: Restore State<br/>if temp_dir.exists(): shutil.rmtree(temp_dir)<br/>Clear sensitive data, exit with error"] --> ErrorExit
+    
+    ErrorExit["Error Exit: sys.exit(1)<br/>Abnormal termination<br/>Return error code to shell"] --> ProgramEnd
+    
+    %% FINAL TERMINATION
+    ProgramEnd(["Program Termination<br/>Process ends, return to shell<br/>Exit code indicates success/failure"])
+    
+    %% EXIT POINTS FROM VARIOUS ERROR CONDITIONS
+    A1hError --> ProgramEnd
+    A1hHelp --> ProgramEnd
+    A1iList --> ProgramEnd
+    A2aError --> ProgramEnd
+    A2aBothError --> ProgramEnd
+    A2bPathError --> ProgramEnd
+    A2cDirError --> ProgramEnd
+    A2cAccessError --> ProgramEnd
+    A2dTypeError --> ProgramEnd
+    A2dCreateError --> ProgramEnd
+    A4bError --> ProgramEnd
+    A4bTimeout --> ProgramEnd
+    A4cError --> ProgramEnd
+    A4eError --> ProgramEnd
+    B1eError --> ProgramEnd
+    B1fMissing --> ProgramEnd
+    B1fType --> ProgramEnd
+    B2bDanger --> ProgramEnd
+    B2cInvalid --> ProgramEnd
+    B2eSecurity --> ProgramEnd
+    B3bFailed --> ProgramEnd
+    B3dUnsupported --> ProgramEnd
+    B3eMismatch --> ProgramEnd
+    B4aRead --> ProgramEnd
+    B4bLarge --> ProgramEnd
+    B4bEmpty --> ProgramEnd
+    B4cWrite --> ProgramEnd
+    B4dOutput --> ProgramEnd
+    B5bFailed --> ProgramEnd
+    B6hNoFiles --> ProgramEnd
+    C3dLoadError --> ProgramEnd
+    D2dNoPassword --> ProgramEnd
+    D2fError --> ProgramEnd
+    D2hError --> ProgramEnd
+    D3aError --> ProgramEnd
+    D3bSize --> ProgramEnd
+    D3dStatus --> ProgramEnd
+    D4cError --> ProgramEnd
+    
+    %% STYLING
+    classDef startBox fill:#e8f4fd,stroke:#1976d2,stroke-width:3px
+    classDef processBox fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    classDef businessLogic fill:#fff8e1,stroke:#f57c00,stroke-width:3px
+    classDef decisionBox fill:#fff3e0,stroke:#ff9800,stroke-width:2px
+    classDef exitBox fill:#ffebee,stroke:#f44336,stroke-width:2px
+    classDef successBox fill:#e3f2fd,stroke:#2196f3,stroke-width:2px
+    classDef securityBox fill:#fce4ec,stroke:#e91e63,stroke-width:2px
+    classDef errorBox fill:#ffcdd2,stroke:#d32f2f,stroke-width:2px
+    
+    %% APPLY STYLES - BUSINESS LOGIC (Orange)
+    class C3a,C3b,C3c,C3d,C3dLoad,C4a,C4b,C4c,C4d,C4dLoop,C4dAdd,C4e,C5a,C5b,C5c,C5d,C5dSuccess businessLogic
+    class D1a,D1b,D1c,D1d,D1e,D1f,D2d,D2e,D2f,D2g,D2gEncrypt,D2gDecrypt,D2h businessLogic
+    class D3c,D3cOffice,D3cPDF,D3d businessLogic
+    class E3a,E3aSanitize,E3aLoop,E3aOverwrite,E3b,E3c,E3d businessLogic
+    
+    %% APPLY STYLES - SECURITY (Pink)
+    class B2a,B2b,B2bCheck,B2bDanger,B2c,B2cLoop,B2cCheck,B2cInvalid,B2d,B2e,B2eCheck,B2eSecurity securityBox
+    class B3bSuccess,B3bFallback securityBox
+    class E3a,E3aSanitize,E3aLoop,E3aOverwrite,E3b,E3c,E3d securityBox
+    
+    %% APPLY STYLES - STANDARD PROCESSING (Green)
+    class Start,Main,A1a,A1b,A1c,A1d,A1e,A1f,A1g,A1h,A1i,A2a,A2b,A2bGlob,A2bLoop,A2bExpand,A2c,A2d,A2e processBox
+    class A3a,A3b,A3c,A3d,A3e,A4a,A4b,A4bSuccess,A4c,A4cSuccess,A4d,A4dLoop,A4e processBox
+    class A5a,A5b,A5c,A5d,A5e,A5f,A5g processBox
+    class B1a,B1b,B1c,B1cFiles,B1cRecursive,B1d,B1e,B1f,B3a,B3b,B3c,B3d,B3e processBox
+    class B4a,B4b,B4c,B4d,B5a,B5aOffice,B5aPDF,B5b,B5c,B6a,B6b,B6c,B6d,B6e,B6f,B6g,B6h processBox
+    class C1a,C1b,C1c,C1cOffice,C1d,C1dPDF,C2a,C2aConfig,C2b,C2bConfig processBox
+    class D2a,D2b,D2c,D4a,D4aOutput,D4aInPlace,D4b,D4bConflict,D4c,D4d,D4e,D4f,D4g processBox
+    class E1a,E1b,E1c,E1d,E1e,E2a,E2b,E2c,E2cLoop,E2d,E2e,E2f processBox
+    class E4a,E4aText,E4aJSON,E4aCSV,E4b,E4c,E4d,E4e,E5a,E5b,E5bSuccess,E5bMixed,E5bFailure,E5c,E5d processBox
+    
+    %% APPLY STYLES - DECISION POINTS (Orange)
+    class A1hCheck,A1iCheck,A2aCheck,A2bCheck,A2bNext,A2cCheck,A2dCheck decisionBox
+    class A4bCheck,A4cCheck,A4dCheck,A4dNext,A4eCheck decisionBox
+    class B1eCheck,B1fCheck,B2bCheck,B2cCheck,B2cNext,B2eCheck,B3bCheck,B3dCheck,B3eCheck decisionBox
+    class B4aCheck,B4bCheck,B4cCheck,B4dCheck,B5aCheck,B5bCheck,B6gCheck,B6hCheck decisionBox
+    class C1cCheck,C1dCheck,C2aCheck,C2bCheck,C3dCheck,C3dLoadCheck decisionBox
+    class C4dCheck,C4dNext,C5dCheck,C5dNext decisionBox
+    class D2dCheck,D2fCheck,D2gCheck,D2hCheck,D2zNext decisionBox
+    class D3aCheck,D3bCheck,D3cCheck,D3dCheck,D4aCheck,D4bCheck,D4cCheck decisionBox
+    class E2bCheck,E2cCheck,E2cNext,E3aCheck,E3aNext,E4aCheck,E5bCheck decisionBox
+    
+    %% APPLY STYLES - ERROR CONDITIONS (Red)
+    class A1hError,A2aError,A2aBothError,A2bPathError,A2cDirError,A2cAccessError errorBox
+    class A2dTypeError,A2dCreateError,A4bError,A4bTimeout,A4cError,A4eError errorBox
+    class B1eError,B1fMissing,B1fType,B2bDanger,B2cInvalid,B2eSecurity errorBox
+    class B3bFailed,B3dUnsupported,B3eMismatch,B4aRead,B4bLarge,B4bEmpty,B4cWrite,B4dOutput errorBox
+    class B5bFailed,B6hNoFiles,C3dLoadError,C5dFailed errorBox
+    class D2dNoPassword,D2fError,D2hError,D3aError,D3bSize,D3dStatus,D4cError errorBox
+    class E2bError,E2cError,ErrorHandling,EmergencyCleanup,ErrorExit errorBox
+    
+    %% APPLY STYLES - SUCCESS/EXIT POINTS (Blue)
+    class A1hHelp,A1iList,C3dLoadSuccess,C5dSuccess successBox
+    class ProgramEnd successBox
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: false
+            },
+            securityLevel: 'loose'
+        });
+
+        let currentZoom = 1;
+        const diagram = document.getElementById('diagram');
+
+        function zoomIn() {
+            currentZoom += 0.1;
+            diagram.style.transform = `scale(${currentZoom})`;
+            diagram.style.transformOrigin = 'top left';
+        }
+
+        function zoomOut() {
+            currentZoom = Math.max(0.2, currentZoom - 0.1);
+            diagram.style.transform = `scale(${currentZoom})`;
+            diagram.style.transformOrigin = 'top left';
+        }
+
+        function resetZoom() {
+            currentZoom = 1;
+            diagram.style.transform = 'scale(1)';
+        }
+
+        function downloadSVG() {
+            const svg = document.querySelector('#diagram svg');
+            if (svg) {
+                const serializer = new XMLSerializer();
+                const svgString = serializer.serializeToString(svg);
+                const blob = new Blob([svgString], {type: 'image/svg+xml'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'fastpass-complete-implementation-flowchart.svg';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        function printChart() {
+            window.print();
+        }
+
+        diagram.addEventListener('wheel', function(e) {
+            if (e.ctrlKey) {
+                e.preventDefault();
+                if (e.deltaY < 0) {
+                    zoomIn();
+                } else {
+                    zoomOut();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

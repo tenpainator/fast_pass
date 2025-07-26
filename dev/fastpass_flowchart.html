@@ -2,7 +2,7 @@
 <html>
 <head>
     <title>FastPass - Complete Code-Level Implementation Flowchart</title>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.6.0/dist/mermaid.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -107,6 +107,7 @@
             <button onclick="downloadSVG()">💾 Download SVG</button>
             <button onclick="printChart()">🖨️ Print</button>
             <button onclick="forceRender()">🔄 Force Render</button>
+            <button onclick="loadPreRendered()">🎨 Load Pre-rendered SVG</button>
         </div>
         
         <div class="zoom-info">
@@ -859,6 +860,10 @@ flowchart TD
             window.mermaid.mermaidAPI.maxTextSize = 900000;
         }
         
+        // Add debug logging
+        console.log('Mermaid version:', mermaid.version || 'unknown');
+        console.log('Initializing Mermaid with enhanced settings...');
+        
         mermaid.initialize({ 
             startOnLoad: true,
             theme: 'default',
@@ -879,28 +884,35 @@ flowchart TD
             curve: 'basis'
         });
         
-        // Add error handling for large diagrams
+        // Enhanced error handling with console logging
         mermaid.parseError = function(err, hash) {
-            if (err.toString().includes('text size') || err.toString().includes('exceeded')) {
-                const diagramDiv = document.getElementById('diagram');
-                diagramDiv.innerHTML = `
-                    <div style="padding: 20px; border: 2px solid #f44336; background: #ffebee; border-radius: 4px; margin: 20px 0;">
-                        <h3 style="color: #d32f2f; margin-top: 0;">WARNING: Diagram Too Large</h3>
-                        <p>The flowchart contains too much detail for Mermaid's default limits.</p>
-                        <p><strong>Workarounds:</strong></p>
-                        <ul>
-                            <li>Download the SVG version using the button above</li>
-                            <li>View the source code directly in the HTML file</li>
-                            <li>Use a local Mermaid viewer with custom configuration</li>
-                        </ul>
-                        <details>
-                            <summary>Technical Details</summary>
-                            <pre>${err.toString()}</pre>
-                        </details>
-                    </div>
-                `;
-            }
+            console.error('Mermaid parse error:', err);
+            console.error('Error details:', err.toString());
+            
+            const diagramDiv = document.getElementById('diagram');
+            diagramDiv.innerHTML = `
+                <div style="padding: 20px; border: 2px solid #f44336; background: #ffebee; border-radius: 4px; margin: 20px 0;">
+                    <h3 style="color: #d32f2f; margin-top: 0;">WARNING: Mermaid Rendering Error</h3>
+                    <p>The flowchart encountered a rendering issue.</p>
+                    <p><strong>Debug Information:</strong></p>
+                    <pre style="background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto;">${err.toString()}</pre>
+                    <p><strong>Workarounds:</strong></p>
+                    <ul>
+                        <li>Check browser console for detailed error messages</li>
+                        <li>Try the 'Force Render' button with different settings</li>
+                        <li>Download the SVG version (pre-rendered successfully)</li>
+                        <li>View the source code directly in the HTML file</li>
+                    </ul>
+                </div>
+            `;
         };
+        
+        // Add general error catching
+        window.addEventListener('error', function(e) {
+            if (e.message && e.message.includes('mermaid')) {
+                console.error('Window error related to Mermaid:', e);
+            }
+        });
 
         let currentZoom = 1;
         const diagram = document.getElementById('diagram');
@@ -956,6 +968,8 @@ flowchart TD
             // Try to force render with even higher limits
             const diagram = document.getElementById('diagram');
             
+            console.log('Force rendering with maximum settings...');
+            
             // Clear and try again with maximum settings
             mermaid.initialize({
                 startOnLoad: false,
@@ -966,13 +980,35 @@ flowchart TD
                 },
                 securityLevel: 'loose',
                 maxTextSize: 9999999,  // Very high limit
-                suppressErrorRendering: true,
-                logLevel: 'fatal'
+                suppressErrorRendering: false,  // Show errors for debugging
+                logLevel: 'debug'  // More verbose logging
             });
             
             // Re-render
-            diagram.innerHTML = diagram.innerHTML;
-            mermaid.init(undefined, diagram);
+            const originalContent = diagram.innerHTML;
+            diagram.innerHTML = originalContent;
+            
+            try {
+                mermaid.init(undefined, diagram);
+                console.log('Force render completed');
+            } catch (e) {
+                console.error('Force render failed:', e);
+            }
+        }
+        
+        function loadPreRendered() {
+            // Load the successfully pre-rendered SVG
+            fetch('temp_output.svg')
+                .then(response => response.text())
+                .then(svgContent => {
+                    const diagram = document.getElementById('diagram');
+                    diagram.innerHTML = svgContent;
+                    console.log('Pre-rendered SVG loaded successfully');
+                })
+                .catch(error => {
+                    console.error('Could not load pre-rendered SVG:', error);
+                    alert('Pre-rendered SVG not available. The diagram was validated with mmdc CLI successfully.');
+                });
         }
         
         diagram.addEventListener('wheel', function(e) {

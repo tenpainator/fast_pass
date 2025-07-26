@@ -325,8 +325,6 @@ flowchart TD
     B3bCheck -->|"Magic number detected"| B3bSuccess["B3b_Success: Use Magic Number Result<br/>Authoritative format from file contents<br/>Cross-validate with extension (warn if mismatch)"]
     B3bCheck -->|"Magic number undetectable"| B3bFallback["B3b_Fallback: Use Extension Validation<br/>Magic number failed, try extension-based detection<br/>Log warning about undetectable format"]
     
-    B3bFailed --> B3c
-    
     B3bSuccess --> B3c
     B3bFallback --> B3c
     
@@ -722,9 +720,9 @@ flowchart TD
     E4aJSON --> E4b
     E4aCSV --> E4b
     
-    E4b["E4b: List Successful Files<br/>if successful_files:<br/>  for result in successful_files: print(f'✓ {result.path}')"] --> E4c
+    E4b["E4b: List Successful Files<br/>if successful_files:<br/>  for result in successful_files: print(f'SUCCESS: {result.path}')"] --> E4c
     
-    E4c["E4c: List Failed Files<br/>if failed_files:<br/>  for error in failed_files: print(f'✗ {error.path}: {error.message}')"] --> E4d
+    E4c["E4c: List Failed Files<br/>if failed_files:<br/>  for error in failed_files: print(f'FAILED: {error.path}: {error.message}')"] --> E4d
     
     E4d["E4d: Add Performance Metrics<br/>print(f'Total processing time: {duration}')<br/>print(f'Average processing speed: {files_per_second} files/sec')"] --> E4e
     
@@ -779,7 +777,6 @@ flowchart TD
     B2bDanger --> ProgramEnd
     B2cInvalid --> ProgramEnd
     B2eSecurity --> ProgramEnd
-    B3bFailed --> ProgramEnd
     B3dUnsupported --> ProgramEnd
     B3eMismatch --> ProgramEnd
     B4aRead --> ProgramEnd
@@ -821,7 +818,7 @@ flowchart TD
     
     %% APPLY STYLES - STANDARD PROCESSING (Green)
     class Start,Main,A1a,A1b,A1c,A1d,A1e,A1f,A1g,A1h,A1i,A2a,A2b,A2bGlob,A2bLoop,A2bExpand,A2c,A2d,A2e processBox
-    class A3a,A3b,A3c,A3d,A3e,A4a,A4b,A4bSuccess,A4c,A4cSuccess,A4d,A4dLoop,A4e processBox
+    class A3a,A3b,A3c,A3d,A3e,A3f,A4a,A4b,A4bSuccess,A4c,A4cSuccess,A4d,A4dLoop,A4e processBox
     class A5a,A5b,A5c,A5d,A5e,A5f,A5g processBox
     class B1a,B1b,B1c,B1cFiles,B1cRecursive,B1d,B1e,B1f,B3a,B3b,B3c,B3d,B3e processBox
     class B4a,B4b,B4c,B4d,B5a,B5aOffice,B5aPDF,B5b,B5c,B6a,B6b,B6c,B6d,B6e,B6f,B6g,B6h processBox
@@ -845,7 +842,7 @@ flowchart TD
     class A1hError,A2aError,A2aBothError,A2bPathError,A2cDirError,A2cAccessError errorBox
     class A2dTypeError,A2dCreateError,A4bError,A4bTimeout,A4cError,A4eError errorBox
     class B1eError,B1fMissing,B1fType,B2bDanger,B2cInvalid,B2eSecurity errorBox
-    class B3bFailed,B3dUnsupported,B3eMismatch,B4aRead,B4bLarge,B4bEmpty,B4cWrite,B4dOutput errorBox
+    class B3dUnsupported,B3eMismatch,B4aRead,B4bLarge,B4bEmpty,B4cWrite,B4dOutput errorBox
     class B5bFailed,B6hNoFiles,C3dLoadError,C5dFailed errorBox
     class D2dNoPassword,D2fError,D2hError,D3aError,D3bSize,D3dStatus,D4cError errorBox
     class E2bError,E2cError,ErrorHandling,EmergencyCleanup,ErrorExit errorBox
@@ -888,7 +885,7 @@ flowchart TD
                 const diagramDiv = document.getElementById('diagram');
                 diagramDiv.innerHTML = `
                     <div style="padding: 20px; border: 2px solid #f44336; background: #ffebee; border-radius: 4px; margin: 20px 0;">
-                        <h3 style="color: #d32f2f; margin-top: 0;">⚠️ Diagram Too Large</h3>
+                        <h3 style="color: #d32f2f; margin-top: 0;">WARNING: Diagram Too Large</h3>
                         <p>The flowchart contains too much detail for Mermaid's default limits.</p>
                         <p><strong>Workarounds:</strong></p>
                         <ul>

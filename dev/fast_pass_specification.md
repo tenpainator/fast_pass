@@ -1198,15 +1198,21 @@ def validate_file_format_secure(file_path: Path) -> str:
         else:
             raise FileFormatError(f"Unsupported file format: {file_extension}")
     
+    # Security validation moved to separate function (after encryption detection)
+    return detected_format
+
+def validate_format_specific_security(file_path: Path, file_format: str) -> None:
+    """
+    B5-SEC: Format-specific security validation (runs after encryption detection)
+    Only validates unencrypted files - encrypted files are validated after decryption
+    """
     # B5-SEC-5: Office document security validation
-    if detected_format in ['.docx', '.xlsx', '.pptx']:
+    if file_format in ['.docx', '.xlsx', '.pptx']:
         validate_office_document_security(file_path)
     
     # B5-SEC-6: PDF security validation  
-    elif detected_format == '.pdf':
+    elif file_format == '.pdf':
         validate_pdf_document_security(file_path)
-    
-    return detected_format
 
 def validate_office_document_security(file_path: Path) -> None:
     """Validate Office document against security threats"""
@@ -1333,11 +1339,16 @@ def perform_security_and_file_validation(args: argparse.Namespace) -> List[FileM
         # B1d: File existence and access validation
         validate_file_access(resolved_path)
         
-        # B1e: File format validation with security hardening
+        # B1e: File format validation (without security validation for encrypted files)
         file_format = validate_file_format_secure(resolved_path)
         
         # B1f: Encryption status detection
         encryption_status = detect_encryption_status(resolved_path, file_format)
+        
+        # B1g: Security validation (only for unencrypted files)
+        # Note: Encrypted files will be validated after decryption
+        if not encryption_status:
+            validate_format_specific_security(resolved_path, file_format)
         
         # B1g: Build file manifest entry
         manifest_entry = FileManifest(
@@ -1597,6 +1608,10 @@ class OfficeDocumentHandler:
             
             with open(output_path, 'wb') as output_file:
                 office_file.save(output_file)
+        
+        # C2b-SEC: Post-decryption security validation
+        # Validate the decrypted file for security threats now that it's in readable format
+        validate_office_document_security(output_path)
     
     def test_password(self, file_path: Path, password: str) -> bool:
         """C2c: Test if password works for Office document"""
@@ -2451,6 +2466,28 @@ FastPass includes enterprise-grade security hardening based on comprehensive thr
 | **Symlink Attacks** | Symlink detection + strict path resolution | `validate_path_security_hardened()` |
 | **DoS Attacks** | Input size limits + resource constraints | Multiple validation functions |
 | **File Format Confusion** | Magic number validation + strict matching | `validate_file_format_secure()` |
+
+#### **Security Validation Strategy**
+
+**Key Security Design Decision:** Security validation timing is critical for encrypted file processing.
+
+**Validation Pipeline Order:**
+1. **Pre-processing validation** (all files):
+   - Path security validation
+   - File existence and access validation
+   - File format detection (without content validation)
+   - Encryption status detection
+
+2. **Security validation (conditional)**:
+   - **Unencrypted files**: Immediate security validation after format detection
+   - **Encrypted files**: Security validation AFTER decryption (when content is readable)
+
+**Rationale:** Encrypted Office documents are not valid ZIP files until decrypted. Security validation that attempts to read ZIP structure will fail on encrypted files. The validation must occur after decryption when the file is in readable format.
+
+**Implementation:**
+- `validate_format_specific_security()` - Only runs on unencrypted files during initial processing
+- `validate_office_document_security()` - Runs on decrypted files in post-decryption handlers
+- Maintains security protection while enabling encrypted file processing
 
 #### **Security Configuration Options**
 

@@ -72,7 +72,7 @@ class TestDocxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom') as mock_pythoncom, \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_word_app
             
@@ -98,7 +98,7 @@ class TestDocxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_word_app
             
@@ -120,7 +120,7 @@ class TestDocxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_word_app
             
@@ -141,7 +141,7 @@ class TestDocxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_word_app
             
@@ -162,7 +162,7 @@ class TestDocxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_word_app
             
@@ -183,7 +183,7 @@ class TestDocxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_word_app
             
@@ -206,7 +206,7 @@ class TestDocxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_word_app
             
@@ -227,7 +227,7 @@ class TestDocxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_word_app
             
@@ -252,7 +252,7 @@ class TestXlsxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_excel_app
             
@@ -275,7 +275,7 @@ class TestXlsxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_excel_app
             
@@ -296,7 +296,7 @@ class TestXlsxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_excel_app
             
@@ -317,7 +317,7 @@ class TestXlsxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_excel_app
             
@@ -338,7 +338,7 @@ class TestXlsxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_excel_app
             
@@ -359,7 +359,7 @@ class TestXlsxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_excel_app
             
@@ -380,7 +380,7 @@ class TestXlsxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_excel_app
             
@@ -401,7 +401,7 @@ class TestXlsxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_excel_app
             
@@ -426,7 +426,7 @@ class TestPptxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_ppt_app
             
@@ -449,7 +449,7 @@ class TestPptxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_ppt_app
             
@@ -470,7 +470,7 @@ class TestPptxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_ppt_app
             
@@ -491,7 +491,7 @@ class TestPptxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_ppt_app
             
@@ -512,7 +512,7 @@ class TestPptxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_ppt_app
             
@@ -533,7 +533,7 @@ class TestPptxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_ppt_app
             
@@ -554,7 +554,7 @@ class TestPptxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_ppt_app
             
@@ -575,7 +575,7 @@ class TestPptxEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_ppt_app
             
@@ -597,7 +597,7 @@ class TestEncryptionErrorConditions:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.side_effect = Exception("File corrupted")
             
@@ -617,7 +617,7 @@ class TestEncryptionErrorConditions:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_word_app
             
@@ -632,7 +632,7 @@ class TestEncryptionErrorConditions:
         password = "password"
         
         with patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             with pytest.raises(FileFormatError, match="Unsupported Office format"):
                 office_handler.encrypt_file(input_path, output_path, password)
@@ -651,7 +651,7 @@ class TestEncryptionErrorConditions:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_word_app
             
@@ -686,7 +686,7 @@ class TestEncryptionErrorConditions:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.return_value = mock_word_app
             
@@ -714,7 +714,7 @@ class TestEncryptionErrorConditions:
         with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com, \
              patch('src.core.crypto_handlers.office_handler.pythoncom'), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             mock_win32com.client.Dispatch.side_effect = MemoryError("Out of memory")
             
@@ -732,7 +732,7 @@ class TestPasswordValidationAndSecurityChecks:
         password = "a" * 1025  # Exceeds 1024 limit
         
         with patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             with pytest.raises(ValueError, match="Password exceeds maximum length"):
                 office_handler.encrypt_file(input_path, output_path, password)
@@ -744,7 +744,7 @@ class TestPasswordValidationAndSecurityChecks:
         password = "password\x00malicious"
         
         with patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'):
+             patch('src.utils.config.FastPassConfig'):
             
             with pytest.raises(ValueError, match="Null byte in password"):
                 office_handler.encrypt_file(input_path, output_path, password)
@@ -761,7 +761,7 @@ class TestPasswordValidationAndSecurityChecks:
         mock_config.LEGACY_FORMATS = {'.doc': 'msoffcrypto'}
         
         with patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig', mock_config):
+             patch('src.utils.config.FastPassConfig', mock_config):
             
             with pytest.raises(FileFormatError, match="Legacy Office format .doc supports decryption only"):
                 office_handler.encrypt_file(input_path, output_path, password)
@@ -780,7 +780,7 @@ class TestSubprocessFallbackEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com', None), \
              patch('src.core.crypto_handlers.office_handler.pythoncom', None), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'), \
+             patch('src.utils.config.FastPassConfig'), \
              patch('subprocess.run') as mock_run:
             
             # Mock successful subprocess execution
@@ -810,7 +810,7 @@ class TestSubprocessFallbackEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com', None), \
              patch('src.core.crypto_handlers.office_handler.pythoncom', None), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'), \
+             patch('src.utils.config.FastPassConfig'), \
              patch('subprocess.run') as mock_run:
             
             # Mock failed subprocess execution
@@ -831,7 +831,7 @@ class TestSubprocessFallbackEncryption:
         with patch('src.core.crypto_handlers.office_handler.win32com', None), \
              patch('src.core.crypto_handlers.office_handler.pythoncom', None), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig'), \
+             patch('src.utils.config.FastPassConfig'), \
              patch('subprocess.run') as mock_run:
             
             # Mock subprocess timeout

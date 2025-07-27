@@ -446,12 +446,20 @@ class TestCLIEdgeCases:
     
     def test_relative_vs_absolute_paths(self):
         """Test: Relative vs absolute path handling"""
-        relative_path = "relative/path/file.pdf"
-        absolute_path = "/absolute/path/file.pdf"
+        import os
+        import platform
+        
+        if platform.system() == 'Windows':
+            relative_path = "relative\\path\\file.pdf"
+            absolute_path = "C:\\absolute\\path\\file.pdf"
+        else:
+            relative_path = "relative/path/file.pdf"
+            absolute_path = "/absolute/path/file.pdf"
         
         with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', relative_path, absolute_path, '-p', 'password']):
             args = cli_module.parse_command_line_arguments()
-            assert str(args.input[0]) == relative_path
-            assert str(args.input[1]) == absolute_path
+            # Normalize paths for comparison on Windows
+            assert str(args.input[0]).replace('/', os.sep) == relative_path
+            assert str(args.input[1]).replace('/', os.sep) == absolute_path
             assert args.input[0].is_absolute() is False
             assert args.input[1].is_absolute() is True

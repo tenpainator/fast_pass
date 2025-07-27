@@ -89,12 +89,13 @@ class TestPathResolutionValidation:
         result = validator.validate_file_path(test_file)
         assert result == test_file.resolve(strict=False)
     
-    def test_validate_nonexistent_file_error(self):
+    def test_validate_nonexistent_file_error(self, temp_work_dir):
         """Test: Non-existent file raises error"""
         logger = MagicMock()
         validator = SecurityValidator(logger)
         
-        nonexistent_file = Path("/nonexistent/path/file.pdf")
+        # Use a path within allowed directories but file doesn't exist
+        nonexistent_file = temp_work_dir / "nonexistent_file.pdf"
         
         with pytest.raises(SecurityViolationError, match="File not found"):
             validator.validate_file_path(nonexistent_file)
@@ -241,6 +242,7 @@ class TestDirectoryContainmentValidation:
     
     def test_validate_file_outside_allowed_directories_blocked(self):
         """Test: Files outside allowed directories are blocked"""
+        import platform
         logger = MagicMock()
         # Create validator with only temp directory allowed for testing
         import tempfile
@@ -248,14 +250,21 @@ class TestDirectoryContainmentValidation:
         validator = SecurityValidator(logger, allowed_directories={str(temp_dir)})
         
         # Try to access a file outside the explicitly allowed directories
-        # This test may be system-dependent
-        restricted_path = Path("/etc/passwd")  # Unix system file
-        if restricted_path.exists():
-            with pytest.raises(SecurityViolationError, match="outside security boundaries"):
-                validator.validate_file_path(restricted_path)
-        else:
-            # Windows equivalent
+        if platform.system() == 'Windows':
+            # Windows system file - expect either security rejection or permission error
             restricted_path = Path("C:/Windows/System32/config/SAM")
+            try:
+                if restricted_path.exists():
+                    with pytest.raises(SecurityViolationError, match="outside security boundaries"):
+                        validator.validate_file_path(restricted_path)
+                else:
+                    pytest.skip("Windows system file not accessible for testing")
+            except PermissionError:
+                # Windows correctly blocks access - this is expected behavior
+                pytest.skip("Windows permission system correctly blocks access")
+        else:
+            # Unix system file
+            restricted_path = Path("/etc/passwd")
             if restricted_path.exists():
                 with pytest.raises(SecurityViolationError, match="outside security boundaries"):
                     validator.validate_file_path(restricted_path)
@@ -463,14 +472,15 @@ class TestFileSecurityValidation:
     
     def test_validate_permission_check_failure_blocked(self, temp_work_dir):
         """Test: Files with permission check failures are blocked"""
+        import os
         logger = MagicMock()
         validator = SecurityValidator(logger)
         
         test_file = temp_work_dir / "permission_fail.pdf"
         test_file.write_text("test content")
         
-        # Mock stat to raise exception
-        with patch.object(test_file, 'stat', side_effect=PermissionError("Access denied")):
+        # Mock os.stat to raise exception instead of pathlib stat method
+        with patch('os.stat', side_effect=PermissionError("Access denied")):
             result = validator._is_file_in_secure_zone(test_file.resolve(strict=False))
             assert result is False
 

@@ -381,10 +381,36 @@ class OfficeDocumentHandler:
                 with open(output_path, 'wb') as output_file:
                     office_file.decrypt(output_file)
                 
+                # Validate the decrypted file for security threats
+                self._validate_decrypted_file_security(output_path)
+                
                 self.logger.info(f"Successfully decrypted {input_path.name}")
                 
         except Exception as e:
             raise Exception(f"Failed to decrypt Office document {input_path}: {e}")
+    
+    def _validate_decrypted_file_security(self, file_path: Path) -> None:
+        """
+        Validate the decrypted Office file for security threats
+        This runs after decryption when the file is in readable ZIP format
+        """
+        from src.core.security import SecurityValidator
+        
+        try:
+            # Create security validator and validate the decrypted file
+            security_validator = SecurityValidator(self.logger)
+            security_validator.validate_office_document_security(file_path)
+            self.logger.debug(f"Security validation passed for decrypted file: {file_path}")
+            
+        except Exception as e:
+            # If security validation fails, remove the decrypted file for safety
+            try:
+                if file_path.exists():
+                    file_path.unlink()
+                    self.logger.warning(f"Removed potentially unsafe decrypted file: {file_path}")
+            except Exception:
+                pass
+            raise Exception(f"Security validation failed for decrypted file {file_path}: {e}")
     
     def cleanup(self) -> None:
         """

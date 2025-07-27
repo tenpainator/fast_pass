@@ -67,8 +67,10 @@ class FileValidator:
         # B5a-B5c: Encryption Status Detection
         is_encrypted = self._detect_encryption_status(file_path, file_format)
         
-        # B4-SEC: File Format Security Validation
-        self._validate_file_format_security(file_path, file_format)
+        # B4-SEC: File Format Security Validation (only for unencrypted files)
+        # Note: Encrypted files will be validated after decryption
+        if not is_encrypted:
+            self._validate_file_format_security(file_path, file_format)
         
         # B6a-B6e: Build File Manifest
         # Check supported formats first, then legacy formats

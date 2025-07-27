@@ -101,8 +101,9 @@ class OfficeDocumentHandler:
         
         # B2-SEC-1: Legacy format validation
         file_extension = input_path.suffix.lower()
-        if file_extension in ['.doc', '.xls', '.ppt']:
-            raise FileFormatError(f"Legacy Office format {file_extension} not supported for encryption")
+        from src.utils.config import FastPassConfig
+        if file_extension in FastPassConfig.LEGACY_FORMATS:
+            raise FileFormatError(f"Legacy Office format {file_extension} supports decryption only, not encryption")
         
         # B2-SEC-2: Path validation before processing
         self._validate_path_security_hardened(input_path)

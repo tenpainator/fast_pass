@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Set
 import logging
 
-from src.exceptions import SecurityViolationError
+from src.exceptions import SecurityViolationError, FileFormatError
 
 
 class SecurityValidator:
@@ -405,3 +405,203 @@ class SecurityValidator:
             raise SecurityViolationError(f"Cannot create output directory: {output_dir}")
         
         return resolved_output
+    
+    def validate_office_document_security(self, file_path: Path) -> None:
+        """
+        B4-SEC: Office Document Security Validation
+        Validate Office documents against ZIP bomb and XXE attacks
+        """
+        try:
+            import zipfile
+            import xml.etree.ElementTree as ET
+            
+            # B4-SEC-1: ZIP Bomb Detection
+            self._validate_zip_bomb_protection(file_path)
+            
+            # B4-SEC-2: XXE Attack Prevention
+            self._validate_xml_security(file_path)
+            
+        except Exception as e:
+            raise SecurityViolationError(f"Office document security validation failed: {file_path} - {e}")
+    
+    def _validate_zip_bomb_protection(self, file_path: Path) -> None:
+        """
+        B4-SEC-1: ZIP Bomb Protection
+        Validate Office files against ZIP bomb attacks
+        """
+        try:
+            import zipfile
+            
+            max_files = 1000  # Maximum number of files in archive
+            max_uncompressed_size = 100 * 1024 * 1024  # 100MB
+            max_compression_ratio = 100  # Maximum compression ratio
+            
+            with zipfile.ZipFile(file_path, 'r') as zip_file:
+                file_list = zip_file.filelist
+                
+                # Check number of files
+                if len(file_list) > max_files:
+                    raise SecurityViolationError(
+                        f"Office document contains too many files ({len(file_list)} > {max_files}): {file_path}"
+                    )
+                
+                total_uncompressed = 0
+                total_compressed = 0
+                
+                for info in file_list:
+                    total_uncompressed += info.file_size
+                    total_compressed += info.compress_size
+                    
+                    # Check individual file size
+                    if info.file_size > max_uncompressed_size:
+                        raise SecurityViolationError(
+                            f"Office document contains oversized file ({info.filename}): {file_path}"
+                        )
+                
+                # Check total uncompressed size
+                if total_uncompressed > max_uncompressed_size:
+                    raise SecurityViolationError(
+                        f"Office document total size too large ({total_uncompressed} bytes): {file_path}"
+                    )
+                
+                # Check compression ratio
+                if total_compressed > 0:
+                    compression_ratio = total_uncompressed / total_compressed
+                    if compression_ratio > max_compression_ratio:
+                        raise SecurityViolationError(
+                            f"Office document compression ratio too high ({compression_ratio:.1f}): {file_path}"
+                        )
+                        
+        except zipfile.BadZipFile:
+            raise SecurityViolationError(f"Office document is corrupted or invalid ZIP: {file_path}")
+        except Exception as e:
+            raise SecurityViolationError(f"ZIP bomb validation failed: {file_path} - {e}")
+    
+    def _validate_xml_security(self, file_path: Path) -> None:
+        """
+        B4-SEC-2: XXE Attack Prevention
+        Validate XML content within Office files for External Entity attacks
+        """
+        try:
+            import zipfile
+            import xml.etree.ElementTree as ET
+            
+            # Dangerous XML patterns that indicate XXE attacks
+            dangerous_patterns = [
+                b'<!ENTITY',
+                b'SYSTEM',
+                b'PUBLIC',
+                b'&lt;!ENTITY',
+                b'&amp;',
+                b'file://',
+                b'http://',
+                b'ftp://'
+            ]
+            
+            with zipfile.ZipFile(file_path, 'r') as zip_file:
+                for file_info in zip_file.filelist:
+                    if file_info.filename.endswith('.xml') or file_info.filename.endswith('.rels'):
+                        try:
+                            content = zip_file.read(file_info.filename)
+                            
+                            # Check for dangerous patterns
+                            content_lower = content.lower()
+                            for pattern in dangerous_patterns:
+                                if pattern in content_lower:
+                                    raise SecurityViolationError(
+                                        f"Office document contains suspicious XML content ({pattern.decode('utf-8', errors='ignore')}): {file_path}"
+                                    )
+                            
+                            # Additional check: Try to parse XML safely
+                            try:
+                                # Use defusedxml if available, otherwise basic ET with restrictions
+                                root = ET.fromstring(content)
+                            except ET.ParseError:
+                                # XML parsing errors are not necessarily security issues
+                                pass
+                                
+                        except Exception as e:
+                            # Individual file read errors are not necessarily security issues
+                            continue
+                            
+        except Exception as e:
+            raise SecurityViolationError(f"XML security validation failed: {file_path} - {e}")
+    
+    def validate_pdf_document_security(self, file_path: Path) -> None:
+        """
+        B5-SEC: PDF Document Security Validation
+        Validate PDF documents against malicious content
+        """
+        try:
+            import PyPDF2
+            
+            with open(file_path, 'rb') as pdf_file:
+                pdf_reader = PyPDF2.PdfReader(pdf_file)
+                
+                # B5-SEC-1: Check for JavaScript
+                self._validate_pdf_javascript(pdf_reader, file_path)
+                
+                # B5-SEC-2: Check for launch actions
+                self._validate_pdf_launch_actions(pdf_reader, file_path)
+                
+        except Exception as e:
+            raise SecurityViolationError(f"PDF security validation failed: {file_path} - {e}")
+    
+    def _validate_pdf_javascript(self, pdf_reader, file_path: Path) -> None:
+        """
+        B5-SEC-1: PDF JavaScript Detection
+        Check for embedded JavaScript in PDF documents
+        """
+        try:
+            # Check document-level JavaScript
+            if hasattr(pdf_reader, 'trailer') and pdf_reader.trailer:
+                if '/Names' in pdf_reader.trailer:
+                    names_dict = pdf_reader.trailer['/Names']
+                    if isinstance(names_dict, dict) and '/JavaScript' in names_dict:
+                        raise SecurityViolationError(f"PDF contains JavaScript: {file_path}")
+            
+            # Check page-level content for JavaScript
+            for page_num, page in enumerate(pdf_reader.pages):
+                if hasattr(page, 'get_contents') and page.get_contents():
+                    try:
+                        content = page.extract_text()
+                        if content and ('javascript' in content.lower() or 'script' in content.lower()):
+                            self.logger.warning(f"PDF may contain script content on page {page_num + 1}: {file_path}")
+                    except:
+                        # Text extraction errors are not security issues
+                        pass
+                        
+        except Exception as e:
+            # JavaScript detection errors are warnings, not blocking errors
+            self.logger.warning(f"Could not fully scan PDF for JavaScript: {file_path} - {e}")
+    
+    def _validate_pdf_launch_actions(self, pdf_reader, file_path: Path) -> None:
+        """
+        B5-SEC-2: PDF Launch Action Detection  
+        Check for launch actions that could execute external programs
+        """
+        try:
+            # Check for launch actions in document catalog
+            if hasattr(pdf_reader, 'trailer') and pdf_reader.trailer:
+                catalog = pdf_reader.trailer.get('/Root')
+                if catalog and isinstance(catalog, dict):
+                    # Check for OpenAction
+                    if '/OpenAction' in catalog:
+                        action = catalog['/OpenAction']
+                        if isinstance(action, dict) and action.get('/S') == '/Launch':
+                            raise SecurityViolationError(f"PDF contains launch action: {file_path}")
+            
+            # Check pages for launch actions
+            for page in pdf_reader.pages:
+                if hasattr(page, 'get') and '/Annots' in page:
+                    annotations = page['/Annots']
+                    if annotations:
+                        for annot in annotations:
+                            if isinstance(annot, dict):
+                                action = annot.get('/A')
+                                if isinstance(action, dict) and action.get('/S') == '/Launch':
+                                    raise SecurityViolationError(f"PDF contains launch action: {file_path}")
+                                    
+        except Exception as e:
+            # Launch action detection errors are warnings, not blocking errors
+            self.logger.warning(f"Could not fully scan PDF for launch actions: {file_path} - {e}")

@@ -7,6 +7,7 @@ Maps to: Section A - DETAILED CLI PARSING from flowchart
 import argparse
 import sys
 import json
+import getpass
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
@@ -251,6 +252,46 @@ def handle_stdin_passwords(args: argparse.Namespace) -> None:
         except Exception as e:
             raise ValueError(f"Error reading passwords from stdin: {e}")
 
+def handle_interactive_passwords(args: argparse.Namespace) -> None:
+    """
+    A3e: Handle Interactive Password Input
+    Prompt for passwords securely using getpass when no passwords provided
+    """
+    # Check if no passwords were provided and we're not in a non-interactive mode
+    has_cli_passwords = hasattr(args, 'password') and args.password
+    has_password_file = hasattr(args, 'password_list') and args.password_list
+    has_stdin_mapping = hasattr(args, 'stdin_password_mapping') and args.stdin_password_mapping
+    
+    # Only prompt if no other password sources and we have an operation that needs passwords
+    if not (has_cli_passwords or has_password_file or has_stdin_mapping):
+        if hasattr(args, 'operation') and args.operation in ['encrypt', 'decrypt']:
+            try:
+                # A3e-SEC: Secure password prompting
+                if args.operation == 'encrypt':
+                    password = getpass.getpass("Enter password for encryption: ")
+                    confirm_password = getpass.getpass("Confirm password: ")
+                    
+                    if password != confirm_password:
+                        raise ValueError("Passwords do not match")
+                    
+                    if not password:
+                        raise ValueError("Password cannot be empty for encryption")
+                        
+                    # Store the interactive password
+                    args.password = [password]
+                    
+                elif args.operation == 'decrypt':
+                    password = getpass.getpass("Enter password for decryption: ")
+                    
+                    if password:  # Allow empty password for non-encrypted files
+                        args.password = [password]
+                        
+            except KeyboardInterrupt:
+                print("\nOperation cancelled by user")
+                sys.exit(1)
+            except Exception as e:
+                raise ValueError(f"Interactive password input failed: {e}")
+
 
 def main() -> int:
     """
@@ -293,6 +334,9 @@ def main() -> int:
         
         # Handle stdin passwords
         handle_stdin_passwords(args)
+        
+        # Handle interactive password prompting
+        handle_interactive_passwords(args)
         
         # Load configuration
         config = FastPassConfig.load_configuration(args)

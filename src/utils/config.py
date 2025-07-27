@@ -32,6 +32,13 @@ class FastPassConfig:
         '.pdf': 'PyPDF2'
     }
     
+    # Legacy formats - decrypt-only support
+    LEGACY_FORMATS = {
+        '.doc': 'msoffcrypto',
+        '.xls': 'msoffcrypto',
+        '.ppt': 'msoffcrypto'
+    }
+    
     # Configuration file locations (in order of precedence)
     CONFIG_LOCATIONS = [
         Path.home() / '.fastpass' / 'config.json',  # User config

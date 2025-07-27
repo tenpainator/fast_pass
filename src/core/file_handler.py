@@ -67,9 +67,14 @@ class FileValidator:
         # B5a-B5c: Encryption Status Detection
         is_encrypted = self._detect_encryption_status(file_path, file_format)
         
+        # B4-SEC: File Format Security Validation
+        self._validate_file_format_security(file_path, file_format)
+        
         # B6a-B6e: Build File Manifest
-        # For unsupported formats, use None as crypto_tool to indicate it will fail during processing
-        crypto_tool = FastPassConfig.SUPPORTED_FORMATS.get(file_format, None)
+        # Check supported formats first, then legacy formats
+        crypto_tool = FastPassConfig.SUPPORTED_FORMATS.get(file_format)
+        if not crypto_tool:
+            crypto_tool = FastPassConfig.LEGACY_FORMATS.get(file_format)
         
         manifest = FileManifest(
             path=file_path,
@@ -85,6 +90,26 @@ class FileValidator:
         self.logger.debug(f"Validated: {file_path} (format: {file_format}, encrypted: {is_encrypted})")
         
         return manifest
+    
+    def _validate_file_format_security(self, file_path: Path, file_format: str) -> None:
+        """
+        B4-SEC: File Format Security Validation
+        Validate files against format-specific security threats
+        """
+        from src.core.security import SecurityValidator
+        
+        # Create security validator
+        security_validator = SecurityValidator(self.logger)
+        
+        # Apply format-specific security validations
+        if file_format in ['.docx', '.xlsx', '.pptx', '.docm', '.xlsm', '.pptm', '.dotx', '.xltx', '.potx']:
+            # Office documents - check for ZIP bombs and XXE attacks
+            security_validator.validate_office_document_security(file_path)
+        elif file_format == '.pdf':
+            # PDF documents - check for JavaScript and launch actions
+            security_validator.validate_pdf_document_security(file_path)
+        
+        self.logger.debug(f"Security validation passed for {file_format}: {file_path}")
     
     def _detect_file_format(self, file_path: Path, allow_unsupported: bool = False) -> str:
         """
@@ -121,6 +146,12 @@ class FileValidator:
         
         # B3d: Verify FastPass Can Handle This Format
         if file_ext not in FastPassConfig.SUPPORTED_FORMATS:
+            # Check if it's a legacy format (decrypt-only)
+            if file_ext in FastPassConfig.LEGACY_FORMATS:
+                # B3d_Legacy: Legacy format detected
+                self.logger.info(f"Legacy format detected: {file_ext} (decrypt-only support)")
+                return file_ext
+            
             # B3d_Unsupported: File Type Not Supported
             if allow_unsupported:
                 # Return the unsupported format to allow deferred failure during processing
@@ -128,7 +159,8 @@ class FileValidator:
             else:
                 raise FileFormatError(
                     f"Unsupported file format: {file_ext}. "
-                    f"Supported formats: {list(FastPassConfig.SUPPORTED_FORMATS.keys())}"
+                    f"Supported formats: {list(FastPassConfig.SUPPORTED_FORMATS.keys())} "
+                    f"(Legacy decrypt-only: {list(FastPassConfig.LEGACY_FORMATS.keys())})"
                 )
         
         return file_ext

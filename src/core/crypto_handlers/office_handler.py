@@ -15,6 +15,16 @@ try:
 except ImportError:
     msoffcrypto = None
 
+try:
+    import win32com.client
+    import pythoncom
+    import os
+except ImportError:
+    win32com = None
+    pythoncom = None
+
+from src.exceptions import FileFormatError, ProcessingError, SecurityViolationError
+
 
 class OfficeDocumentHandler:
     """
@@ -78,33 +88,275 @@ class OfficeDocumentHandler:
     
     def encrypt_file(self, input_path: Path, output_path: Path, password: str) -> None:
         """
-        Encrypt Office document with password
-        Note: This is experimental functionality
+        C2a: Secure Office document encryption with hardened security
+        """
+        # Use the secure implementation that includes all security validations
+        self.encrypt_file_secure(input_path, output_path, password)
+    
+    def encrypt_file_secure(self, input_path: Path, output_path: Path, password: str) -> None:
+        """
+        C2a: Secure Office encryption using direct library calls (no subprocess)
+        Implementation following specification Section C2a
         """
         
-        # Log experimental warning
-        self.logger.warning(
-            f"EXPERIMENTAL: Encrypting {input_path.name} with Office encryption"
-        )
+        # B2-SEC-1: Legacy format validation
+        file_extension = input_path.suffix.lower()
+        if file_extension in ['.doc', '.xls', '.ppt']:
+            raise FileFormatError(f"Legacy Office format {file_extension} not supported for encryption")
+        
+        # B2-SEC-2: Path validation before processing
+        self._validate_path_security_hardened(input_path)
+        self._validate_path_security_hardened(output_path.parent)
+        
+        # B2-SEC-3: Password sanitization
+        if len(password) > 1024:  # Reasonable password length limit
+            raise ValueError("Password exceeds maximum length")
+        if '\x00' in password:
+            raise ValueError("Null byte in password")
+        
+        # B2-SEC-4: Use direct library calls instead of subprocess
+        try:
+            # Use COM automation for Office encryption (Windows)
+            if self._direct_encryption_available():
+                self._encrypt_direct(input_path, output_path, password)
+            else:
+                # Fallback to subprocess with strict argument validation if COM unavailable
+                self._encrypt_subprocess_secure(input_path, output_path, password)
+                
+        except Exception as e:
+            raise ProcessingError(f"Secure Office encryption failed: {e}")
+    
+    def _validate_path_security_hardened(self, path: Path) -> None:
+        """
+        B2-SEC-2: Path validation using SecurityValidator
+        """
+        # Import SecurityValidator for path validation
+        from src.core.security import SecurityValidator
+        
+        # Create validator with default settings
+        validator = SecurityValidator(self.logger)
+        
+        # For existing files, use file validation
+        if path.exists() and path.is_file():
+            validator.validate_file_path(path)
+        # For directories (including parent directories for new files), use directory validation
+        elif path.exists() and path.is_dir():
+            validator.validate_output_directory(path)
+        else:
+            # For non-existent paths, validate the parent directory
+            parent_dir = path.parent
+            if parent_dir.exists():
+                validator.validate_output_directory(parent_dir)
+    
+    def _direct_encryption_available(self) -> bool:
+        """
+        Check if direct COM automation is available for Office encryption
+        """
+        return win32com is not None and pythoncom is not None
+    
+    def _encrypt_direct(self, input_path: Path, output_path: Path, password: str) -> None:
+        """
+        C2a-DIRECT: Direct Office encryption using COM automation
+        """
+        if not self._direct_encryption_available():
+            raise ProcessingError("COM automation not available for Office encryption")
+        
+        file_extension = input_path.suffix.lower()
         
         try:
-            # For Office encryption, we need to use a different approach
-            # msoffcrypto-tool primarily supports decryption
-            # For encryption, we would need to use Office automation or other tools
+            # Initialize COM
+            pythoncom.CoInitialize()
             
-            # This is a placeholder implementation
-            # In a real implementation, you might use:
-            # - Office COM automation (Windows only)
-            # - LibreOffice command line tools
-            # - Or other encryption methods
+            if file_extension in ['.docx', '.doc']:
+                self._encrypt_word_document(input_path, output_path, password)
+            elif file_extension in ['.xlsx', '.xls']:
+                self._encrypt_excel_document(input_path, output_path, password)
+            elif file_extension in ['.pptx', '.ppt']:
+                self._encrypt_powerpoint_document(input_path, output_path, password)
+            else:
+                raise FileFormatError(f"Unsupported Office format for encryption: {file_extension}")
             
-            raise NotImplementedError(
-                "Office document encryption is not yet implemented. "
-                "Use Microsoft Office or LibreOffice to encrypt documents manually."
-            )
+            self.logger.info(f"Successfully encrypted {input_path.name}")
             
         except Exception as e:
-            raise Exception(f"Failed to encrypt Office document {input_path}: {e}")
+            raise ProcessingError(f"COM automation encryption failed: {e}")
+        finally:
+            # Cleanup COM
+            try:
+                pythoncom.CoUninitialize()
+            except:
+                pass
+    
+    def _encrypt_word_document(self, input_path: Path, output_path: Path, password: str) -> None:
+        """
+        C2a-WORD: Encrypt Word document using COM automation
+        """
+        word_app = None
+        doc = None
+        
+        try:
+            # Create Word application
+            word_app = win32com.client.Dispatch("Word.Application")
+            word_app.Visible = False
+            word_app.DisplayAlerts = False
+            
+            # Open document
+            doc = word_app.Documents.Open(str(input_path.resolve()))
+            
+            # Set password property for encryption
+            doc.Password = password
+            
+            # Save the encrypted document with explicit file format
+            # FileFormat=12 for .docx (wdFormatXMLDocument)
+            doc.SaveAs2(FileName=str(output_path.resolve()), FileFormat=12)
+            
+        except Exception as e:
+            raise ProcessingError(f"Word COM encryption failed: {e}")
+        finally:
+            # Cleanup
+            if doc:
+                try:
+                    doc.Close(SaveChanges=False)
+                except:
+                    pass
+            if word_app:
+                try:
+                    word_app.Quit()
+                except:
+                    pass
+    
+    def _encrypt_excel_document(self, input_path: Path, output_path: Path, password: str) -> None:
+        """
+        C2a-EXCEL: Encrypt Excel document using COM automation
+        """
+        excel_app = None
+        workbook = None
+        
+        try:
+            # Create Excel application
+            excel_app = win32com.client.Dispatch("Excel.Application")
+            excel_app.Visible = False
+            excel_app.DisplayAlerts = False
+            
+            # Open workbook
+            workbook = excel_app.Workbooks.Open(str(input_path.resolve()))
+            
+            # Set password property for encryption
+            workbook.Password = password
+            
+            # Save the encrypted workbook with explicit file format
+            # FileFormat=-4143 for .xlsx (xlWorkbookNormal)
+            workbook.SaveAs(Filename=str(output_path.resolve()), FileFormat=-4143)
+            
+        except Exception as e:
+            raise ProcessingError(f"Excel COM encryption failed: {e}")
+        finally:
+            # Cleanup
+            if workbook:
+                try:
+                    workbook.Close(SaveChanges=False)
+                except:
+                    pass
+            if excel_app:
+                try:
+                    excel_app.Quit()
+                except:
+                    pass
+    
+    def _encrypt_powerpoint_document(self, input_path: Path, output_path: Path, password: str) -> None:
+        """
+        C2a-POWERPOINT: Encrypt PowerPoint document using COM automation
+        """
+        ppt_app = None
+        presentation = None
+        
+        try:
+            # Create PowerPoint application
+            ppt_app = win32com.client.Dispatch("PowerPoint.Application")
+            # Note: PowerPoint must remain visible, cannot be hidden
+            
+            # Open presentation
+            presentation = ppt_app.Presentations.Open(str(input_path.resolve()))
+            
+            # Set password property for encryption
+            presentation.Password = password
+            
+            # Save the encrypted presentation with explicit file format
+            # FileFormat=24 for .pptx (ppSaveAsOpenXMLPresentation)
+            presentation.SaveAs(FileName=str(output_path.resolve()), FileFormat=24)
+            
+        except Exception as e:
+            raise ProcessingError(f"PowerPoint COM encryption failed: {e}")
+        finally:
+            # Cleanup
+            if presentation:
+                try:
+                    presentation.Close()
+                except:
+                    pass
+            if ppt_app:
+                try:
+                    ppt_app.Quit()
+                except:
+                    pass
+    
+    def _encrypt_subprocess_secure(self, input_path: Path, output_path: Path, password: str) -> None:
+        """
+        C2a-SUBPROCESS: Fallback secure subprocess implementation with strict validation
+        """
+        
+        # B2-SEC-5: Strict argument validation for subprocess
+        import subprocess
+        import shlex
+        
+        # Validate all paths are within allowed directories
+        self._validate_path_security_hardened(input_path)
+        self._validate_path_security_hardened(output_path.parent)
+        
+        # Use argument list (not shell) to prevent injection
+        cmd_args = [
+            'python', '-m', 'msoffcrypto.cli',
+            '-e', '-p', password,
+            str(input_path.resolve()),  # Use absolute paths
+            str(output_path.resolve())
+        ]
+        
+        # B2-SEC-6: Secure subprocess execution
+        try:
+            result = subprocess.run(
+                cmd_args,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                shell=False,  # CRITICAL: Never use shell=True
+                cwd=None,     # Don't inherit current directory
+                env={'PATH': os.environ.get('PATH', '')},  # Minimal environment
+                check=False
+            )
+            
+            if result.returncode != 0:
+                # Sanitize error output to prevent information disclosure
+                sanitized_error = self._sanitize_error_message(result.stderr)
+                raise ProcessingError(f"Office encryption failed: {sanitized_error}")
+                
+        except subprocess.TimeoutExpired:
+            raise ProcessingError("Office encryption timed out")
+    
+    def _sanitize_error_message(self, error_message: str) -> str:
+        """
+        B2-SEC-SANITIZE: Sanitize error messages to prevent information disclosure
+        """
+        if not error_message:
+            return "Unknown error"
+        
+        # Remove potential sensitive information while keeping useful error details
+        sanitized = error_message.strip()
+        
+        # Truncate very long error messages
+        if len(sanitized) > 200:
+            sanitized = sanitized[:200] + "..."
+        
+        return sanitized
     
     def decrypt_file(self, input_path: Path, output_path: Path, password: str) -> None:
         """

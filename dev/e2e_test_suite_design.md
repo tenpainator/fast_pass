@@ -8,7 +8,7 @@ Replace existing E2E tests with focused encryption and decryption tests that use
 ### Test Organization
 - **Location**: `/tests/e2e/test_complete_workflows.py`
 - **Approach**: Individual test functions per file type and operation
-- **Verification**: Raw tool validation of encryption status
+- **Verification**: Raw tool validation of encryption status + FastPass check-password command validation
 
 ### File Fixtures
 - **Encrypted files**: `c:\Dev\fast_pass\tests\fixtures\sample_files\encrypted\`
@@ -115,9 +115,94 @@ def verify_office_encryption_status(file_path):
 - **Expected**: FastPass success + raw tool reports `is_encrypted=False`
 - **Formats**: DOCX, XLSX, PPTX, PDF, DOC, XLS, PPT
 
+## Password Checking Tests
+
+### Check-Password on Decrypted Files (7 tests)
+Test that check-password correctly identifies unencrypted files:
+
+1. `test_check_password_decrypted_docx()` - Should report `password_protected=False`
+2. `test_check_password_decrypted_xlsx()` - Should report `password_protected=False`
+3. `test_check_password_decrypted_pptx()` - Should report `password_protected=False`
+4. `test_check_password_decrypted_pdf()` - Should report `password_protected=False`
+5. `test_check_password_decrypted_doc()` - Should report `password_protected=False`
+6. `test_check_password_decrypted_xls()` - Should report `password_protected=False`
+7. `test_check_password_decrypted_ppt()` - Should report `password_protected=False`
+
+### Check-Password on Encrypted Files (7 tests)
+Test that check-password correctly identifies encrypted files:
+
+1. `test_check_password_encrypted_docx()` - Should report `password_protected=True`
+2. `test_check_password_encrypted_xlsx()` - Should report `password_protected=True`
+3. `test_check_password_encrypted_pptx()` - Should report `password_protected=True`
+4. `test_check_password_encrypted_pdf()` - Should report `password_protected=True`
+5. `test_check_password_encrypted_doc()` - Should report `password_protected=True`
+6. `test_check_password_encrypted_xls()` - Should report `password_protected=True`
+7. `test_check_password_encrypted_ppt()` - Should report `password_protected=True`
+
+### Check-Password with Correct Password (7 tests)
+Test that check-password validates correct passwords on encrypted files:
+
+1. `test_check_password_correct_docx()` - Should report `password_correct=True` for "test123"
+2. `test_check_password_correct_xlsx()` - Should report `password_correct=True` for "test123"
+3. `test_check_password_correct_pptx()` - Should report `password_correct=True` for "test123"
+4. `test_check_password_correct_pdf()` - Should report `password_correct=True` for "test123"
+5. `test_check_password_correct_doc()` - Should report `password_correct=True` for "test123"
+6. `test_check_password_correct_xls()` - Should report `password_correct=True` for "test123"
+7. `test_check_password_correct_ppt()` - Should report `password_correct=True` for "test123"
+
+### Check-Password with Wrong Password (7 tests)
+Test that check-password identifies incorrect passwords on encrypted files:
+
+1. `test_check_password_wrong_docx()` - Should report `password_protected=True, password_correct=False` for "test345"
+2. `test_check_password_wrong_xlsx()` - Should report `password_protected=True, password_correct=False` for "test345"
+3. `test_check_password_wrong_pptx()` - Should report `password_protected=True, password_correct=False` for "test345"
+4. `test_check_password_wrong_pdf()` - Should report `password_protected=True, password_correct=False` for "test345"
+5. `test_check_password_wrong_doc()` - Should report `password_protected=True, password_correct=False` for "test345"
+6. `test_check_password_wrong_xls()` - Should report `password_protected=True, password_correct=False` for "test345"
+7. `test_check_password_wrong_ppt()` - Should report `password_protected=True, password_correct=False` for "test345"
+
+### Password Check Command Examples
+```python
+# Check if file is password protected (no password provided)
+result = subprocess.run([
+    "python", "main.py", "check-password",
+    "--input", str(input_file)
+], capture_output=True, text=True, cwd=fastpass_root)
+
+# Check if specific password is correct
+result = subprocess.run([
+    "python", "main.py", "check-password", 
+    "--input", str(input_file),
+    "--password", "test123"
+], capture_output=True, text=True, cwd=fastpass_root)
+```
+
+### Expected Check-Password Output Parsing
+The tests will need to parse FastPass output to determine:
+- **Password protection status**: Whether file is encrypted
+- **Password correctness**: Whether provided password is valid
+- **Exit codes**: Success/failure status of the operation
+
 ### Known Issues to Test
 - **Legacy format decryption**: May fail with `'NoneType' encoding error` (should be captured in tests)
 - **Modern format support**: Should work reliably for DOCX/XLSX/PPTX/PDF
+- **Exit codes**: Need to verify FastPass has distinct exit codes for different password check scenarios
+
+## Complete Test Suite Summary
+
+### Total Test Count: 39 Tests
+
+#### Encryption Tests (4 tests)
+- Modern formats only: DOCX, XLSX, PPTX, PDF
+
+#### Decryption Tests (7 tests)  
+- All supported formats: DOCX, XLSX, PPTX, PDF, DOC, XLS, PPT
+
+#### Password Check Tests (28 tests)
+- **Decrypted files** (7 tests): Verify `password_protected=False`
+- **Encrypted files** (7 tests): Verify `password_protected=True` 
+- **Correct password** (7 tests): Verify `password_correct=True` with "test123"
+- **Wrong password** (7 tests): Verify `password_protected=True, password_correct=False` with "test345"
 
 ## Test Benefits
 
@@ -126,6 +211,8 @@ def verify_office_encryption_status(file_path):
 3. **True E2E testing**: Full subprocess execution of FastPass CLI
 4. **Format coverage**: Tests all supported file types individually
 5. **Clear pass/fail criteria**: Binary encryption status check
+6. **Comprehensive password validation**: Tests all password check scenarios
+7. **Exit code validation**: Verifies proper error handling and status reporting
 
 ## File Structure
 ```

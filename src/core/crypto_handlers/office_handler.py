@@ -42,6 +42,11 @@ class OfficeDocumentHandler:
         self.timeout = 30
         self.encryption_algorithm = 'AES-256'
         
+        # Resource management
+        self._temp_files = set()
+        self._memory_usage = 0
+        self._max_file_handles = 100
+        
         self.logger.debug("Office document handler initialized")
     
     def configure(self, config: Dict[str, Any]) -> None:
@@ -417,5 +422,51 @@ class OfficeDocumentHandler:
         E2d: Call Handler Cleanup
         Clean up any handler-specific resources
         """
-        # Office handler doesn't maintain persistent resources
-        pass
+        try:
+            # Clean up temporary files
+            self._cleanup_temp_files()
+            
+            # Clean up COM resources if initialized
+            self._cleanup_com_resources()
+            
+            self.logger.debug("Office handler cleanup completed")
+            
+        except Exception as e:
+            self.logger.warning(f"Error during office handler cleanup: {e}")
+    
+    def _cleanup_temp_files(self) -> None:
+        """
+        Clean up temporary files created during operations
+        """
+        for temp_file in list(self._temp_files):
+            try:
+                if temp_file.exists():
+                    temp_file.unlink()
+                    self.logger.debug(f"Cleaned up temp file: {temp_file}")
+                self._temp_files.discard(temp_file)
+            except (OSError, PermissionError) as e:
+                self.logger.warning(f"Failed to clean up temp file {temp_file}: {e}")
+    
+    def _cleanup_com_resources(self) -> None:
+        """
+        Clean up COM automation resources
+        """
+        try:
+            if pythoncom is not None:
+                pythoncom.CoUninitialize()
+                self.logger.debug("COM resources cleaned up")
+        except Exception as e:
+            self.logger.warning(f"Error cleaning up COM resources: {e}")
+    
+    def _track_temp_file(self, temp_file: Path) -> None:
+        """
+        Track temporary file for cleanup
+        """
+        self._temp_files.add(temp_file)
+    
+    def _register_shutdown_cleanup(self) -> None:
+        """
+        Register cleanup to run on shutdown
+        """
+        import atexit
+        atexit.register(self.cleanup)

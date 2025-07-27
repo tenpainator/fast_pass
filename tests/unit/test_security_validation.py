@@ -473,15 +473,27 @@ class TestFileSecurityValidation:
     def test_validate_permission_check_failure_blocked(self, temp_work_dir):
         """Test: Files with permission check failures are blocked"""
         import os
+        from unittest.mock import patch, MagicMock
         logger = MagicMock()
         validator = SecurityValidator(logger)
         
         test_file = temp_work_dir / "permission_fail.pdf"
         test_file.write_text("test content")
+        resolved_path = test_file.resolve(strict=False)
         
-        # Mock os.stat to raise exception instead of pathlib stat method
-        with patch('os.stat', side_effect=PermissionError("Access denied")):
-            result = validator._is_file_in_secure_zone(test_file.resolve(strict=False))
+        # Mock the symlink check to return False (not a symlink) and
+        # then mock the stat call for permission checking
+        def stat_side_effect(*args, **kwargs):
+            # For stat calls with follow_symlinks=False (symlink check), return real stat
+            if kwargs.get('follow_symlinks') is False:
+                return os.stat.__wrapped__(*args, **kwargs) if hasattr(os.stat, '__wrapped__') else original_stat(*args, **kwargs)
+            # For regular stat calls (permission check), raise PermissionError
+            else:
+                raise PermissionError("Access denied")
+        
+        original_stat = os.stat
+        with patch('os.stat', side_effect=stat_side_effect):
+            result = validator._is_file_in_secure_zone(resolved_path)
             assert result is False
 
 

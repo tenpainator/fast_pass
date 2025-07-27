@@ -309,18 +309,25 @@ class TestMemoryAttacks:
         # Create a very long password (1MB)
         long_password = "a" * (1024 * 1024)
         
-        result = run_fastpass_command(
-            fastpass_executable,
-            ["encrypt", "-i", str(sample_pdf_file), "-p", long_password],
-            cwd=project_root
-        )
-        
-        # On Windows, expect OS command line limit protection
-        if platform.system() == 'Windows':
-            assert result.returncode != 0  # Should fail due to OS limits
-        else:
-            # On Unix systems, may handle differently
-            pass  # Test passes if no crash/hang occurs
+        try:
+            result = run_fastpass_command(
+                fastpass_executable,
+                ["encrypt", "-i", str(sample_pdf_file), "-p", long_password],
+                cwd=project_root
+            )
+            
+            # On Windows, expect OS command line limit protection
+            if platform.system() == 'Windows':
+                assert result.returncode != 0  # Should fail due to OS limits
+            else:
+                # On Unix systems, may handle differently
+                pass  # Test passes if no crash/hang occurs
+        except FileNotFoundError as e:
+            # Windows command line limit exceeded - this is expected protection
+            if platform.system() == 'Windows' and "filename or extension is too long" in str(e):
+                pass  # OS correctly blocks extremely long command lines
+            else:
+                raise
     
     @pytest.mark.security
     def test_password_memory_exposure(self, fastpass_executable, sample_pdf_file, project_root):

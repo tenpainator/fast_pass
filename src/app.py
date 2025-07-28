@@ -40,9 +40,7 @@ class FastPassApplication:
         # A5e: Initialize Password Manager
         from src.core.password.password_manager import PasswordManager
         self.password_manager = PasswordManager(
-            cli_passwords=getattr(args, 'password', []) or [],
-            password_list_file=getattr(args, 'password_list', None),
-            stdin_mapping=getattr(args, 'stdin_password_mapping', None)
+            cli_passwords=getattr(args, 'password', []) or []
         )
         
         # A5f: Set Application State Flags
@@ -143,8 +141,7 @@ class FastPassApplication:
         from src.core.file_handler import FileValidator
         
         # B1a-B1c: Initialize and determine files to process
-        allowed_dirs = getattr(self.args, 'allowed_dirs', None)
-        security_validator = SecurityValidator(self.logger, allowed_dirs)
+        security_validator = SecurityValidator(self.logger)
         file_validator = FileValidator(self.logger, self.config)
         
         # Validate output directory if specified
@@ -153,13 +150,11 @@ class FastPassApplication:
             # Update args with validated output directory
             self.args.output_dir = validated_output_dir
         
-        # Determine input files
+        # Determine input file
         if hasattr(self.args, 'input') and self.args.input:
-            files_to_process = self.args.input
-        elif hasattr(self.args, 'recursive') and self.args.recursive:
-            files_to_process = self._collect_files_recursively(self.args.recursive)
+            files_to_process = [self.args.input]  # Convert single file to list for processing
         else:
-            raise ValueError("No input files specified")
+            raise ValueError("No input file specified")
         
         validated_files = []
         
@@ -187,19 +182,6 @@ class FastPassApplication:
         self.logger.info(f"Validated {len(validated_files)} files for processing")
         return validated_files
     
-    def _collect_files_recursively(self, directory: Path) -> List[Path]:
-        """
-        B1c_Recursive: Collect Files Recursively
-        Walk directory tree for supported formats
-        """
-        files = []
-        try:
-            for pattern in FastPassConfig.SUPPORTED_FORMATS.keys():
-                files.extend(directory.rglob(f"*{pattern}"))
-        except Exception as e:
-            raise FileFormatError(f"Error collecting files from {directory}: {e}")
-        
-        return files
     
     def _setup_crypto_tools_and_configuration(self, validated_files: List) -> Dict:
         """
@@ -241,16 +223,7 @@ class FastPassApplication:
             temp_files_created=self.temp_files_created
         )
         
-        # Check for dry-run and verify modes
-        dry_run = getattr(self.args, 'dry_run', False)
-        verify = getattr(self.args, 'verify', False)
-        
-        if dry_run:
-            self.logger.info("DRY RUN MODE: Simulating operations without making changes")
-        if verify:
-            self.logger.info("VERIFY MODE: Performing deep verification of processed files")
-        
-        return processor.process_files(validated_files, self.args.operation, self.args.output_dir, dry_run=dry_run, verify=verify)
+        return processor.process_files(validated_files, self.args.operation, self.args.output_dir)
     
     def _cleanup_and_generate_final_report(self, processing_results: Dict) -> int:
         """

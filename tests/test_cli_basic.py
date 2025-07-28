@@ -26,7 +26,7 @@ class TestCLIBasicFunctionality:
         assert "FastPass" in result.stdout
         assert "encrypt" in result.stdout
         assert "decrypt" in result.stdout
-        assert "check-password" in result.stdout
+        assert "check" in result.stdout
     
     def test_version_display(self, fastpass_executable):
         """Test: --version shows version information"""
@@ -41,23 +41,23 @@ class TestCLIBasicFunctionality:
         assert "FastPass" in result.stdout
         assert "1.0.0" in result.stdout
     
-    def test_list_supported_formats(self, fastpass_executable):
-        """Test: --list-supported shows format list and exits"""
-        # A1i_List: Show Supported File Types
+    def test_help_shows_format_table(self, fastpass_executable):
+        """Test: --help shows format support table in EDC format"""
+        # A1i_List: Show Supported File Types (now in help)
         result = subprocess.run(
-            fastpass_executable + ["--list-supported"], 
+            fastpass_executable + ["--help"], 
             capture_output=True, 
             text=True,
             cwd=Path(__file__).parent.parent
         )
         
         assert result.returncode == 0
-        assert "FastPass Supported File Formats" in result.stdout
-        assert ".pdf" in result.stdout
-        assert ".docx" in result.stdout
-        assert "Modern Office Documents" in result.stdout
-        assert "PDF Documents" in result.stdout
-        assert "Legacy Office Formats" in result.stdout
+        # Should contain format table with EDC notation
+        assert "PDF" in result.stdout
+        assert "DOCX" in result.stdout
+        assert "E=Encryption" in result.stdout or "Encryption" in result.stdout
+        assert "D=Decryption" in result.stdout or "Decryption" in result.stdout
+        assert "C=Check" in result.stdout or "Check" in result.stdout
     
     def test_no_operation_error(self, fastpass_executable):
         """Test: Missing operation should trigger error"""
@@ -82,7 +82,7 @@ class TestCLIBasicFunctionality:
         )
         
         assert result.returncode == 2
-        assert "Must specify either files" in result.stderr
+        assert "Must specify a file to process (-i)" in result.stderr
     
     def test_no_password_error(self, fastpass_executable):
         """Test: Missing -p should trigger error for encrypt/decrypt"""
@@ -99,13 +99,12 @@ class TestCLIBasicFunctionality:
 class TestCLIArgumentValidation:
     """Test CLI argument validation logic"""
     
-    def test_conflicting_input_methods(self, fastpass_executable, temp_work_dir):
-        """Test: Conflicting input methods should error"""
-        # A2a_Both_Error: Conflicting Instructions
+    def test_removed_recursive_mode_error(self, fastpass_executable, temp_work_dir):
+        """Test: Recursive mode should not be available"""
+        # A2a_Both_Error: Recursive mode removed
         result = subprocess.run(
             fastpass_executable + [
                 "decrypt", 
-                "-i", "test.pdf", 
                 "-r", str(temp_work_dir),
                 "-p", "password"
             ], 
@@ -115,16 +114,16 @@ class TestCLIArgumentValidation:
         )
         
         assert result.returncode == 2
-        assert "Cannot specify both individual files and recursive directory" in result.stderr
+        # Should error because -r flag doesn't exist
     
-    def test_recursive_encrypt_blocked(self, fastpass_executable, temp_work_dir):
-        """Test: Recursive mode with encrypt should be blocked"""
-        # A2a1_Error: Recursive Encryption Blocked
+    def test_removed_dry_run_flag_error(self, fastpass_executable):
+        """Test: Removed --dry-run flag should error"""
         result = subprocess.run(
             fastpass_executable + [
                 "encrypt", 
-                "-r", str(temp_work_dir),
-                "-p", "password"
+                "-i", "test.pdf",
+                "-p", "password",
+                "--dry-run"
             ], 
             capture_output=True, 
             text=True,
@@ -132,24 +131,24 @@ class TestCLIArgumentValidation:
         )
         
         assert result.returncode == 2
-        assert "Recursive mode only supported for decrypt operations" in result.stderr
+        # Should error because --dry-run flag doesn't exist
     
-    def test_recursive_decrypt_allowed(self, fastpass_executable, temp_work_dir):
-        """Test: Recursive mode with decrypt should be allowed"""
+    def test_removed_verify_flag_error(self, fastpass_executable):
+        """Test: Removed --verify flag should error"""
         result = subprocess.run(
             fastpass_executable + [
-                "decrypt", 
-                "-r", str(temp_work_dir),
-                "-p", "password"
+                "encrypt", 
+                "-i", "test.pdf",
+                "-p", "password",
+                "--verify"
             ], 
             capture_output=True, 
             text=True,
             cwd=Path(__file__).parent.parent
         )
         
-        # Should not error on argument validation
-        # May error later on file processing, but that's expected
-        assert "Recursive mode only supported for decrypt operations" not in result.stderr
+        assert result.returncode == 2
+        # Should error because --verify flag doesn't exist
 
 class TestCLIPasswordHandling:
     """Test password argument handling"""
@@ -158,7 +157,7 @@ class TestCLIPasswordHandling:
         """Test: -p password123"""
         result = subprocess.run(
             fastpass_executable + [
-                "check-password",
+                "check",
                 "-i", str(simple_test_pdf),
                 "-p", "testpassword"
             ], 
@@ -174,7 +173,7 @@ class TestCLIPasswordHandling:
         """Test: -p password1 password2 "complex pass" """
         result = subprocess.run(
             fastpass_executable + [
-                "check-password",
+                "check",
                 "-i", str(simple_test_pdf),
                 "-p", "password1", "password2", "complex pass"
             ], 
@@ -186,11 +185,11 @@ class TestCLIPasswordHandling:
         # Should accept multiple passwords without validation errors
         assert "Must specify passwords" not in result.stderr
     
-    def test_password_list_file(self, fastpass_executable, simple_test_pdf, password_list_file):
-        """Test: --password-list passwords.txt"""
+    def test_removed_password_list_flag_error(self, fastpass_executable, simple_test_pdf, password_list_file):
+        """Test: Removed --password-list flag should error"""
         result = subprocess.run(
             fastpass_executable + [
-                "check-password",
+                "check",
                 "-i", str(simple_test_pdf),
                 "--password-list", str(password_list_file)
             ], 
@@ -199,8 +198,42 @@ class TestCLIPasswordHandling:
             cwd=Path(__file__).parent.parent
         )
         
-        # Should accept password list file without validation errors
-        assert "Must specify passwords" not in result.stderr
+        # Should error because --password-list flag doesn't exist
+        assert result.returncode == 2
+    
+    def test_stdin_password_array_format(self, fastpass_executable, simple_test_pdf):
+        """Test: stdin password with JSON array format"""
+        result = subprocess.run(
+            fastpass_executable + [
+                "check",
+                "-i", str(simple_test_pdf),
+                "-p", "stdin"
+            ], 
+            input='["password1", "password2", "password3"]',
+            capture_output=True, 
+            text=True,
+            cwd=Path(__file__).parent.parent
+        )
+        
+        # Should accept stdin with JSON array format
+        assert "Invalid JSON in stdin" not in result.stderr
+    
+    def test_mixed_cli_stdin_passwords(self, fastpass_executable, simple_test_pdf):
+        """Test: Mixed CLI and stdin passwords"""
+        result = subprocess.run(
+            fastpass_executable + [
+                "check",
+                "-i", str(simple_test_pdf),
+                "-p", "password1", "stdin", "password2"
+            ], 
+            input='["stdin_password1", "stdin_password2"]',
+            capture_output=True, 
+            text=True,
+            cwd=Path(__file__).parent.parent
+        )
+        
+        # Should accept mixed CLI and stdin passwords
+        assert "Invalid JSON in stdin" not in result.stderr
 
 class TestFileFormatValidation:
     """Test file format validation"""

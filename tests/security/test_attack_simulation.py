@@ -357,10 +357,10 @@ class TestResourceExhaustionAttacks:
     """Test resource exhaustion attack prevention"""
     
     @pytest.mark.security
-    def test_excessive_file_count_attack(self, fastpass_executable, temp_work_dir, project_root):
-        """Test: Excessive number of files doesn't cause resource exhaustion"""
-        # Create many small files
-        file_count = 100  # Reasonable number for testing
+    def test_multi_file_input_blocked(self, fastpass_executable, temp_work_dir, project_root):
+        """Test: Multi-file input is properly blocked (feature removed)"""
+        # Create a few small files
+        file_count = 3  # Small number for testing multi-file blocking
         file_paths = []
         
         for i in range(file_count):
@@ -368,17 +368,15 @@ class TestResourceExhaustionAttacks:
             test_file.write_text("small pdf content")
             file_paths.append(str(test_file))
         
-        # Try to process all files at once
+        # Try to process multiple files at once (should be blocked)
         result = run_fastpass_command(
             fastpass_executable,
             ["encrypt", "-i"] + file_paths + ["-p", "password"],
-            cwd=project_root,
-            # Add timeout to prevent hanging
+            cwd=project_root
         )
         
-        # Should handle many files without exhaustion
-        # May succeed or fail, but shouldn't hang indefinitely
-        pass  # Test passes if it completes within reasonable time
+        # Should be blocked since multi-file input was removed
+        assert result.returncode != 0, "Multi-file input not properly blocked"
     
     @pytest.mark.security  
     def test_recursive_directory_depth_attack(self, fastpass_executable, temp_work_dir, project_root):

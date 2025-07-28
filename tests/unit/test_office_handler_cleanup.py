@@ -1,6 +1,6 @@
 """
 Office Handler Unit Tests - Cleanup and Resource Management (12 tests)
-Tests cleanup method, COM automation cleanup, temp file handling, and resource management
+Tests cleanup method, temp file handling, and resource management
 """
 
 import pytest
@@ -286,30 +286,6 @@ class TestOfficeHandlerResourceManagement:
         assert len(results) == 5
         assert len(errors) == 0
     
-    def test_resource_management_cleanup_on_exception(self, handler):
-        """
-        Test: Resource management properly cleans up when exceptions occur
-        Ensures resources are released even during error conditions
-        """
-        cleanup_called = False
-        
-        def mock_cleanup():
-            nonlocal cleanup_called
-            cleanup_called = True
-        
-        # Mock COM operations that might fail
-        with patch('src.core.crypto_handlers.office_handler.pythoncom') as mock_pythoncom:
-            with patch('src.core.crypto_handlers.office_handler.win32com'):
-                mock_pythoncom.CoInitialize.return_value = None
-                mock_pythoncom.CoUninitialize.side_effect = mock_cleanup
-                
-                # Simulate operation that raises exception
-                with patch.object(handler, '_encrypt_word_document', side_effect=ProcessingError("Test error")):
-                    with pytest.raises(ProcessingError):
-                        handler._encrypt_direct(Path('test.docx'), Path('output.docx'), 'password')
-                
-                # Verify cleanup was called despite exception
-                assert cleanup_called
     
     def test_resource_management_cleanup_on_interrupt(self, handler):
         """
@@ -384,120 +360,7 @@ class TestOfficeHandlerResourceManagement:
             assert cleanup_called
 
 
-class TestOfficeHandlerCOMCleanup:
-    """Test COM automation cleanup functionality"""
-    
-    @pytest.fixture
-    def logger(self):
-        """Create a mock logger for testing"""
-        return MagicMock(spec=logging.Logger)
-    
-    @pytest.fixture
-    def handler(self, logger):
-        """Create Office Handler instance for testing"""
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto'):
-            return OfficeDocumentHandler(logger)
-    
-    def test_com_cleanup_after_word_encryption(self, handler):
-        """
-        Test: COM automation is properly cleaned up after Word operations
-        Verifies pythoncom.CoUninitialize is called and Office apps are closed
-        """
-        with patch('src.core.crypto_handlers.office_handler.pythoncom') as mock_pythoncom:
-            with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com:
-                # Mock Word application
-                mock_word_app = MagicMock()
-                mock_doc = MagicMock()
-                mock_word_app.Documents.Open.return_value = mock_doc
-                mock_win32com.client.Dispatch.return_value = mock_word_app
-                
-                # Test the higher-level method that includes COM cleanup
-                try:
-                    handler._encrypt_direct(Path('test.docx'), Path('output.docx'), 'password')
-                except:
-                    pass  # We're testing cleanup, not operation success
-                
-                # Verify COM cleanup
-                mock_pythoncom.CoUninitialize.assert_called()
-                mock_doc.Close.assert_called()
-                mock_word_app.Quit.assert_called()
-    
-    def test_com_cleanup_after_excel_encryption(self, handler):
-        """
-        Test: COM automation is properly cleaned up after Excel operations
-        Verifies workbook and Excel application are properly closed
-        """
-        with patch('src.core.crypto_handlers.office_handler.pythoncom') as mock_pythoncom:
-            with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com:
-                # Mock Excel application
-                mock_excel_app = MagicMock()
-                mock_workbook = MagicMock()
-                mock_excel_app.Workbooks.Open.return_value = mock_workbook
-                mock_win32com.client.Dispatch.return_value = mock_excel_app
-                
-                # Test the higher-level method that includes COM cleanup
-                try:
-                    handler._encrypt_direct(Path('test.xlsx'), Path('output.xlsx'), 'password')
-                except:
-                    pass  # We're testing cleanup, not operation success
-                
-                # Verify COM cleanup
-                mock_pythoncom.CoUninitialize.assert_called()
-                mock_workbook.Close.assert_called()
-                mock_excel_app.Quit.assert_called()
-    
-    def test_com_cleanup_after_powerpoint_encryption(self, handler):
-        """
-        Test: COM automation is properly cleaned up after PowerPoint operations
-        Verifies presentation and PowerPoint application are properly closed
-        """
-        with patch('src.core.crypto_handlers.office_handler.pythoncom') as mock_pythoncom:
-            with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com:
-                # Mock PowerPoint application
-                mock_ppt_app = MagicMock()
-                mock_presentation = MagicMock()
-                mock_ppt_app.Presentations.Open.return_value = mock_presentation
-                mock_win32com.client.Dispatch.return_value = mock_ppt_app
-                
-                # Test the higher-level method that includes COM cleanup
-                try:
-                    handler._encrypt_direct(Path('test.pptx'), Path('output.pptx'), 'password')
-                except:
-                    pass  # We're testing cleanup, not operation success
-                
-                # Verify COM cleanup
-                mock_pythoncom.CoUninitialize.assert_called()
-                mock_presentation.Close.assert_called()
-                mock_ppt_app.Quit.assert_called()
-    
-    def test_com_cleanup_handles_exceptions(self, handler):
-        """
-        Test: COM cleanup handles exceptions during cleanup gracefully
-        Ensures cleanup attempts continue even if individual steps fail
-        """
-        with patch('src.core.crypto_handlers.office_handler.pythoncom') as mock_pythoncom:
-            with patch('src.core.crypto_handlers.office_handler.win32com') as mock_win32com:
-                # Mock Word application with cleanup errors
-                mock_word_app = MagicMock()
-                mock_doc = MagicMock()
-                mock_doc.Close.side_effect = Exception("Close failed")
-                mock_word_app.Quit.side_effect = Exception("Quit failed")
-                mock_word_app.Documents.Open.return_value = mock_doc
-                mock_win32com.client.Dispatch.return_value = mock_word_app
-                
-                # CoUninitialize should still be called despite other failures
-                mock_pythoncom.CoUninitialize.side_effect = Exception("CoUninitialize failed")
-                
-                # Test the higher-level method that includes COM cleanup
-                try:
-                    handler._encrypt_direct(Path('test.docx'), Path('output.docx'), 'password')
-                except:
-                    pass  # Expected to fail, but cleanup should still be attempted
-                
-                # Verify cleanup attempts were made despite errors
-                mock_doc.Close.assert_called()
-                mock_word_app.Quit.assert_called()
-                mock_pythoncom.CoUninitialize.assert_called()
+# COM cleanup tests removed - COM automation no longer used
 
 
 if __name__ == '__main__':

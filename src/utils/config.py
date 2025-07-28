@@ -79,9 +79,7 @@ class FastPassConfig:
             'temp_dir_prefix': cls.TEMP_DIR_PREFIX,
             'secure_permissions': cls.SECURE_FILE_PERMISSIONS,
             'supported_formats': cls.SUPPORTED_FORMATS.copy(),
-            'debug': False,
-            'verify': False,
-            'dry_run': False
+            'debug': False
         }
     
     @classmethod
@@ -108,11 +106,5 @@ class FastPassConfig:
         
         if hasattr(cli_args, 'debug') and cli_args.debug:
             cli_config['debug'] = True
-        
-        if hasattr(cli_args, 'verify') and cli_args.verify:
-            cli_config['verify'] = True
-            
-        if hasattr(cli_args, 'dry_run') and cli_args.dry_run:
-            cli_config['dry_run'] = True
         
         return cli_config

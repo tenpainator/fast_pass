@@ -15,13 +15,8 @@ try:
 except ImportError:
     msoffcrypto = None
 
-try:
-    import win32com.client
-    import pythoncom
-    import os
-except ImportError:
-    win32com = None
-    pythoncom = None
+# COM automation removed - using subprocess-only approach
+# No longer dependent on Microsoft Office installation
 
 from src.exceptions import FileFormatError, ProcessingError, SecurityViolationError
 
@@ -44,8 +39,6 @@ class OfficeDocumentHandler:
         
         # Resource management
         self._temp_files = set()
-        self._memory_usage = 0
-        self._max_file_handles = 100
         
         self.logger.debug("Office document handler initialized")
     
@@ -56,17 +49,30 @@ class OfficeDocumentHandler:
         """
         self.timeout = config.get('office_timeout', self.timeout)
         
-        # Log experimental encryption warning
+        # Log subprocess-based encryption info
         if config.get('debug', False):
-            self.logger.warning(
-                "Office document encryption is EXPERIMENTAL. "
-                "Decryption is fully supported."
+            self.logger.info(
+                "Office encryption using msoffcrypto-tool subprocess. "
+                "Both encryption and decryption fully supported."
             )
     
     def test_password(self, file_path: Path, password: str) -> bool:
         """
         Test if password works for Office document
-        Returns True if password is correct, False otherwise
+        Enhanced with legacy format support and null handling
+        """
+        # Check if this is a legacy format that may have edge cases
+        file_ext = file_path.suffix.lower()
+        from src.utils.config import FastPassConfig
+        
+        if file_ext in FastPassConfig.LEGACY_FORMATS:
+            return self._test_password_legacy_safe(file_path, password)
+        else:
+            return self._test_password_standard(file_path, password)
+    
+    def _test_password_standard(self, file_path: Path, password: str) -> bool:
+        """
+        Standard password test for modern Office formats
         """
         try:
             with open(file_path, 'rb') as f:
@@ -88,20 +94,101 @@ class OfficeDocumentHandler:
                     return len(data) > 0
                     
         except Exception as e:
-            self.logger.debug(f"Password test failed for {file_path}: {e}")
+            self.logger.debug(f"Standard password test failed for {file_path}: {e}")
+            return False
+    
+    def _test_password_legacy_safe(self, file_path: Path, password: str) -> bool:
+        """
+        Safe password test for legacy Office formats with enhanced null handling
+        """
+        # First try the standard approach - it often works for legacy formats
+        try:
+            result = self._test_password_standard(file_path, password)
+            self.logger.debug(f"Standard password test for legacy {file_path.name}: {'PASS' if result else 'FAIL'}")
+            return result
+        except Exception as e:
+            self.logger.debug(f"Standard password test failed for legacy {file_path.name}: {e}")
+            # If standard approach fails, try subprocess fallback
+            return self._test_password_subprocess_fallback(file_path, password)
+    
+    def _verify_encryption_status_subprocess(self, file_path: Path, password: str = None) -> bool:
+        """
+        Use msoffcrypto-tool CLI for reliable encryption detection on legacy formats
+        """
+        import subprocess
+        
+        try:
+            # Test if file is encrypted using CLI
+            result = subprocess.run([
+                'msoffcrypto-tool', '-t', str(file_path)
+            ], capture_output=True, text=True, timeout=30)
+            
+            if result.returncode == 0:
+                # If -t succeeds, check the output
+                output = result.stdout.lower()
+                if 'encrypted' in output:
+                    # File is encrypted, test password if provided
+                    if password:
+                        return self._test_password_subprocess_fallback(file_path, password)
+                    else:
+                        return False  # File is encrypted but no password to test
+                else:
+                    return True  # File is not encrypted
+            else:
+                # If -t fails, assume file is problematic
+                return False
+                
+        except Exception as e:
+            self.logger.debug(f"Subprocess encryption detection failed: {e}")
+            return False
+    
+    def _test_password_subprocess_fallback(self, file_path: Path, password: str) -> bool:
+        """
+        Fallback password test using subprocess for problematic legacy files
+        """
+        import subprocess
+        import tempfile
+        
+        # Handle None password
+        if password is None:
+            return False
+        
+        try:
+            with tempfile.NamedTemporaryFile(suffix='.tmp', delete=False) as temp_output:
+                temp_output_path = temp_output.name
+            
+            # Try to decrypt using subprocess
+            result = subprocess.run([
+                'msoffcrypto-tool', '-p', str(password),  # Ensure password is string
+                str(file_path), temp_output_path
+            ], capture_output=True, text=True, timeout=30)
+            
+            # Clean up temp file
+            try:
+                Path(temp_output_path).unlink()
+            except:
+                pass
+            
+            # Success means password worked
+            success = result.returncode == 0
+            self.logger.debug(f"Subprocess password test for {file_path.name}: {'PASS' if success else 'FAIL'}")
+            return success
+            
+        except Exception as e:
+            self.logger.debug(f"Subprocess password test failed: {e}")
             return False
     
     def encrypt_file(self, input_path: Path, output_path: Path, password: str) -> None:
         """
-        C2a: Secure Office document encryption with hardened security
+        C2a: Office document encryption using msoffcrypto-tool subprocess
+        No longer requires Microsoft Office installation
         """
-        # Use the secure implementation that includes all security validations
-        self.encrypt_file_secure(input_path, output_path, password)
+        self.encrypt_file_subprocess_secure(input_path, output_path, password)
     
-    def encrypt_file_secure(self, input_path: Path, output_path: Path, password: str) -> None:
+    def encrypt_file_subprocess_secure(self, input_path: Path, output_path: Path, password: str) -> None:
         """
-        C2a: Secure Office encryption using direct library calls (no subprocess)
-        Implementation following specification Section C2a
+        C2a: Secure Office encryption using msoffcrypto-tool subprocess only
+        No COM automation - works without Microsoft Office installation
         """
         
         # B2-SEC-1: Legacy format validation
@@ -120,17 +207,11 @@ class OfficeDocumentHandler:
         if '\x00' in password:
             raise ValueError("Null byte in password")
         
-        # B2-SEC-4: Use direct library calls instead of subprocess
+        # B2-SEC-4: Use msoffcrypto-tool subprocess with strict validation
         try:
-            # Use COM automation for Office encryption (Windows)
-            if self._direct_encryption_available():
-                self._encrypt_direct(input_path, output_path, password)
-            else:
-                # Fallback to subprocess with strict argument validation if COM unavailable
-                self._encrypt_subprocess_secure(input_path, output_path, password)
-                
+            self._encrypt_subprocess_secure(input_path, output_path, password)
         except Exception as e:
-            raise ProcessingError(f"Secure Office encryption failed: {e}")
+            raise ProcessingError(f"Office encryption failed: {e}")
     
     def _validate_path_security_hardened(self, path: Path) -> None:
         """
@@ -154,174 +235,25 @@ class OfficeDocumentHandler:
             if parent_dir.exists():
                 validator.validate_output_directory(parent_dir)
     
-    def _direct_encryption_available(self) -> bool:
-        """
-        Check if direct COM automation is available for Office encryption
-        """
-        return win32com is not None and pythoncom is not None
-    
-    def _encrypt_direct(self, input_path: Path, output_path: Path, password: str) -> None:
-        """
-        C2a-DIRECT: Direct Office encryption using COM automation
-        """
-        if not self._direct_encryption_available():
-            raise ProcessingError("COM automation not available for Office encryption")
-        
-        file_extension = input_path.suffix.lower()
-        
-        try:
-            # Initialize COM
-            pythoncom.CoInitialize()
-            
-            if file_extension in ['.docx', '.doc']:
-                self._encrypt_word_document(input_path, output_path, password)
-            elif file_extension in ['.xlsx', '.xls']:
-                self._encrypt_excel_document(input_path, output_path, password)
-            elif file_extension in ['.pptx', '.ppt']:
-                self._encrypt_powerpoint_document(input_path, output_path, password)
-            else:
-                raise FileFormatError(f"Unsupported Office format for encryption: {file_extension}")
-            
-            self.logger.info(f"Successfully encrypted {input_path.name}")
-            
-        except Exception as e:
-            raise ProcessingError(f"COM automation encryption failed: {e}")
-        finally:
-            # Cleanup COM
-            try:
-                pythoncom.CoUninitialize()
-            except:
-                pass
-    
-    def _encrypt_word_document(self, input_path: Path, output_path: Path, password: str) -> None:
-        """
-        C2a-WORD: Encrypt Word document using COM automation
-        """
-        word_app = None
-        doc = None
-        
-        try:
-            # Create Word application
-            word_app = win32com.client.Dispatch("Word.Application")
-            word_app.Visible = False
-            word_app.DisplayAlerts = False
-            
-            # Open document
-            doc = word_app.Documents.Open(str(input_path.resolve()))
-            
-            # Set password property for encryption
-            doc.Password = password
-            
-            # Save the encrypted document with explicit file format
-            # FileFormat=12 for .docx (wdFormatXMLDocument)
-            doc.SaveAs2(FileName=str(output_path.resolve()), FileFormat=12)
-            
-        except Exception as e:
-            raise ProcessingError(f"Word COM encryption failed: {e}")
-        finally:
-            # Cleanup
-            if doc:
-                try:
-                    doc.Close(SaveChanges=False)
-                except:
-                    pass
-            if word_app:
-                try:
-                    word_app.Quit()
-                except:
-                    pass
-    
-    def _encrypt_excel_document(self, input_path: Path, output_path: Path, password: str) -> None:
-        """
-        C2a-EXCEL: Encrypt Excel document using COM automation
-        """
-        excel_app = None
-        workbook = None
-        
-        try:
-            # Create Excel application
-            excel_app = win32com.client.Dispatch("Excel.Application")
-            excel_app.Visible = False
-            excel_app.DisplayAlerts = False
-            
-            # Open workbook
-            workbook = excel_app.Workbooks.Open(str(input_path.resolve()))
-            
-            # Set password property for encryption
-            workbook.Password = password
-            
-            # Save the encrypted workbook with explicit file format
-            # FileFormat=-4143 for .xlsx (xlWorkbookNormal)
-            workbook.SaveAs(Filename=str(output_path.resolve()), FileFormat=-4143)
-            
-        except Exception as e:
-            raise ProcessingError(f"Excel COM encryption failed: {e}")
-        finally:
-            # Cleanup
-            if workbook:
-                try:
-                    workbook.Close(SaveChanges=False)
-                except:
-                    pass
-            if excel_app:
-                try:
-                    excel_app.Quit()
-                except:
-                    pass
-    
-    def _encrypt_powerpoint_document(self, input_path: Path, output_path: Path, password: str) -> None:
-        """
-        C2a-POWERPOINT: Encrypt PowerPoint document using COM automation
-        """
-        ppt_app = None
-        presentation = None
-        
-        try:
-            # Create PowerPoint application
-            ppt_app = win32com.client.Dispatch("PowerPoint.Application")
-            # Note: PowerPoint must remain visible, cannot be hidden
-            
-            # Open presentation
-            presentation = ppt_app.Presentations.Open(str(input_path.resolve()))
-            
-            # Set password property for encryption
-            presentation.Password = password
-            
-            # Save the encrypted presentation with explicit file format
-            # FileFormat=24 for .pptx (ppSaveAsOpenXMLPresentation)
-            presentation.SaveAs(FileName=str(output_path.resolve()), FileFormat=24)
-            
-        except Exception as e:
-            raise ProcessingError(f"PowerPoint COM encryption failed: {e}")
-        finally:
-            # Cleanup
-            if presentation:
-                try:
-                    presentation.Close()
-                except:
-                    pass
-            if ppt_app:
-                try:
-                    ppt_app.Quit()
-                except:
-                    pass
+    # All COM automation methods removed - using subprocess-only approach
     
     def _encrypt_subprocess_secure(self, input_path: Path, output_path: Path, password: str) -> None:
         """
-        C2a-SUBPROCESS: Fallback secure subprocess implementation with strict validation
+        C2a-SUBPROCESS: Secure msoffcrypto-tool subprocess implementation
+        Primary encryption method - no COM dependencies
         """
         
         # B2-SEC-5: Strict argument validation for subprocess
         import subprocess
-        import shlex
+        import os
         
         # Validate all paths are within allowed directories
         self._validate_path_security_hardened(input_path)
         self._validate_path_security_hardened(output_path.parent)
         
-        # Use argument list (not shell) to prevent injection
+        # Use msoffcrypto-tool directly (not python -m)
         cmd_args = [
-            'python', '-m', 'msoffcrypto.cli',
+            'msoffcrypto-tool',
             '-e', '-p', password,
             str(input_path.resolve()),  # Use absolute paths
             str(output_path.resolve())
@@ -344,9 +276,13 @@ class OfficeDocumentHandler:
                 # Sanitize error output to prevent information disclosure
                 sanitized_error = self._sanitize_error_message(result.stderr)
                 raise ProcessingError(f"Office encryption failed: {sanitized_error}")
+            
+            self.logger.info(f"Successfully encrypted {input_path.name}")
                 
         except subprocess.TimeoutExpired:
             raise ProcessingError("Office encryption timed out")
+        except FileNotFoundError:
+            raise ProcessingError("msoffcrypto-tool not found. Please install: pip install msoffcrypto-tool")
     
     def _sanitize_error_message(self, error_message: str) -> str:
         """
@@ -367,7 +303,20 @@ class OfficeDocumentHandler:
     def decrypt_file(self, input_path: Path, output_path: Path, password: str) -> None:
         """
         Decrypt Office document with password
-        Full decryption support using msoffcrypto-tool
+        Enhanced with legacy format support and null handling
+        """
+        # Check if this is a legacy format that may have edge cases
+        file_ext = input_path.suffix.lower()
+        from src.utils.config import FastPassConfig
+        
+        if file_ext in FastPassConfig.LEGACY_FORMATS:
+            return self._decrypt_file_legacy_safe(input_path, output_path, password)
+        else:
+            return self._decrypt_file_standard(input_path, output_path, password)
+    
+    def _decrypt_file_standard(self, input_path: Path, output_path: Path, password: str) -> None:
+        """
+        Standard decryption for modern Office formats
         """
         try:
             with open(input_path, 'rb') as f:
@@ -393,6 +342,94 @@ class OfficeDocumentHandler:
                 
         except Exception as e:
             raise Exception(f"Failed to decrypt Office document {input_path}: {e}")
+    
+    def _decrypt_file_legacy_safe(self, input_path: Path, output_path: Path, password: str) -> None:
+        """
+        Safe decryption for legacy Office formats with enhanced null handling
+        """
+        try:
+            with open(input_path, 'rb') as f:
+                office_file = msoffcrypto.OfficeFile(f)
+                
+                # Enhanced null check for legacy formats
+                try:
+                    is_encrypted = office_file.is_encrypted()
+                    if is_encrypted is None:
+                        # Use subprocess fallback for problematic legacy files
+                        return self._decrypt_file_subprocess_fallback(input_path, output_path, password)
+                    elif not is_encrypted:
+                        shutil.copy2(input_path, output_path)
+                        self.logger.info(f"Legacy file {input_path.name} was not encrypted, copied as-is")
+                        return
+                except (TypeError, AttributeError):
+                    # Handle legacy format edge cases with subprocess fallback
+                    return self._decrypt_file_subprocess_fallback(input_path, output_path, password)
+                
+                # Try to load password with null checking
+                try:
+                    office_file.load_key(password=password)
+                except (TypeError, AttributeError) as e:
+                    if "NoneType" in str(e) or "encode" in str(e):
+                        # Handle None password encoding issues
+                        return self._decrypt_file_subprocess_fallback(input_path, output_path, password)
+                    raise
+                
+                # Try to decrypt with enhanced error handling
+                try:
+                    with open(output_path, 'wb') as output_file:
+                        result = office_file.decrypt(output_file)
+                        if result is None and output_path.stat().st_size == 0:
+                            # Handle cases where decrypt returns None and creates empty file
+                            return self._decrypt_file_subprocess_fallback(input_path, output_path, password)
+                except (TypeError, AttributeError):
+                    # Fallback to subprocess for problematic legacy files
+                    return self._decrypt_file_subprocess_fallback(input_path, output_path, password)
+                
+                # Validate the decrypted file for security threats
+                self._validate_decrypted_file_security(output_path)
+                
+                self.logger.info(f"Successfully decrypted legacy file {input_path.name}")
+                
+        except Exception as e:
+            # Final fallback to subprocess
+            self.logger.debug(f"Legacy decryption failed, trying subprocess fallback: {e}")
+            return self._decrypt_file_subprocess_fallback(input_path, output_path, password)
+    
+    def _decrypt_file_subprocess_fallback(self, input_path: Path, output_path: Path, password: str) -> None:
+        """
+        Fallback decryption using subprocess for problematic legacy files
+        """
+        import subprocess
+        
+        # Handle None password (should not happen but defensive coding)
+        if password is None:
+            raise Exception("Cannot decrypt file: no password provided")
+        
+        try:
+            # Try to decrypt using subprocess
+            result = subprocess.run([
+                'msoffcrypto-tool', '-p', str(password),  # Ensure password is string
+                str(input_path), str(output_path)
+            ], capture_output=True, text=True, timeout=60)
+            
+            if result.returncode != 0:
+                raise Exception(f"Subprocess decryption failed: {result.stderr}")
+            
+            # Validate the decrypted file
+            if not output_path.exists() or output_path.stat().st_size == 0:
+                raise Exception("Subprocess decryption produced empty or missing output file")
+            
+            # Validate for security threats
+            self._validate_decrypted_file_security(output_path)
+            
+            self.logger.info(f"Successfully decrypted {input_path.name} using subprocess fallback")
+            
+        except subprocess.TimeoutExpired:
+            raise Exception("Subprocess decryption timed out")
+        except FileNotFoundError:
+            raise Exception("msoffcrypto-tool not found for subprocess decryption")
+        except Exception as e:
+            raise Exception(f"Subprocess decryption failed: {e}")
     
     def _validate_decrypted_file_security(self, file_path: Path) -> None:
         """
@@ -426,8 +463,7 @@ class OfficeDocumentHandler:
             # Clean up temporary files
             self._cleanup_temp_files()
             
-            # Clean up COM resources if initialized
-            self._cleanup_com_resources()
+            # No COM resources to clean up (subprocess-only approach)"
             
             self.logger.debug("Office handler cleanup completed")
             
@@ -449,14 +485,9 @@ class OfficeDocumentHandler:
     
     def _cleanup_com_resources(self) -> None:
         """
-        Clean up COM automation resources
+        No COM resources to clean up - using subprocess-only approach
         """
-        try:
-            if pythoncom is not None:
-                pythoncom.CoUninitialize()
-                self.logger.debug("COM resources cleaned up")
-        except Exception as e:
-            self.logger.warning(f"Error cleaning up COM resources: {e}")
+        pass
     
     def _track_temp_file(self, temp_file: Path) -> None:
         """

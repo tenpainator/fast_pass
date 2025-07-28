@@ -19,12 +19,11 @@ class SecurityValidator:
     Implements comprehensive security hardening
     """
     
-    def __init__(self, logger: logging.Logger, allowed_directories: Set[str] = None):
+    def __init__(self, logger: logging.Logger):
         self.logger = logger
         
         # B2d: Set Security Boundaries
         # Define which folders the program is allowed to access
-        self.custom_allowed_directories = allowed_directories
         self.allowed_directories = self._get_allowed_directories()
     
     def _get_allowed_directories(self) -> Set[Path]:
@@ -34,32 +33,22 @@ class SecurityValidator:
         """
         allowed = set()
         
-        # If custom directories are provided, use those
-        if self.custom_allowed_directories:
-            for dir_path in self.custom_allowed_directories:
-                try:
-                    resolved_dir = Path(dir_path).resolve(strict=False)
-                    allowed.add(resolved_dir)
-                    self.logger.debug(f"Custom security boundary set: {resolved_dir}")
-                except Exception as e:
-                    self.logger.error(f"Failed to resolve custom directory {dir_path}: {e}")
-        else:
-            # Default security boundaries
-            # User's home directory - default allowed location
-            try:
-                home_dir = Path.home().resolve(strict=False)
-                allowed.add(home_dir)
-                self.logger.debug(f"Security boundary set: {home_dir}")
-            except Exception as e:
-                self.logger.error(f"Failed to resolve home directory: {e}")
-            
-            # Current working directory - allow for project work
-            try:
-                cwd = Path.cwd().resolve(strict=False)
-                allowed.add(cwd)
-                self.logger.debug(f"Current working directory allowed: {cwd}")
-            except Exception as e:
-                self.logger.warning(f"Could not add current working directory: {e}")
+        # Default security boundaries
+        # User's home directory - default allowed location
+        try:
+            home_dir = Path.home().resolve(strict=False)
+            allowed.add(home_dir)
+            self.logger.debug(f"Security boundary set: {home_dir}")
+        except Exception as e:
+            self.logger.error(f"Failed to resolve home directory: {e}")
+        
+        # Current working directory - allow for project work
+        try:
+            cwd = Path.cwd().resolve(strict=False)
+            allowed.add(cwd)
+            self.logger.debug(f"Current working directory allowed: {cwd}")
+        except Exception as e:
+            self.logger.warning(f"Could not add current working directory: {e}")
         
         # Always allow system temp directory for legitimate temporary operations
         try:

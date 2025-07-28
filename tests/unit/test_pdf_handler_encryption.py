@@ -93,7 +93,7 @@ class TestPDFEncryption:
         # Setup mock encrypted PDF
         mock_reader = MagicMock()
         mock_reader.is_encrypted = True
-        mock_reader.decrypt.return_value = True
+        mock_reader.decrypt.return_value = 1
         mock_reader.pages = [MagicMock()]
         mock_pdf_reader.return_value = mock_reader
         

@@ -768,6 +768,7 @@ class TestDecryptionEdgeCases:
                 assert "Not enough memory" in str(exc_info.value)
 
 
+
 class TestSecurityValidation:
     """Test security validation of decrypted files"""
     

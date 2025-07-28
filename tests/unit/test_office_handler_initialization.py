@@ -182,10 +182,10 @@ class TestOfficeHandlerConfiguration:
         debug_config = {'debug': True}
         self.handler.configure(debug_config)
         
-        # Verify experimental warning was logged
-        self.logger.warning.assert_called_with(
-            "Office document encryption is EXPERIMENTAL. "
-            "Decryption is fully supported."
+        # Verify debug info was logged for subprocess method
+        self.logger.info.assert_called_with(
+            "Office encryption using msoffcrypto-tool subprocess. "
+            "Both encryption and decryption fully supported."
         )
         
         # Test empty configuration
@@ -237,32 +237,6 @@ class TestOfficeHandlerDependencyHandling:
             assert handler.timeout == 30
             assert handler.encryption_algorithm == 'AES-256'
     
-    def test_win32com_availability_check(self):
-        """
-        Test: Handler properly checks win32com availability
-        
-        Verifies that Windows COM components are properly detected
-        """
-        logger = MagicMock(spec=logging.Logger)
-        
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', create=True):
-            # Test with win32com available
-            with patch('src.core.crypto_handlers.office_handler.win32com', create=True):
-                with patch('src.core.crypto_handlers.office_handler.pythoncom', create=True):
-                    from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
-                    handler = OfficeDocumentHandler(logger)
-                    
-                    # Should initialize successfully
-                    assert handler._direct_encryption_available() is True
-            
-            # Test with win32com unavailable
-            with patch('src.core.crypto_handlers.office_handler.win32com', None):
-                with patch('src.core.crypto_handlers.office_handler.pythoncom', None):
-                    from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
-                    handler = OfficeDocumentHandler(logger)
-                    
-                    # Should still initialize but direct encryption unavailable
-                    assert handler._direct_encryption_available() is False
     
     def test_logger_type_validation(self):
         """

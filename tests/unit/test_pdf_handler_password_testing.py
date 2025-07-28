@@ -39,7 +39,7 @@ class TestPDFPasswordValidation:
         # Setup mock encrypted PDF
         mock_reader = MagicMock()
         mock_reader.is_encrypted = True
-        mock_reader.decrypt.return_value = True  # Correct password
+        mock_reader.decrypt.return_value = 1  # Correct password (PyPDF2 success)
         mock_pdf_reader.return_value = mock_reader
         
         # Create test file
@@ -58,7 +58,7 @@ class TestPDFPasswordValidation:
         # Setup mock encrypted PDF
         mock_reader = MagicMock()
         mock_reader.is_encrypted = True
-        mock_reader.decrypt.return_value = False  # Incorrect password
+        mock_reader.decrypt.return_value = 0  # Incorrect password (PyPDF2 failure)
         mock_pdf_reader.return_value = mock_reader
         
         test_file = Path("test_encrypted.pdf")
@@ -165,7 +165,7 @@ class TestPDFPasswordValidation:
         # Setup mock encrypted PDF
         mock_reader = MagicMock()
         mock_reader.is_encrypted = True
-        mock_reader.decrypt.return_value = True
+        mock_reader.decrypt.return_value = 1
         mock_pdf_reader.return_value = mock_reader
         
         test_file = Path("test_unicode.pdf")
@@ -188,7 +188,7 @@ class TestPDFPasswordValidation:
         # Setup mock encrypted PDF
         mock_reader = MagicMock()
         mock_reader.is_encrypted = True
-        mock_reader.decrypt.return_value = True
+        mock_reader.decrypt.return_value = 1
         mock_pdf_reader.return_value = mock_reader
         
         test_file = Path("test_long_password.pdf")
@@ -208,7 +208,7 @@ class TestPDFPasswordValidation:
         # Setup mock encrypted PDF
         mock_reader = MagicMock()
         mock_reader.is_encrypted = True
-        mock_reader.decrypt.return_value = True
+        mock_reader.decrypt.return_value = 1
         mock_pdf_reader.return_value = mock_reader
         
         test_file = Path("test_special_chars.pdf")
@@ -232,7 +232,7 @@ class TestPDFPasswordValidation:
         # Setup mock encrypted PDF
         mock_reader = MagicMock()
         mock_reader.is_encrypted = True
-        mock_reader.decrypt.return_value = False  # Empty password typically fails
+        mock_reader.decrypt.return_value = 0  # Empty password typically fails
         mock_pdf_reader.return_value = mock_reader
         
         test_file = Path("test_empty_password.pdf")
@@ -255,7 +255,7 @@ class TestPDFPasswordValidation:
         # Setup mock encrypted PDF
         mock_reader = MagicMock()
         mock_reader.is_encrypted = True
-        mock_reader.decrypt.return_value = True
+        mock_reader.decrypt.return_value = 1
         mock_pdf_reader.return_value = mock_reader
         
         test_file = Path("test_binary_password.pdf")
@@ -273,7 +273,7 @@ class TestPDFPasswordValidation:
         # Setup mock encrypted PDF
         mock_reader = MagicMock()
         mock_reader.is_encrypted = True
-        mock_reader.decrypt.return_value = True
+        mock_reader.decrypt.return_value = 1
         mock_pdf_reader.return_value = mock_reader
         
         test_file = Path("test_null_password.pdf")
@@ -315,7 +315,7 @@ class TestPDFPasswordValidation:
         # Setup mock encrypted PDF
         mock_reader = MagicMock()
         mock_reader.is_encrypted = True
-        mock_reader.decrypt.return_value = True
+        mock_reader.decrypt.return_value = 1
         mock_pdf_reader.return_value = mock_reader
         
         test_file = Path("test_encoding.pdf")

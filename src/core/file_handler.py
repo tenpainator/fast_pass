@@ -210,8 +210,11 @@ class FileValidator:
         # B5a: Determine File Type Handler
         crypto_tool = FastPassConfig.SUPPORTED_FORMATS.get(file_format)
         if not crypto_tool:
-            # Unsupported format - assume unencrypted
-            return False
+            # Check legacy formats
+            crypto_tool = FastPassConfig.LEGACY_FORMATS.get(file_format)
+            if not crypto_tool:
+                # Truly unsupported format - assume unencrypted
+                return False
         
         try:
             # B5b: Test Encryption Status
@@ -367,7 +370,7 @@ class FileProcessor:
         
         # D3a-D3d: Output Validation (if output file was created)
         if not dry_run and temp_output and operation != 'check-password':
-            self._validate_output_file(temp_output, file_manifest, operation)
+            self._validate_output_file_with_retry(temp_output, file_manifest, operation)
         
         # D4a-D4g: File Movement and Final Result
         if dry_run:
@@ -424,6 +427,35 @@ class FileProcessor:
             self.logger.error(f"Deep verification failed for {final_path.name}: {e}")
             # Don't raise exception - verification failure shouldn't abort the operation
     
+    def _validate_output_file_with_retry(self, temp_output: Path, file_manifest: FileManifest, operation: str) -> None:
+        """
+        D3a-D3d: Output Validation with Windows file handle retry logic
+        Validate the processed output file with proper handle management
+        """
+        import time
+        
+        # Windows file handle management: retry validation with exponential backoff
+        max_retries = 3
+        base_delay = 0.1  # 100ms initial delay
+        
+        for attempt in range(max_retries):
+            try:
+                self._validate_output_file(temp_output, file_manifest, operation)
+                return  # Success, exit retry loop
+                
+            except (PermissionError, OSError) as e:
+                if attempt < max_retries - 1:
+                    # Wait with exponential backoff before retrying
+                    delay = base_delay * (2 ** attempt)
+                    self.logger.debug(f"File validation retry {attempt + 1}/{max_retries} after {delay}s: {e}")
+                    time.sleep(delay)
+                else:
+                    # Final attempt failed
+                    raise ProcessingError(f"Output file validation failed after {max_retries} retries: {e}")
+            except Exception as e:
+                # Non-permission errors should not be retried
+                raise ProcessingError(f"Output file validation failed: {e}")
+    
     def _validate_output_file(self, temp_output: Path, file_manifest: FileManifest, operation: str) -> None:
         """
         D3a-D3d: Output Validation
@@ -439,31 +471,59 @@ class FileProcessor:
         if output_size == 0:
             raise ProcessingError("Output file is empty")
         
-        # D3c: Format-Specific Validation
+        # D3c: Format-Specific Validation with Proper Handle Management
         try:
+            current_encrypted = None
             if file_manifest.crypto_tool == 'msoffcrypto':
-                # D3c_Office: Validate Office Document
+                # D3c_Office: Validate Office Document with explicit handle cleanup
                 import msoffcrypto
-                with open(temp_output, 'rb') as f:
-                    office_file = msoffcrypto.OfficeFile(f)
-                    # Try to read document structure
+                import gc
+                
+                # Use explicit file handle management for Windows
+                file_handle = None
+                office_file = None
+                try:
+                    file_handle = open(temp_output, 'rb')
+                    office_file = msoffcrypto.OfficeFile(file_handle)
+                    # Get encryption status
+                    current_encrypted = office_file.is_encrypted()
+                finally:
+                    # Ensure proper cleanup
+                    if office_file:
+                        del office_file
+                    if file_handle:
+                        file_handle.close()
+                    gc.collect()  # Force garbage collection to release handles
                     
             elif file_manifest.crypto_tool == 'PyPDF2':
-                # D3c_PDF: Validate PDF Document
+                # D3c_PDF: Validate PDF Document with explicit handle cleanup
                 import PyPDF2
-                with open(temp_output, 'rb') as f:
-                    pdf_reader = PyPDF2.PdfReader(f)
-                    # Try to read PDF structure
+                import gc
+                
+                # Use explicit file handle management for Windows
+                file_handle = None
+                pdf_reader = None
+                try:
+                    file_handle = open(temp_output, 'rb')
+                    pdf_reader = PyPDF2.PdfReader(file_handle)
+                    # Get encryption status
+                    current_encrypted = pdf_reader.is_encrypted
+                finally:
+                    # Ensure proper cleanup
+                    if pdf_reader:
+                        del pdf_reader
+                    if file_handle:
+                        file_handle.close()
+                    gc.collect()  # Force garbage collection to release handles
                     
         except Exception as e:
             raise ProcessingError(f"Output file validation failed: {e}")
         
-        # D3d: Validate Encryption Status Changed
-        current_encrypted = self._detect_encryption_status_for_validation(temp_output, file_manifest.format)
-        expected_encrypted = operation == 'encrypt'
-        
-        if current_encrypted != expected_encrypted:
-            raise ProcessingError(f"Encryption status not changed correctly (expected: {expected_encrypted}, actual: {current_encrypted})")
+        # D3d: Validate Encryption Status Changed (using result from above)
+        if current_encrypted is not None:
+            expected_encrypted = operation == 'encrypt'
+            if current_encrypted != expected_encrypted:
+                raise ProcessingError(f"Encryption status not changed correctly (expected: {expected_encrypted}, actual: {current_encrypted})")
     
     def _detect_encryption_status_for_validation(self, file_path: Path, file_format: str) -> bool:
         """Helper to detect encryption status for validation"""
@@ -519,8 +579,23 @@ class FileProcessor:
         except Exception as e:
             raise ProcessingError(f"Failed to move file to final location: {e}")
         
-        # D4d: Update File Permissions
-        final_path.chmod(self.config['secure_permissions'])
+        # D4d: Update File Permissions (Windows-compatible)
+        try:
+            # Apply secure permissions with Windows compatibility
+            import platform
+            if platform.system() == 'Windows':
+                # On Windows, use more lenient permissions to avoid access issues
+                secure_permissions = 0o644  # Read/write for owner, read for group/others
+            else:
+                # On Unix-like systems, use strict permissions
+                secure_permissions = self.config['secure_permissions']
+            
+            final_path.chmod(secure_permissions)
+            self.logger.debug(f"Applied secure permissions {oct(secure_permissions)} to {final_path.name}")
+            
+        except (OSError, PermissionError) as e:
+            # Log warning but don't fail the operation for permission issues
+            self.logger.warning(f"Could not set secure permissions on {final_path.name}: {e}")
         
         return final_path
     

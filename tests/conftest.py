@@ -211,38 +211,6 @@ def encrypted_test_files(temp_work_dir, sample_pdf_file, fastpass_executable, pr
     return encrypted_files
 
 
-@pytest.fixture 
-def cli_test_combinations():
-    """Fixture providing comprehensive CLI argument combinations for testing"""
-    operations = ["encrypt", "decrypt", "check-password"]
-    input_methods = ["files", "recursive"]  
-    password_sources = ["cli", "file", "none"]
-    output_modes = ["inplace", "directory"]
-    flags = [[], ["--dry-run"], ["--verify"], ["--debug"]]
-    
-    combinations = []
-    for op in operations:
-        for input_method in input_methods:
-            # Recursive only allowed for decrypt and check-password
-            if input_method == "recursive" and op == "encrypt":
-                continue
-                
-            for password_source in password_sources:
-                # Password required for encrypt and decrypt
-                if password_source == "none" and op != "check-password":
-                    continue
-                    
-                for output_mode in output_modes:
-                    for flag_set in flags:
-                        combinations.append({
-                            "operation": op,
-                            "input_method": input_method,
-                            "password_source": password_source,
-                            "output_mode": output_mode,
-                            "flags": flag_set
-                        })
-    
-    return combinations
 
 
 # Helper functions for test utilities

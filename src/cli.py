@@ -16,6 +16,58 @@ from src.utils.logger import setup_logger, sanitize_error_message
 from src.app import FastPassApplication
 
 
+def get_help_epilog() -> str:
+    """Generate comprehensive help epilog with format support table and examples"""
+    return """
+SUPPORTED FILE FORMATS:
+
++--------+-----+  +--------+-----+  +--------+-----+
+| Format | EDC |  | Format | EDC |  | Format | EDC |
++--------+-----+  +--------+-----+  +--------+-----+
+| .pdf   | EDC |  | .docm  | EDC |  | .doc   | -DC |
+| .docx  | EDC |  | .xlsm  | EDC |  | .xls   | -DC |
+| .xlsx  | EDC |  | .pptm  | EDC |  | .ppt   | -DC |
+| .pptx  | EDC |  | .dotx  | EDC |  |        |     |
+| .potx  | EDC |  | .xltx  | EDC |  |        |     |
++--------+-----+  +--------+-----+  +--------+-----+
+
+Legend: E=Encryption, D=Decryption, C=Check
+
+USAGE EXAMPLES:
+
+  # Encrypt file with password
+  fast_pass encrypt -i contract.docx -p "mypassword"
+  fast_pass encrypt -i "file with spaces.pdf" -p "secret"
+  
+  # Decrypt file with multiple password attempts
+  fast_pass decrypt -i encrypted.pdf -p "password123" "backup_pwd" "old_pwd"
+  
+  # Check if file is password protected
+  fast_pass check -i document.pdf
+  fast_pass check -i "my document.docx"
+  
+  # Specify output directory
+  fast_pass encrypt -i document.docx -p "secret" -o ./encrypted/
+  
+  # Use passwords from stdin (JSON array) - note: unquoted stdin
+  echo '["pwd1", "pwd2", "pwd3"]' | fast_pass decrypt -i file.pdf -p stdin
+  
+  # Combine CLI passwords with stdin passwords
+  echo '["pwd3", "pwd4"]' | fast_pass decrypt -i file.pdf -p "pwd1" "pwd2" stdin
+  
+  # Use literal string "stdin" as password (quoted)
+  fast_pass decrypt -i file.pdf -p "stdin"
+
+COMMON FLAGS:
+  -i, --input FILE              Input file to process
+  -p, --password PWD [PWD ...]   Passwords to try (space-delimited)
+                                 Use stdin (unquoted) to read JSON array from stdin
+                                 Use "stdin" (quoted) to try literal string "stdin"
+  -o, --output-dir DIR          Output directory (default: in-place)
+  --debug                       Enable detailed logging (logs to %TEMP%\\fastpass_debug.log)
+"""
+
+
 def parse_command_line_arguments() -> argparse.Namespace:
     """
     A1b: Initialize Command Reader
@@ -25,22 +77,11 @@ def parse_command_line_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="fast_pass",
         description="FastPass - Universal file encryption and decryption tool",
-        epilog="""
-Examples:
-  fast_pass encrypt -i contract.docx -p "mypassword"
-  fast_pass decrypt -i file1.pdf file2.docx -p "shared_pwd"
-  fast_pass decrypt -r ./encrypted_docs/ -p "main_password"
-        """,
+        epilog=get_help_epilog(),
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     
     # A1g: Add Helper Features with Enhanced Logging  
-    parser.add_argument(
-        '--list-supported',
-        action='store_true',
-        help='List supported file formats'
-    )
-    
     parser.add_argument(
         '--version',
         action='version',
@@ -56,34 +97,14 @@ Examples:
     # Encrypt operation
     encrypt_parser = subparsers.add_parser('encrypt', help='Add password protection to files')
     setup_common_arguments(encrypt_parser)
-    # Add recursive option to encrypt (will be blocked in validation)
-    encrypt_parser.add_argument(
-        '-r', '--recursive',
-        type=Path,
-        help='Process directory recursively (not supported for encrypt)'
-    )
     
     # Decrypt operation  
     decrypt_parser = subparsers.add_parser('decrypt', help='Remove password protection from files')
     setup_common_arguments(decrypt_parser)
     
-    # Add recursive option to decrypt
-    decrypt_parser.add_argument(
-        '-r', '--recursive',
-        type=Path,
-        help='Process directory recursively (decrypt/check-password only)'
-    )
-    
     # Check password operation
-    check_parser = subparsers.add_parser('check-password', help='Check if files require passwords')
+    check_parser = subparsers.add_parser('check', help='Check if files require passwords')
     setup_common_arguments(check_parser)
-    check_parser.add_argument(
-        '-r', '--recursive',
-        type=Path,
-        help='Process directory recursively'
-    )
-    
-    # Note: encrypt parser deliberately does not have -r option for security
     
     
     return parser.parse_args()
@@ -93,13 +114,12 @@ def setup_common_arguments(parser: argparse.ArgumentParser) -> None:
     """Setup arguments common to all operations"""
     
     # A1d: Set Up File Input Options
-    # Use -i/--input flag for space-delimited files
+    # Use -i/--input flag for single file
     # Require explicit file specification with quotes for spaced paths
     parser.add_argument(
         '-i', '--input',
-        nargs='+',
         type=Path,
-        help='Files to process (space-delimited, quotes for spaces)'
+        help='File to process (quotes for spaces in path)'
     )
     
     # A1e: Configure Password Options with Space Delimitation
@@ -108,14 +128,9 @@ def setup_common_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         '-p', '--password',
         nargs='+',
-        help='Passwords to try (space-delimited, quotes for spaces, or "stdin" for JSON)'
+        help='Passwords to try (space-delimited, quotes for spaces, stdin for JSON array)'
     )
     
-    parser.add_argument(
-        '--password-list',
-        type=Path,
-        help='Text file with passwords to try (one per line)'
-    )
     
     # A1f: Set Output Location Options
     # Choose where processed files should be saved
@@ -127,128 +142,70 @@ def setup_common_arguments(parser: argparse.ArgumentParser) -> None:
     )
     
     # A1g: Add Helper Features
-    parser.add_argument(
-        '--dry-run',
-        action='store_true',
-        help='Show what would be done without making changes'
-    )
     
-    parser.add_argument(
-        '--verify',
-        action='store_true',
-        help='Deep verification of processed files'
-    )
-    
-    # Security configuration
-    parser.add_argument(
-        '--allowed-dirs',
-        nargs='+',
-        type=str,
-        help='Additional directories to allow for file access (default: home directory and current working directory)'
-    )
     
     parser.add_argument(
         '--debug',
         action='store_true',
         help='Enable detailed logging and debug output'
     )
-    
-    parser.add_argument(
-        '--log-file',
-        type=Path,
-        help='Log file path for detailed logging'
-    )
 
 
-def display_information_and_exit(args: argparse.Namespace) -> int:
-    """
-    A1i: Handle Information Requests
-    Check if user wants to see supported file formats
-    Show list and exit if that's all they wanted
-    """
-    if getattr(args, 'list_supported', False):
-        # A1i_List: Show Supported File Types
-        print("FastPass Supported File Formats:")
-        print("\nModern Office Documents (experimental encryption, full decryption):")
-        office_formats = [ext for ext, tool in FastPassConfig.SUPPORTED_FORMATS.items() 
-                         if tool == 'msoffcrypto']
-        for fmt in sorted(office_formats):
-            print(f"  {fmt}")
-        
-        print("\nPDF Documents (full encryption and decryption support):")
-        pdf_formats = [ext for ext, tool in FastPassConfig.SUPPORTED_FORMATS.items() 
-                      if tool == 'PyPDF2']
-        for fmt in sorted(pdf_formats):
-            print(f"  {fmt}")
-        
-        print("\nLegacy Office Formats (NOT SUPPORTED):")
-        print("  .doc, .xls, .ppt (use Office to convert to modern format)")
-        
-        return 0
-    
-    return 0
 
 
 def validate_arguments(args: argparse.Namespace) -> None:
     """
     A2a: Check Input Requirements
-    User must specify either files or folder to process
+    User must specify files to process
     Cannot proceed without something to work on
     """
     
-    # Skip validation for info commands
-    if getattr(args, 'list_supported', False):
-        return
-    
-    # Must have an operation for non-info commands
+    # Must have an operation
     if not args.operation:
-        raise ValueError("Must specify an operation (encrypt, decrypt, or check-password)")
+        raise ValueError("Must specify an operation (encrypt, decrypt, or check)")
     
     # A2a_Check: Valid Input Method Provided?
-    has_files = hasattr(args, 'input') and args.input
-    has_recursive = hasattr(args, 'recursive') and args.recursive
+    has_file = hasattr(args, 'input') and args.input
     
-    if not has_files and not has_recursive:
+    if not has_file:
         # A2a_Error: Nothing to Process
-        raise ValueError("Must specify either files (-i) or recursive directory (-r)")
-    
-    if has_files and has_recursive:
-        # A2a_Both_Error: Conflicting Instructions
-        raise ValueError("Cannot specify both individual files and recursive directory")
-    
-    # A2a1: Validate Recursive Mode Usage
-    # Check if recursive mode used with encrypt operation
-    # Recursive mode only allowed with decrypt/check-password
-    if has_recursive and args.operation == 'encrypt':
-        # A2a1_Error: Recursive Encryption Blocked
-        raise ValueError("Recursive mode only supported for decrypt operations (security restriction)")
+        raise ValueError("Must specify a file to process (-i)")
     
     # Validate password requirements
-    has_passwords = (hasattr(args, 'password') and args.password) or \
-                   (hasattr(args, 'password_list') and args.password_list)
+    has_passwords = hasattr(args, 'password') and args.password
     
-    if not has_passwords and args.operation != 'check-password':
-        raise ValueError("Must specify passwords (-p) or password list (--password-list)")
+    if not has_passwords and args.operation != 'check':
+        raise ValueError("Must specify passwords (-p)")
 
 
 def handle_stdin_passwords(args: argparse.Namespace) -> None:
     """
     A3d: Handle Stdin Password Input
     Check for 'stdin' in CLI passwords
-    Parse JSON password mapping from stdin if specified
+    Parse JSON array of passwords from stdin if specified
     """
     if hasattr(args, 'password') and args.password and 'stdin' in args.password:
         try:
-            # Read JSON from stdin
+            # Read JSON array from stdin
             stdin_data = sys.stdin.read().strip()
             if stdin_data:
-                password_mapping = json.loads(stdin_data)
-                # Store the mapping for later use
-                args.stdin_password_mapping = password_mapping
-            # Always remove 'stdin' from password list, even if empty
-            args.password = [p for p in args.password if p != 'stdin']
+                stdin_passwords = json.loads(stdin_data)
+                if not isinstance(stdin_passwords, list):
+                    raise ValueError("stdin must contain a JSON array of passwords")
+                
+                # Remove 'stdin' from password list and replace with actual passwords
+                password_list = []
+                for p in args.password:
+                    if p == 'stdin':
+                        password_list.extend(stdin_passwords)
+                    else:
+                        password_list.append(p)
+                args.password = password_list
+            else:
+                # Remove 'stdin' if no data provided
+                args.password = [p for p in args.password if p != 'stdin']
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in stdin: {e}")
+            raise ValueError(f"Invalid JSON array in stdin: {e}")
         except Exception as e:
             raise ValueError(f"Error reading passwords from stdin: {e}")
 
@@ -259,11 +216,9 @@ def handle_interactive_passwords(args: argparse.Namespace) -> None:
     """
     # Check if no passwords were provided and we're not in a non-interactive mode
     has_cli_passwords = hasattr(args, 'password') and args.password
-    has_password_file = hasattr(args, 'password_list') and args.password_list
-    has_stdin_mapping = hasattr(args, 'stdin_password_mapping') and args.stdin_password_mapping
     
     # Only prompt if no other password sources and we have an operation that needs passwords
-    if not (has_cli_passwords or has_password_file or has_stdin_mapping):
+    if not has_cli_passwords:
         if hasattr(args, 'operation') and args.operation in ['encrypt', 'decrypt']:
             try:
                 # A3e-SEC: Secure password prompting
@@ -310,19 +265,15 @@ def main() -> int:
             if e.code == 2:
                 # Check if this looks like missing operation (starts with -i or -p without operation)
                 if len(sys.argv) > 1 and sys.argv[1].startswith('-'):
-                    print("Error: Must specify an operation (encrypt, decrypt, or check-password)", file=sys.stderr)
+                    print("Error: Must specify an operation (encrypt, decrypt, or check)", file=sys.stderr)
                     return 2
             # Re-raise for other SystemExit cases (like --help, --version)
             raise
         
-        # A1i: Handle Information Requests
-        if hasattr(args, 'list_supported') and args.list_supported:
-            return display_information_and_exit(args)
         
         # A3a-A3e: Enhanced Logging Setup
         logger = setup_logger(
-            debug=getattr(args, 'debug', False),
-            log_file=getattr(args, 'log_file', None)
+            debug=getattr(args, 'debug', False)
         )
         
         # A3e: Record Program Startup with Config

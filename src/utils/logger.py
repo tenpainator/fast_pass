@@ -13,8 +13,7 @@ from typing import Optional
 
 
 def setup_logger(name: str = "fastpass", 
-                debug: bool = False, 
-                log_file: Optional[Path] = None) -> logging.Logger:
+                debug: bool = False) -> logging.Logger:
     """
     A3a: Configure Console and File Logging
     Detect TTY for appropriate log formatting
@@ -57,19 +56,25 @@ def setup_logger(name: str = "fastpass",
     error_handler.setFormatter(error_formatter)
     logger.addHandler(error_handler)
     
-    # A3c: Add file handler if --log-file specified
-    if log_file:
+    # A3c: Add file handler if debug mode is enabled
+    if debug:
         try:
-            # Ensure log directory exists
-            log_file.parent.mkdir(parents=True, exist_ok=True)
+            # Use Windows temp directory with timestamp
+            import tempfile
+            temp_dir = Path(tempfile.gettempdir())
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            log_file = temp_dir / f"fastpass_debug_{timestamp}.log"
             
             file_handler = logging.FileHandler(log_file)
             file_format = "%(asctime)s [%(levelname)s] %(name)s:%(lineno)d: %(message)s"
             file_formatter = logging.Formatter(file_format, datefmt="%Y-%m-%d %H:%M:%S")
             file_handler.setFormatter(file_formatter)
             logger.addHandler(file_handler)
+            
+            # Inform user where the log file is being written
+            logger.info(f"Debug logging enabled: {log_file}")
         except Exception as e:
-            logger.warning(f"Could not create log file {log_file}: {e}")
+            logger.warning(f"Could not create debug log file: {e}")
     
     # A3e: Record Program Startup with Config
     logger.debug(f"FastPass logger initialized (TTY: {is_tty})")

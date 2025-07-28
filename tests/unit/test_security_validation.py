@@ -55,23 +55,6 @@ class TestSecurityValidatorInitialization:
         cwd = Path.cwd().resolve(strict=False)
         assert cwd in validator.allowed_directories
     
-    def test_custom_allowed_directories(self):
-        """Test: Custom allowed directories are respected"""
-        logger = MagicMock()
-        import tempfile
-        temp_dir = str(Path(tempfile.gettempdir()).resolve(strict=False))
-        custom_dirs = {temp_dir}
-        validator = SecurityValidator(logger, allowed_directories=custom_dirs)
-        
-        # Should include custom directory and temp directory (always added)
-        temp_path = Path(tempfile.gettempdir()).resolve(strict=False)
-        assert temp_path in validator.allowed_directories
-        
-        # Should not include home directory when custom directories are specified
-        home_dir = Path.home().resolve(strict=False)
-        # Home is only excluded if it's not in the custom list
-        if str(home_dir) not in custom_dirs:
-            assert home_dir not in validator.allowed_directories
 
 
 class TestPathResolutionValidation:

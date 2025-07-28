@@ -15,9 +15,7 @@ class PasswordManager:
     Maps to: C3a-C5d from flowchart
     """
     
-    def __init__(self, cli_passwords: List[str] = None, 
-                 password_list_file: Optional[Path] = None,
-                 stdin_mapping: Optional[Dict[str, str]] = None):
+    def __init__(self, cli_passwords: List[str] = None):
         """
         C3a-C3c: Initialize PasswordManager Class
         Set up password storage and management
@@ -25,35 +23,9 @@ class PasswordManager:
         
         # C3b: Remember User's Passwords
         self.cli_passwords = cli_passwords or []
-        self.password_list_file = password_list_file
-        self.stdin_mapping = stdin_mapping or {}
         
         # C3c: Prepare Password Storage
         self.password_list = []
-        
-        # C3d: Load Passwords from File
-        if self.password_list_file:
-            self._load_password_list()
-    
-    def _load_password_list(self) -> None:
-        """
-        C3d_Load: Read Passwords from File
-        Load passwords from text file, one per line
-        """
-        try:
-            with open(self.password_list_file, 'r', encoding='utf-8') as f:
-                self.password_list = [line.strip() for line in f if line.strip()]
-            
-            # C3d_Load_Success: Passwords Successfully Loaded
-            print(f"Loaded {len(self.password_list)} passwords from file")
-            
-        except FileNotFoundError:
-            # C3d_Load_Error: Cannot Read Password File
-            print(f"Warning: Password list file not found: {self.password_list_file}")
-            self.password_list = []
-        except Exception as e:
-            print(f"Warning: Error reading password file {self.password_list_file}: {e}")
-            self.password_list = []
     
     def get_password_candidates(self, file_path: Path) -> List[str]:
         """
@@ -64,19 +36,9 @@ class PasswordManager:
         # C4a: Start Building Password List
         candidates = []
         
-        # Check for file-specific password from stdin mapping
-        if self.stdin_mapping:
-            file_name = file_path.name
-            if file_name in self.stdin_mapping:
-                candidates.append(self.stdin_mapping[file_name])
-        
-        # C4b: Add Command-Line Passwords First
-        # Put passwords user typed in command first
+        # C4b: Add Command-Line Passwords (includes any from stdin)
+        # Put passwords user typed in command (and any loaded from stdin)
         candidates.extend(self.cli_passwords)
-        
-        # C4c: Add File Passwords Second
-        # Add passwords from password file after command-line ones
-        candidates.extend(self.password_list)
         
         # C4d: Remove Duplicate Passwords
         # Eliminate passwords that appear multiple times

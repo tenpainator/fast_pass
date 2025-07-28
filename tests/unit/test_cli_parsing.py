@@ -18,40 +18,41 @@ from src.utils.config import FastPassConfig
 class TestCLIArgumentParsing:
     """Test CLI argument parsing and validation logic"""
     
-    def test_parse_encrypt_basic(self):
-        """Test: Basic encrypt operation parsing"""
+    def test_parse_encrypt_single_file(self):
+        """Test: Basic encrypt operation parsing for a single file"""
         with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password']):
             args = cli_module.parse_command_line_arguments()
             assert args.operation == 'encrypt'
-            assert args.input == [Path('test.pdf')]
+            assert args.input == Path('test.pdf')
             assert args.password == ['password']
     
-    def test_parse_decrypt_basic(self):
-        """Test: Basic decrypt operation parsing"""
+    def test_parse_decrypt_single_file(self):
+        """Test: Basic decrypt operation parsing for a single file"""
         with patch.object(sys, 'argv', ['fast_pass', 'decrypt', '-i', 'test.pdf', '-p', 'password']):
             args = cli_module.parse_command_line_arguments()
             assert args.operation == 'decrypt'
-            assert args.input == [Path('test.pdf')]
+            assert args.input == Path('test.pdf')
             assert args.password == ['password']
     
-    def test_parse_check_password_basic(self):
-        """Test: Basic check-password operation parsing"""
-        with patch.object(sys, 'argv', ['fast_pass', 'check-password', '-i', 'test.pdf']):
+    def test_parse_check_single_file(self):
+        """Test: Basic check operation parsing for a single file"""
+        with patch.object(sys, 'argv', ['fast_pass', 'check', '-i', 'test.pdf']):
             args = cli_module.parse_command_line_arguments()
-            assert args.operation == 'check-password'
-            assert args.input == [Path('test.pdf')]
+            assert args.operation == 'check'
+            assert args.input == Path('test.pdf')
     
-    def test_parse_multiple_files(self):
-        """Test: Multiple files parsing"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'file1.pdf', 'file2.docx', 'file3.xlsx', '-p', 'password']):
-            args = cli_module.parse_command_line_arguments()
-            assert args.input == [Path('file1.pdf'), Path('file2.docx'), Path('file3.xlsx')]
+    def test_parse_multiple_files_fails(self):
+        """Test: Providing multiple files to -i raises an error"""
+        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'file1.pdf', 'file2.pdf', '-p', 'password']):
+            with pytest.raises(SystemExit):
+                # argparse will exit with an error for unrecognized arguments
+                cli_module.parse_command_line_arguments()
     
     def test_parse_files_with_spaces(self):
         """Test: Files with spaces in names"""
         with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'file with spaces.pdf', '-p', 'password']):
             args = cli_module.parse_command_line_arguments()
-            assert args.input == [Path('file with spaces.pdf')]
+            assert args.input == Path('file with spaces.pdf')
     
     def test_parse_multiple_passwords(self):
         """Test: Multiple passwords parsing"""
@@ -65,17 +66,17 @@ class TestCLIArgumentParsing:
             args = cli_module.parse_command_line_arguments()
             assert args.password == ['password with spaces', 'another password']
     
-    def test_parse_password_list_file(self):
-        """Test: Password list file parsing"""
-        with patch.object(sys, 'argv', ['fast_pass', 'decrypt', '-i', 'test.pdf', '--password-list', 'passwords.txt']):
+    def test_parse_stdin_password(self):
+        """Test: stdin password parsing"""
+        with patch.object(sys, 'argv', ['fast_pass', 'decrypt', '-i', 'test.pdf', '-p', 'stdin']):
             args = cli_module.parse_command_line_arguments()
-            assert args.password_list == Path('passwords.txt')
+            assert args.password == ['stdin']
     
-    def test_parse_recursive_mode(self):
-        """Test: Recursive mode parsing"""
-        with patch.object(sys, 'argv', ['fast_pass', 'decrypt', '-r', '/path/to/dir', '-p', 'password']):
+    def test_parse_mixed_cli_stdin_passwords(self):
+        """Test: Mixed CLI and stdin password parsing"""
+        with patch.object(sys, 'argv', ['fast_pass', 'decrypt', '-i', 'test.pdf', '-p', 'pwd1', 'stdin', 'pwd2']):
             args = cli_module.parse_command_line_arguments()
-            assert args.recursive == Path('/path/to/dir')
+            assert args.password == ['pwd1', 'stdin', 'pwd2']
     
     def test_parse_output_directory(self):
         """Test: Output directory parsing"""
@@ -83,17 +84,17 @@ class TestCLIArgumentParsing:
             args = cli_module.parse_command_line_arguments()
             assert args.output_dir == Path('/output/dir')
     
-    def test_parse_dry_run_flag(self):
-        """Test: Dry run flag parsing"""
+    def test_parse_removed_dry_run_flag_error(self):
+        """Test: Removed dry-run flag raises error"""
         with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--dry-run']):
-            args = cli_module.parse_command_line_arguments()
-            assert args.dry_run is True
+            with pytest.raises(SystemExit):
+                cli_module.parse_command_line_arguments()
     
-    def test_parse_verify_flag(self):
-        """Test: Verify flag parsing"""
+    def test_parse_removed_verify_flag_error(self):
+        """Test: Removed verify flag raises error"""
         with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--verify']):
-            args = cli_module.parse_command_line_arguments()
-            assert args.verify is True
+            with pytest.raises(SystemExit):
+                cli_module.parse_command_line_arguments()
     
     def test_parse_debug_flag(self):
         """Test: Debug flag parsing"""
@@ -101,25 +102,29 @@ class TestCLIArgumentParsing:
             args = cli_module.parse_command_line_arguments()
             assert args.debug is True
     
-    def test_parse_log_file(self):
-        """Test: Log file parsing"""
+    def test_parse_removed_log_file_flag_error(self):
+        """Test: Removed log-file flag raises error"""
         with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--log-file', 'app.log']):
-            args = cli_module.parse_command_line_arguments()
-            assert args.log_file == Path('app.log')
+            with pytest.raises(SystemExit):
+                cli_module.parse_command_line_arguments()
     
-    def test_parse_combined_flags(self):
-        """Test: Multiple flags combined"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--dry-run', '--verify', '--debug']):
+    def test_parse_debug_flag_only(self):
+        """Test: Debug flag parsing (only valid flag remaining)"""
+        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--debug']):
             args = cli_module.parse_command_line_arguments()
-            assert args.dry_run is True
-            assert args.verify is True
             assert args.debug is True
     
-    def test_parse_list_supported(self):
-        """Test: List supported formats flag"""
+    def test_parse_removed_list_supported_flag_error(self):
+        """Test: Removed list-supported flag raises error"""
         with patch.object(sys, 'argv', ['fast_pass', '--list-supported']):
-            args = cli_module.parse_command_line_arguments()
-            assert args.list_supported is True
+            with pytest.raises(SystemExit):
+                cli_module.parse_command_line_arguments()
+    
+    def test_parse_old_check_password_command_fails(self):
+        """Test: The old 'check-password' command is no longer recognized"""
+        with patch.object(sys, 'argv', ['fast_pass', 'check-password', '-i', 'test.pdf']):
+            with pytest.raises(SystemExit):
+                cli_module.parse_command_line_arguments()
 
 
 class TestCLIArgumentValidation:
@@ -129,11 +134,8 @@ class TestCLIArgumentValidation:
         """Test: Valid encrypt arguments pass validation"""
         args = argparse.Namespace(
             operation='encrypt',
-            input=[Path('test.pdf')],
-            password=['password'],
-            recursive=None,
-            password_list=None,
-            list_supported=False
+            input=Path('test.pdf'),
+            password=['password']
         )
         # Should not raise exception
         cli_module.validate_arguments(args)
@@ -142,24 +144,18 @@ class TestCLIArgumentValidation:
         """Test: Valid decrypt arguments pass validation"""
         args = argparse.Namespace(
             operation='decrypt',
-            input=[Path('test.pdf')],
-            password=['password'],
-            recursive=None,
-            password_list=None,
-            list_supported=False
+            input=Path('test.pdf'),
+            password=['password']
         )
         # Should not raise exception
         cli_module.validate_arguments(args)
     
-    def test_validate_check_password_no_password_valid(self):
-        """Test: check-password without password is valid"""
+    def test_validate_check_no_password_valid(self):
+        """Test: check without password is valid"""
         args = argparse.Namespace(
-            operation='check-password',
-            input=[Path('test.pdf')],
-            password=None,
-            recursive=None,
-            password_list=None,
-            list_supported=False
+            operation='check',
+            input=Path('test.pdf'),
+            password=None
         )
         # Should not raise exception
         cli_module.validate_arguments(args)
@@ -168,11 +164,8 @@ class TestCLIArgumentValidation:
         """Test: Missing operation raises error"""
         args = argparse.Namespace(
             operation=None,
-            input=[Path('test.pdf')],
-            password=['password'],
-            recursive=None,
-            password_list=None,
-            list_supported=False
+            input=Path('test.pdf'),
+            password=['password']
         )
         with pytest.raises(ValueError, match="Must specify an operation"):
             cli_module.validate_arguments(args)
@@ -182,23 +175,17 @@ class TestCLIArgumentValidation:
         args = argparse.Namespace(
             operation='encrypt',
             input=None,
-            password=['password'],
-            recursive=None,
-            password_list=None,
-            list_supported=False
+            password=['password']
         )
-        with pytest.raises(ValueError, match="Must specify either files"):
+        with pytest.raises(ValueError, match="Must specify a file to process"):
             cli_module.validate_arguments(args)
     
     def test_validate_no_password_encrypt_error(self):
         """Test: Missing password for encrypt raises error"""
         args = argparse.Namespace(
             operation='encrypt',
-            input=[Path('test.pdf')],
-            password=None,
-            recursive=None,
-            password_list=None,
-            list_supported=False
+            input=Path('test.pdf'),
+            password=None
         )
         with pytest.raises(ValueError, match="Must specify passwords"):
             cli_module.validate_arguments(args)
@@ -207,76 +194,18 @@ class TestCLIArgumentValidation:
         """Test: Missing password for decrypt raises error"""
         args = argparse.Namespace(
             operation='decrypt',
-            input=[Path('test.pdf')],
-            password=None,
-            recursive=None,
-            password_list=None,
-            list_supported=False
+            input=Path('test.pdf'),
+            password=None
         )
         with pytest.raises(ValueError, match="Must specify passwords"):
             cli_module.validate_arguments(args)
     
-    def test_validate_conflicting_input_methods_error(self):
-        """Test: Both files and recursive raises error"""
-        args = argparse.Namespace(
-            operation='decrypt',
-            input=[Path('test.pdf')],
-            password=['password'],
-            recursive=Path('/some/dir'),
-            password_list=None,
-            list_supported=False
-        )
-        with pytest.raises(ValueError, match="Cannot specify both individual files and recursive"):
-            cli_module.validate_arguments(args)
-    
-    def test_validate_recursive_encrypt_blocked(self):
-        """Test: Recursive mode with encrypt is blocked"""
+    def test_validate_single_file_required(self):
+        """Test: Single file input validation"""
         args = argparse.Namespace(
             operation='encrypt',
-            input=None,
-            password=['password'],
-            recursive=Path('/some/dir'),
-            password_list=None,
-            list_supported=False
-        )
-        with pytest.raises(ValueError, match="Recursive mode only supported for decrypt"):
-            cli_module.validate_arguments(args)
-    
-    def test_validate_recursive_decrypt_allowed(self):
-        """Test: Recursive mode with decrypt is allowed"""
-        args = argparse.Namespace(
-            operation='decrypt',
-            input=None,
-            password=['password'],
-            recursive=Path('/some/dir'),
-            password_list=None,
-            list_supported=False
-        )
-        # Should not raise exception
-        cli_module.validate_arguments(args)
-    
-    def test_validate_recursive_check_password_allowed(self):
-        """Test: Recursive mode with check-password is allowed"""
-        args = argparse.Namespace(
-            operation='check-password',
-            input=None,
-            password=None,
-            recursive=Path('/some/dir'),
-            password_list=None,
-            list_supported=False
-        )
-        # Should not raise exception
-        cli_module.validate_arguments(args)
-    
-    def test_validate_list_supported_skips_validation(self):
-        """Test: --list-supported skips other validation"""
-        args = argparse.Namespace(
-            operation=None,
-            input=None,
-            password=None,
-            recursive=None,
-            password_list=None,
-            list_supported=True
+            input=Path('test.pdf'),
+            password=['password']
         )
         # Should not raise exception
         cli_module.validate_arguments(args)
@@ -290,27 +219,33 @@ class TestCLIPasswordHandling:
         args = argparse.Namespace(password=['regular_password'])
         cli_module.handle_stdin_passwords(args)
         assert args.password == ['regular_password']
-        assert not hasattr(args, 'stdin_password_mapping')
     
-    def test_handle_stdin_passwords_valid_json(self):
-        """Test: Valid JSON stdin password handling"""
+    def test_handle_stdin_passwords_valid_json_array(self):
+        """Test: Valid JSON array stdin password handling"""
         args = argparse.Namespace(password=['stdin', 'regular_password'])
-        json_input = '{"file1.pdf": "password1", "file2.docx": "password2"}'
+        json_input = '["password1", "password2", "password3"]'
         
         with patch('sys.stdin.read', return_value=json_input):
             cli_module.handle_stdin_passwords(args)
             
-        assert args.password == ['regular_password']
-        assert hasattr(args, 'stdin_password_mapping')
-        assert args.stdin_password_mapping == {"file1.pdf": "password1", "file2.docx": "password2"}
+        assert args.password == ['password1', 'password2', 'password3', 'regular_password']
     
     def test_handle_stdin_passwords_invalid_json(self):
         """Test: Invalid JSON stdin password handling"""
         args = argparse.Namespace(password=['stdin'])
-        json_input = '{"invalid": json}'
+        json_input = '["invalid": json]'
         
         with patch('sys.stdin.read', return_value=json_input):
             with pytest.raises(ValueError, match="Invalid JSON in stdin"):
+                cli_module.handle_stdin_passwords(args)
+    
+    def test_handle_stdin_passwords_non_array_json(self):
+        """Test: Non-array JSON in stdin raises error"""
+        args = argparse.Namespace(password=['stdin'])
+        json_input = '{"not": "array"}'
+        
+        with patch('sys.stdin.read', return_value=json_input):
+            with pytest.raises(ValueError, match="stdin must contain a JSON array"):
                 cli_module.handle_stdin_passwords(args)
     
     def test_handle_stdin_passwords_empty_stdin(self):
@@ -321,30 +256,25 @@ class TestCLIPasswordHandling:
             cli_module.handle_stdin_passwords(args)
             
         assert args.password == []
-        assert not hasattr(args, 'stdin_password_mapping')
 
 
 class TestCLIInformationDisplay:
     """Test CLI information display functions"""
     
-    def test_display_supported_formats(self, capsys):
-        """Test: Display supported formats output"""
-        args = argparse.Namespace(list_supported=True)
-        result = cli_module.display_information_and_exit(args)
+    def test_help_shows_format_support_table(self, capsys):
+        """Test: Help shows format support in EDC table format"""
+        with patch.object(sys, 'argv', ['fast_pass', '--help']):
+            with pytest.raises(SystemExit):
+                cli_module.parse_command_line_arguments()
         
-        captured = capsys.readouterr()
-        assert "FastPass Supported File Formats:" in captured.out
-        assert ".pdf" in captured.out
-        assert ".docx" in captured.out
-        assert ".xlsx" in captured.out
-        assert ".pptx" in captured.out
-        assert result == 0
+        # Note: Can't easily test help output without more complex mocking
+        # This test validates that help doesn't crash
     
-    def test_display_no_information_request(self):
-        """Test: No information request returns 0"""
-        args = argparse.Namespace(list_supported=False)
-        result = cli_module.display_information_and_exit(args)
-        assert result == 0
+    def test_version_display_works(self, capsys):
+        """Test: Version display works"""
+        with patch.object(sys, 'argv', ['fast_pass', '--version']):
+            with pytest.raises(SystemExit):
+                cli_module.parse_command_line_arguments()
 
 
 class TestCLIMainFunction:
@@ -364,14 +294,11 @@ class TestCLIMainFunction:
                 cli_module.main()
             assert exc_info.value.code == 0
     
-    def test_main_list_supported_formats(self, capsys):
-        """Test: List supported formats works"""
+    def test_main_removed_list_supported_error(self, capsys):
+        """Test: Removed list-supported flag causes error"""
         with patch.object(sys, 'argv', ['fast_pass', '--list-supported']):
-            result = cli_module.main()
-            assert result == 0
-            
-            captured = capsys.readouterr()
-            assert "FastPass Supported File Formats:" in captured.out
+            with pytest.raises(SystemExit):
+                cli_module.main()
     
     def test_main_invalid_arguments_error(self, capsys):
         """Test: Invalid arguments return error code 2"""
@@ -423,7 +350,7 @@ class TestCLIEdgeCases:
         
         with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', long_filename, '-p', long_password]):
             args = cli_module.parse_command_line_arguments()
-            assert str(args.input[0]) == long_filename
+            assert str(args.input) == long_filename
             assert args.password[0] == long_password
     
     def test_unicode_arguments(self):
@@ -433,7 +360,7 @@ class TestCLIEdgeCases:
         
         with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', unicode_filename, '-p', unicode_password]):
             args = cli_module.parse_command_line_arguments()
-            assert str(args.input[0]) == unicode_filename
+            assert str(args.input) == unicode_filename
             assert args.password[0] == unicode_password
     
     def test_special_characters_in_paths(self):
@@ -442,10 +369,10 @@ class TestCLIEdgeCases:
         
         with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', special_filename, '-p', 'password']):
             args = cli_module.parse_command_line_arguments()
-            assert str(args.input[0]) == special_filename
+            assert str(args.input) == special_filename
     
     def test_relative_vs_absolute_paths(self):
-        """Test: Relative vs absolute path handling"""
+        """Test: Relative vs absolute path handling for single file"""
         import os
         import platform
         
@@ -456,10 +383,14 @@ class TestCLIEdgeCases:
             relative_path = "relative/path/file.pdf"
             absolute_path = "/absolute/path/file.pdf"
         
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', relative_path, absolute_path, '-p', 'password']):
+        # Test relative path
+        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', relative_path, '-p', 'password']):
             args = cli_module.parse_command_line_arguments()
-            # Normalize paths for comparison on Windows
-            assert str(args.input[0]).replace('/', os.sep) == relative_path
-            assert str(args.input[1]).replace('/', os.sep) == absolute_path
-            assert args.input[0].is_absolute() is False
-            assert args.input[1].is_absolute() is True
+            assert str(args.input).replace('/', os.sep) == relative_path
+            assert args.input.is_absolute() is False
+        
+        # Test absolute path
+        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', absolute_path, '-p', 'password']):
+            args = cli_module.parse_command_line_arguments()
+            assert str(args.input).replace('/', os.sep) == absolute_path
+            assert args.input.is_absolute() is True

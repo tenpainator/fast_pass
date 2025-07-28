@@ -317,8 +317,13 @@ class FileProcessor:
             if not password:
                 raise ProcessingError(f"No working password found for {file_manifest.path}")
         elif operation == 'check-password' and file_manifest.is_encrypted:
-            # For check-password, try to find a password but don't fail if none found
-            password = self.password_manager.find_working_password(file_manifest.path, handler)
+            # For check-password, get password candidates and test them
+            password_candidates = self.password_manager.get_password_candidates(file_manifest.path)
+            if password_candidates:
+                # Test the first password candidate
+                password = password_candidates[0]
+            else:
+                password = None
             # Note: password may be None, which is handled in the check-password logic
         elif operation == 'encrypt':
             # For encryption, use first available password

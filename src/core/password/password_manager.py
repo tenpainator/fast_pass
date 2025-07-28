@@ -26,6 +26,7 @@ class PasswordManager:
         
         # C3c: Prepare Password Storage
         self.password_list = []
+        self.stdin_mapping = {}
     
     def get_password_candidates(self, file_path: Path) -> List[str]:
         """

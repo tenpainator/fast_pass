@@ -223,7 +223,12 @@ class FastPassApplication:
             temp_files_created=self.temp_files_created
         )
         
-        return processor.process_files(validated_files, self.args.operation, self.args.output_dir)
+        # Map CLI operation to internal operation names
+        operation = self.args.operation
+        if operation == 'check':
+            operation = 'check-password'
+        
+        return processor.process_files(validated_files, operation, self.args.output_dir)
     
     def _cleanup_and_generate_final_report(self, processing_results: Dict) -> int:
         """

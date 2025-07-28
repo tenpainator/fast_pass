@@ -335,11 +335,18 @@ class FileProcessor:
             password = None
         
         # D2e-D2f: Setup Temp File Paths and Copy Input
-        temp_input = processing_dir / f'input_{file_manifest.path.name}'
+        # HYBRID APPROACH: Only copy for write operations (encrypt/decrypt)
+        is_write_operation = operation in ['encrypt', 'decrypt']
         temp_output = output_temp_dir / f'output_{file_manifest.path.name}'
         
-        if not dry_run:
-            shutil.copy2(file_manifest.path, temp_input)
+        if is_write_operation:
+            # For write operations, copy to a temp input file to preserve the original
+            temp_input = processing_dir / f'input_{file_manifest.path.name}'
+            if not dry_run:
+                shutil.copy2(file_manifest.path, temp_input)
+        else:
+            # For read-only operations ('check'), operate directly on the source path
+            temp_input = file_manifest.path
         
         # D2g-D2h: Perform Crypto Operation
         if dry_run:
@@ -353,6 +360,9 @@ class FileProcessor:
             # In dry-run, create a dummy output file if needed for validation
             if operation != 'check':
                 temp_output.touch()
+            # For write operations in dry-run, ensure temp_input exists for validation
+            if is_write_operation and not temp_input.exists():
+                temp_input.touch()
         else:
             # Real operations
             if operation == 'encrypt':
@@ -360,23 +370,21 @@ class FileProcessor:
             elif operation == 'decrypt':
                 handler.decrypt_file(temp_input, temp_output, password)
             elif operation == 'check':
-                # For check, print status directly to stdout for user feedback
+                # For check, now correctly uses the original file_manifest.path via temp_input
                 status_message = f"Status for {file_manifest.path.name}: "
                 if file_manifest.is_encrypted:
-                    if password:
-                        if handler.test_password(temp_input, password):
-                            status_message += "encrypted - provided password works."
-                        else:
-                            # Do not raise an error, just report the status
-                            status_message += "encrypted - provided password is incorrect."
+                    # Use find_working_password to test all available passwords
+                    working_password = self.password_manager.find_working_password(temp_input, handler)
+                    if working_password:
+                        status_message += "encrypted - a working password was found."
                     else:
-                        status_message += "encrypted - no password provided to test."
+                        status_message += "encrypted - no working password found."
                 else:
                     status_message += "not encrypted."
                 
                 print(status_message)  # Explicitly print status for the user
                 self.logger.info(f"Check operation complete for {file_manifest.path.name}")
-                temp_output = None
+                temp_output = None  # No output file for check
         
         # D3a-D3d: Output Validation (if output file was created)
         if not dry_run and temp_output and operation != 'check':

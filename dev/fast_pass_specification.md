@@ -18,7 +18,7 @@
 
 **Core Problem Solved:** Eliminates the need to learn and manage multiple separate tools for file encryption/decryption across different formats. Provides a consistent, secure interface for password protection operations while maintaining file integrity and implementing enterprise-grade security practices.
 
-**Key Differentiator:** Unified CLI interface with enterprise security patterns including file isolation, in-memory validation, password list support, and secure password handling. Follows proven architecture patterns with "it just works" simplicity for reliability and security.
+**Key Differentiator:** Unified CLI interface with enterprise security patterns including file isolation, in-memory validation, multiple password sources (CLI, stdin), and secure password handling. Follows proven architecture patterns with "it just works" simplicity for reliability and security.
 
 ---
 
@@ -28,7 +28,7 @@
 
 - **Project Name:** FastPass
 - **Version:** v1.0
-- **Target Platform:** Windows Desktop (CLI) with cross-platform Python support
+- **Target Platform:** Cross-platform CLI (Windows, macOS, Linux). All features are implemented using cross-platform Python libraries and subprocesses, with no platform-specific dependencies.
 - **Technology Stack:** Python, msoffcrypto-tool, PyPDF2, filetype library, pathlib
 - **Timeline:** Development in progress
 - **Team Size:** Single developer maintained
@@ -101,7 +101,9 @@ fast_pass/
 ├── src/                          # Main source code
 │   ├── __init__.py
 │   ├── __main__.py               # Makes package executable with 'python -m src'
+│   ├── app.py                    # Main application class
 │   ├── cli.py                    # CLI argument parsing and validation
+│   ├── exceptions.py             # Custom exception classes
 │   ├── core/                     # Core business logic
 │   │   ├── __init__.py
 │   │   ├── file_handler.py       # File processing pipeline
@@ -112,21 +114,32 @@ fast_pass/
 │   │   │   └── pdf_handler.py    # PyPDF2 integration
 │   │   └── password/             # Password handling modules
 │   │       ├── __init__.py
-│   │       ├── password_manager.py # Password validation and management
-│   │       └── password_list.py    # Password list file handling
+│   │       └── password_manager.py # Password validation and management
 │   └── utils/                    # Utility modules
 │       ├── __init__.py
 │       ├── logger.py             # Logging configuration
 │       └── config.py             # Configuration management
 ├── tests/                        # Test suite
 │   ├── __init__.py
-│   ├── test_cli.py
-│   ├── test_core.py
-│   ├── test_crypto_handlers.py
-│   ├── test_security.py
-│   ├── test_password_handling.py
-│   └── test_integration.py
+│   ├── test_cli_basic.py         # Basic CLI functionality tests
+│   ├── test_integration_basic.py # Basic integration tests
+│   ├── unit/                     # Unit tests
+│   │   ├── test_cli_parsing.py
+│   │   ├── test_office_handler_decryption.py
+│   │   ├── test_office_handler_encryption.py
+│   │   └── test_office_handler_security_validation.py
+│   ├── e2e/                      # End-to-end tests
+│   │   └── test_complete_workflows.py
+│   └── fixtures/                 # Test fixtures and sample files
+│       └── sample_files/
+├── scripts/                      # Utility scripts
+│   ├── create_encrypted_files.py
+│   ├── decrypt_all_files.py
+│   └── generate_all_files.py
 ├── dev/                          # Development documentation
+│   ├── cli_changes_log.md
+│   ├── decrypted/                # Development test files
+│   ├── encrypted/                # Development test files
 │   └── fast_pass_specification.md
 ├── requirements.txt              # Python dependencies
 ├── requirements-dev.txt          # Development dependencies
@@ -187,7 +200,7 @@ Output Options:
 Utility Options:
   --debug                 Enable detailed logging (auto-saves to temp directory)
   -h, --help              Show help with format support table
-  -v, --version           Show version information
+  --version               Show version information
 
 Supported File Formats:
 +--------+-----+  +--------+-----+  +--------+-----+
@@ -290,7 +303,7 @@ FastPass follows a layered architecture with clear separation of concerns:
 - **Default Configuration**: Sensible defaults for all security and operational settings
 - **Environment Variables**: `FASTPASS_*` variables for deployment customization
 - **CLI Overrides**: Command-line arguments take highest precedence
-- **No Configuration Files**: Simplified deployment without config file management
+- **Configuration Files**: Supports loading config.json from the user's home directory (~/.fastpass/) or the current project directory (./fastpass.json) for persistent settings, though not required for basic operation
 
 ### Supported File Format Architecture
 
@@ -326,7 +339,7 @@ FastPass follows a layered architecture with clear separation of concerns:
 - **Allowed Directories**: User home directory, current working directory, system temporary directory
 - **File Size Limits**: Maximum 500MB file size to prevent resource exhaustion
 - **Password Limits**: Maximum 1024 character password length
-- **Path Length Limits**: Maximum 4096 character path length for system compatibility
+- **Path Length Limits**: Maximum 260 character path length to ensure compatibility with Windows MAX_PATH limitations
 
 ### Attack Vector Mitigation
 

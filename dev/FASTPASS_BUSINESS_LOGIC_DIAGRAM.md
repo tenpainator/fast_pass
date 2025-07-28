@@ -29,10 +29,14 @@ flowchart TD
 ```mermaid
 flowchart TD
     START([User: encrypt -i file.docx -p password123]) --> VALIDATE[Validate File Format & Security]
-    VALIDATE --> CHECK_ENC{Is File Already Encrypted?}
+    VALIDATE --> RUN_CHECK[🔍 INTERNAL CHECK OPERATION<br/>Run same logic as 'check' command<br/>Direct file access - no copying]
     
-    CHECK_ENC -->|Yes| ERROR_ENCRYPTED[❌ Error: File already encrypted]
-    CHECK_ENC -->|No| GET_HANDLER[Get Crypto Handler<br/>📄 MSOffice/PDF Handler]
+    RUN_CHECK --> GET_HANDLER_CHECK[Get Crypto Handler for Check<br/>📄 MSOffice/PDF Handler]
+    GET_HANDLER_CHECK --> DETECT_ENC[📖 Read File Headers Directly<br/>MSOffice: Check OLE structure<br/>PDF: Check encryption flag<br/>Using crypto library detection]
+    
+    DETECT_ENC --> CHECK_ENC{Encryption Status Result}
+    CHECK_ENC -->|Already Encrypted| ERROR_ENCRYPTED[❌ Error: File already encrypted]
+    CHECK_ENC -->|Not Encrypted| GET_HANDLER[Get Crypto Handler for Encryption<br/>📄 MSOffice/PDF Handler]
     
     GET_HANDLER --> GET_PASSWORD[Get Password<br/>🔑 password123]
     GET_PASSWORD --> CREATE_TEMP[Create Temporary Directory<br/>📁 /temp/processing/]
@@ -61,6 +65,8 @@ flowchart TD
     style ENCRYPT fill:#fff3e0
     style COPY_INPUT fill:#f3e5f5
     style REPLACE_ORIGINAL fill:#ffebee
+    style RUN_CHECK fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    style DETECT_ENC fill:#e8f5e8
 ```
 
 ## Decryption Operation Business Logic
@@ -68,10 +74,14 @@ flowchart TD
 ```mermaid
 flowchart TD
     START([User: decrypt -i file.docx -p password123]) --> VALIDATE[Validate File Format & Security]
-    VALIDATE --> CHECK_ENC{Is File Encrypted?}
+    VALIDATE --> RUN_CHECK[🔍 INTERNAL CHECK OPERATION<br/>Run same logic as 'check' command<br/>Direct file access - no copying]
     
-    CHECK_ENC -->|No| ERROR_NOT_ENC[❌ Error: File not encrypted]
-    CHECK_ENC -->|Yes| GET_HANDLER[Get Crypto Handler<br/>📄 MSOffice/PDF Handler]
+    RUN_CHECK --> GET_HANDLER_CHECK[Get Crypto Handler for Check<br/>📄 MSOffice/PDF Handler]
+    GET_HANDLER_CHECK --> DETECT_ENC[📖 Read File Headers Directly<br/>MSOffice: Check OLE structure<br/>PDF: Check encryption flag<br/>Using crypto library detection]
+    
+    DETECT_ENC --> CHECK_ENC{Encryption Status Result}
+    CHECK_ENC -->|Not Encrypted| ERROR_NOT_ENC[❌ Error: File not encrypted]
+    CHECK_ENC -->|Encrypted| GET_HANDLER[Get Crypto Handler for Decryption<br/>📄 MSOffice/PDF Handler]
     
     GET_HANDLER --> FIND_PASSWORD[🔍 Find Working Password<br/>Test: password123<br/>Against encrypted file]
     FIND_PASSWORD -->|Found| CREATE_TEMP[Create Temporary Directory<br/>📁 /temp/processing/]
@@ -104,6 +114,8 @@ flowchart TD
     style COPY_INPUT fill:#f3e5f5
     style REPLACE_ORIGINAL fill:#ffebee
     style FIND_PASSWORD fill:#e8f5e8
+    style RUN_CHECK fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    style DETECT_ENC fill:#e8f5e8
 ```
 
 ## Check Operation Business Logic (Hybrid Approach)
@@ -120,10 +132,12 @@ flowchart TD
     DIRECT_ACCESS --> GET_HANDLER[Get Crypto Handler<br/>📄 MSOffice/PDF Handler]
     TEMP_INPUT --> GET_HANDLER
     
-    GET_HANDLER --> DETECT_ENC{Detect Encryption Status<br/>Read file headers directly}
+    GET_HANDLER --> DETECT_ENC[📖 Read File Headers Directly<br/>MSOffice: Check OLE structure<br/>PDF: Check encryption flag<br/>Using crypto library detection]
     
-    DETECT_ENC -->|Not Encrypted| REPORT_CLEAR[📋 Report: "not encrypted"]
-    DETECT_ENC -->|Encrypted| TEST_PASSWORDS[🔍 Test All Provided Passwords<br/>find_working_password()]
+    DETECT_ENC --> ENC_STATUS{Encryption Status Result}
+    
+    ENC_STATUS -->|Not Encrypted| REPORT_CLEAR[📋 Report: "not encrypted"]
+    ENC_STATUS -->|Encrypted| TEST_PASSWORDS[🔍 Test All Provided Passwords<br/>find_working_password()]
     
     TEST_PASSWORDS -->|Password Works| REPORT_WORKS[📋 Report: "encrypted - provided password works"]
     TEST_PASSWORDS -->|No Working Password| REPORT_INCORRECT[📋 Report: "encrypted - provided password is incorrect"]
@@ -142,9 +156,42 @@ flowchart TD
     style TEST_PASSWORDS fill:#fff3e0
     style NO_FILES fill:#f0f4c3
     style OUTPUT fill:#e1f5fe
+    style DETECT_ENC fill:#e8f5e8
 
     classDef hybrid fill:#e8f5e8,stroke:#4caf50,stroke-width:3px
     class DIRECT_ACCESS hybrid
+```
+
+## How Encryption Detection Works (Internal Check Operation)
+
+```mermaid
+flowchart TD
+    NEED_STATUS[Need to Know:<br/>Is file encrypted?] --> INTERNAL_CHECK[🔍 INTERNAL CHECK OPERATION<br/>Same logic used in all operations]
+    
+    INTERNAL_CHECK --> SELECT_HANDLER{File Format?}
+    
+    SELECT_HANDLER -->|.pdf| PDF_HANDLER[📄 PDF Handler<br/>PyPDF2 Library]
+    SELECT_HANDLER -->|.docx/.xlsx/.pptx| MSO_HANDLER[📄 MSOffice Handler<br/>msoffcrypto Library]
+    
+    PDF_HANDLER --> PDF_CHECK[📖 Read PDF Headers<br/>Check encryption flag<br/>reader.is_encrypted]
+    MSO_HANDLER --> MSO_CHECK[📖 Read OLE Structure<br/>Check for encryption<br/>office_file.is_encrypted()]
+    
+    PDF_CHECK --> RESULT_PDF{PDF Result}
+    MSO_CHECK --> RESULT_MSO{MSOffice Result}
+    
+    RESULT_PDF -->|True| ENCRYPTED[🔒 File is ENCRYPTED]
+    RESULT_PDF -->|False| NOT_ENCRYPTED[📄 File is NOT ENCRYPTED]
+    RESULT_MSO -->|True| ENCRYPTED
+    RESULT_MSO -->|False| NOT_ENCRYPTED
+    
+    ENCRYPTED --> NEXT_ENCRYPT[Encrypt: ❌ Error already encrypted<br/>Decrypt: ✅ Proceed with decryption<br/>Check: 🔍 Test passwords if provided]
+    NOT_ENCRYPTED --> NEXT_NOT[Encrypt: ✅ Proceed with encryption<br/>Decrypt: ❌ Error not encrypted<br/>Check: 📋 Report "not encrypted"]
+
+    style INTERNAL_CHECK fill:#e8f5e8,stroke:#4caf50,stroke-width:2px
+    style PDF_CHECK fill:#e8f5e8
+    style MSO_CHECK fill:#e8f5e8
+    style ENCRYPTED fill:#ffcdd2
+    style NOT_ENCRYPTED fill:#c8e6c9
 ```
 
 ## File Movement Patterns by Operation

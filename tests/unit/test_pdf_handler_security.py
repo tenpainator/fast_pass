@@ -15,7 +15,7 @@ from pathlib import Path
 import io
 
 # Import the PDF handler class
-from src.core.crypto_handlers.pdf_handler import PDFHandler
+from fastpass.core.crypto_handlers.pdf_handler import PDFHandler
 
 
 class TestPDFSecurity:
@@ -30,13 +30,13 @@ class TestPDFSecurity:
     @pytest.fixture
     def mock_pdf_reader(self):
         """Create mock PDF reader"""
-        with patch('src.core.crypto_handlers.pdf_handler.PyPDF2.PdfReader') as mock:
+        with patch('fastpass.core.crypto_handlers.pdf_handler.PyPDF2.PdfReader') as mock:
             yield mock
 
     @pytest.fixture
     def mock_pdf_writer(self):
         """Create mock PDF writer"""
-        with patch('src.core.crypto_handlers.pdf_handler.PyPDF2.PdfWriter') as mock:
+        with patch('fastpass.core.crypto_handlers.pdf_handler.PyPDF2.PdfWriter') as mock:
             yield mock
 
     # Security through existing methods - error handling and resilience (12 tests)
@@ -160,7 +160,7 @@ class TestPDFSecurity:
         
         # Mock file that doesn't have PDF structure
         with patch('builtins.open', mock_open(read_data=b'This is not a PDF file')):
-            with patch('src.core.crypto_handlers.pdf_handler.PyPDF2.PdfReader') as mock_reader:
+            with patch('fastpass.core.crypto_handlers.pdf_handler.PyPDF2.PdfReader') as mock_reader:
                 mock_reader.side_effect = Exception("Not a PDF file")
                 
                 result = pdf_handler.test_password(non_pdf_file, password)

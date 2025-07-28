@@ -21,8 +21,8 @@ except ImportError:
     psutil = None
 
 # Import modules under test
-from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
-from src.exceptions import ProcessingError, FileFormatError
+from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
+from fastpass.exceptions import ProcessingError, FileFormatError
 
 
 class TestOfficeHandlerCleanup:
@@ -36,7 +36,7 @@ class TestOfficeHandlerCleanup:
     @pytest.fixture
     def handler(self, logger):
         """Create Office Handler instance for testing"""
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto'):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto'):
             return OfficeDocumentHandler(logger)
     
     @pytest.fixture
@@ -182,7 +182,7 @@ class TestOfficeHandlerResourceManagement:
     @pytest.fixture
     def handler(self, logger):
         """Create Office Handler instance for testing"""
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto'):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto'):
             return OfficeDocumentHandler(logger)
     
     def test_resource_management_memory_tracking(self, handler):

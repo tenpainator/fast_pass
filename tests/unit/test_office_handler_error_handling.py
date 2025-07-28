@@ -13,8 +13,8 @@ import logging
 from io import BytesIO
 
 # Import modules under test
-from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
-from src.exceptions import FileFormatError, ProcessingError, SecurityViolationError
+from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
+from fastpass.exceptions import FileFormatError, ProcessingError, SecurityViolationError
 
 
 class TestOfficeHandlerLibraryErrors:
@@ -30,7 +30,7 @@ class TestOfficeHandlerLibraryErrors:
         logger = MagicMock()
         
         # Mock the module-level msoffcrypto import to be None
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', None):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', None):
             with pytest.raises(ImportError, match="msoffcrypto-tool is required"):
                 OfficeDocumentHandler(logger)
     
@@ -47,7 +47,7 @@ class TestOfficeHandlerLibraryErrors:
         mock_msoffcrypto = MagicMock()
         mock_msoffcrypto.OfficeFile.side_effect = AttributeError("OfficeFile not found in this version")
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             handler = OfficeDocumentHandler(logger)
             
             test_file = Path("test.docx")
@@ -70,7 +70,7 @@ class TestOfficeFileFormatEdgeCases:
         mock_office_file = MagicMock()
         mock_msoffcrypto.OfficeFile.return_value = mock_office_file
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             self.handler = OfficeDocumentHandler(self.logger)
     
     def test_office_file_format_version_unsupported(self):
@@ -90,7 +90,7 @@ class TestOfficeFileFormatEdgeCases:
         mock_office_file.is_encrypted.side_effect = ValueError("Unsupported file format version")
         mock_msoffcrypto.OfficeFile.return_value = mock_office_file
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             with patch('builtins.open', mock_open(read_data=b'fake_office_data')):
                 result = self.handler.test_password(test_file, "password")
                 # Should return False when format is unsupported
@@ -113,7 +113,7 @@ class TestOfficeFileFormatEdgeCases:
         mock_office_file.decrypt.return_value = None
         mock_msoffcrypto.OfficeFile.return_value = mock_office_file
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             with patch('builtins.open', mock_open(read_data=b'macro_enabled_content')):
                 with patch('tempfile.NamedTemporaryFile') as mock_temp:
                     mock_temp_file = MagicMock()
@@ -145,7 +145,7 @@ class TestOfficeFileFormatEdgeCases:
         mock_office_file.is_encrypted.return_value = False
         mock_msoffcrypto.OfficeFile.return_value = mock_office_file
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             with patch('builtins.open', mock_open(read_data=b'template_content')):
                 result = self.handler.test_password(test_file, "password")
                 # Unencrypted template should return True
@@ -169,7 +169,7 @@ class TestOfficeFileFormatEdgeCases:
         mock_office_file.load_key.side_effect = Exception("Complex file structure processing failed")
         mock_msoffcrypto.OfficeFile.return_value = mock_office_file
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             with patch('builtins.open', mock_open(read_data=b'complex_file_with_objects')):
                 result = self.handler.test_password(test_file, "password")
                 # Should handle errors gracefully
@@ -192,7 +192,7 @@ class TestOfficeFileFormatEdgeCases:
         mock_office_file.decrypt.return_value = None
         mock_msoffcrypto.OfficeFile.return_value = mock_office_file
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             with patch('builtins.open', mock_open(read_data=b'file_with_external_links')):
                 with patch('tempfile.NamedTemporaryFile') as mock_temp:
                     mock_temp_file = MagicMock()
@@ -228,7 +228,7 @@ class TestOfficeFileFormatEdgeCases:
         mock_office_file.decrypt.side_effect = Exception("Sheet protection prevents full decryption")
         mock_msoffcrypto.OfficeFile.return_value = mock_office_file
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             with patch('builtins.open', mock_open(read_data=b'sheet_protected_file')):
                 with patch('tempfile.NamedTemporaryFile') as mock_temp:
                     mock_temp.__enter__.return_value = MagicMock()
@@ -252,7 +252,7 @@ class TestOfficeFileFormatEdgeCases:
         mock_office_file.is_encrypted.return_value = False
         mock_msoffcrypto.OfficeFile.return_value = mock_office_file
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             with patch('builtins.open', mock_open(read_data=b'digitally_signed_content')):
                 result = self.handler.test_password(test_file, "password")
                 # Should handle signed documents normally
@@ -275,7 +275,7 @@ class TestOfficeFileFormatEdgeCases:
         mock_office_file.is_encrypted.side_effect = Exception("DRM protection detected")
         mock_msoffcrypto.OfficeFile.return_value = mock_office_file
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             with patch('builtins.open', mock_open(read_data=b'drm_protected_content')):
                 result = self.handler.test_password(test_file, "password")
                 # Should handle DRM protection gracefully
@@ -298,7 +298,7 @@ class TestOfficeFileFormatEdgeCases:
         mock_office_file.decrypt.return_value = None
         mock_msoffcrypto.OfficeFile.return_value = mock_office_file
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             with patch('builtins.open', mock_open(read_data=b'readonly_recommended_content')):
                 with patch('tempfile.NamedTemporaryFile') as mock_temp:
                     mock_temp_file = MagicMock()
@@ -330,7 +330,7 @@ class TestOfficeFileFormatEdgeCases:
         # Simulate file structure damage during OfficeFile initialization
         mock_msoffcrypto.OfficeFile.side_effect = Exception("Corrupted ZIP archive")
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             with patch('builtins.open', mock_open(read_data=b'corrupted_zip_data')):
                 result = self.handler.test_password(test_file, "password")
                 # Should handle corruption gracefully
@@ -345,7 +345,7 @@ class TestOfficeHandlerErrorMessageSanitization:
         self.logger = MagicMock()
         
         # Mock msoffcrypto to be available
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', MagicMock()):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', MagicMock()):
             self.handler = OfficeDocumentHandler(self.logger)
     
     def test_sanitize_error_message_empty_input(self):
@@ -356,7 +356,7 @@ class TestOfficeHandlerErrorMessageSanitization:
         logger = MagicMock()
         mock_msoffcrypto = MagicMock()
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             handler = OfficeDocumentHandler(logger)
             
             # Test None input
@@ -416,7 +416,7 @@ class TestOfficeHandlerSecurityValidation:
         self.logger = MagicMock()
         
         # Mock msoffcrypto to be available
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', MagicMock()):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', MagicMock()):
             self.handler = OfficeDocumentHandler(self.logger)
     
     def test_validate_path_security_hardened_invalid_path(self):
@@ -427,14 +427,14 @@ class TestOfficeHandlerSecurityValidation:
         logger = MagicMock()
         mock_msoffcrypto = MagicMock()
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             handler = OfficeDocumentHandler(logger)
             
             # Mock SecurityValidator to raise SecurityViolationError
             mock_validator = MagicMock()
             mock_validator.validate_file_path.side_effect = SecurityViolationError("Path traversal attempt")
             
-            with patch('src.core.security.SecurityValidator', return_value=mock_validator):
+            with patch('fastpass.core.security.SecurityValidator', return_value=mock_validator):
                 with patch.object(Path, 'exists', return_value=True):
                     with patch.object(Path, 'is_file', return_value=True):
                         with pytest.raises(SecurityViolationError):
@@ -450,7 +450,7 @@ class TestOfficeHandlerSecurityValidation:
         output_file = Path("output.doc")
         
         # Mock FastPassConfig.LEGACY_FORMATS to include .doc
-        with patch('src.utils.config.FastPassConfig') as mock_config:
+        with patch('fastpass.utils.config.FastPassConfig') as mock_config:
             mock_config.LEGACY_FORMATS = ['.doc', '.xls', '.ppt']
             
             with pytest.raises(FileFormatError, match="Legacy Office format .doc supports decryption only"):
@@ -464,7 +464,7 @@ class TestOfficeHandlerSecurityValidation:
         logger = MagicMock()
         mock_msoffcrypto = MagicMock()
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', mock_msoffcrypto):
             handler = OfficeDocumentHandler(logger)
             
             # Use temporary directory for testing to avoid security validation failures

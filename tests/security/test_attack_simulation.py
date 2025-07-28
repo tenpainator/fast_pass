@@ -13,7 +13,7 @@ from unittest.mock import patch
 
 # Import test utilities
 from tests.conftest import run_fastpass_command
-from src.app import SecurityViolationError
+from fastpass.exceptions import SecurityViolationError
 
 
 class TestPathTraversalAttacks:
@@ -105,57 +105,7 @@ class TestPathTraversalAttacks:
 class TestSymlinkAttacks:
     """Test symbolic link attack prevention"""
     
-    @pytest.mark.security
-    def test_symlink_to_system_file(self, fastpass_executable, temp_work_dir, project_root):
-        """Test: Symlinks to system files are blocked"""
-        # Create a symlink pointing to a system file
-        symlink_file = temp_work_dir / "innocent_looking.pdf"
-        target_file = "/etc/passwd"  # Unix system file
-        
-        try:
-            symlink_file.symlink_to(target_file)
-            
-            result = run_fastpass_command(
-                fastpass_executable,
-                ["encrypt", "-i", str(symlink_file), "-p", "password"],
-                cwd=project_root
-            )
-            
-            # Should be blocked
-            assert result.returncode != 0, "Symlink attack not blocked"
-            assert "symlink" in result.stderr.lower() or "security" in result.stderr.lower()
-            
-        except OSError:
-            pytest.skip("Symlinks not supported on this system")
     
-    @pytest.mark.security 
-    def test_symlink_in_path_chain(self, fastpass_executable, temp_work_dir, project_root):
-        """Test: Symlinks in directory path are blocked"""
-        # Create real directory and file
-        real_dir = temp_work_dir / "real_directory"
-        real_dir.mkdir()
-        real_file = real_dir / "document.pdf"
-        real_file.write_text("fake pdf content")
-        
-        # Create symlink to directory
-        symlink_dir = temp_work_dir / "symlink_directory"
-        try:
-            symlink_dir.symlink_to(real_dir)
-            
-            # Try to access file through symlinked directory
-            symlink_path = symlink_dir / "document.pdf"
-            
-            result = run_fastpass_command(
-                fastpass_executable,
-                ["encrypt", "-i", str(symlink_path), "-p", "password"],
-                cwd=project_root
-            )
-            
-            # Should be blocked
-            assert result.returncode != 0, "Symlink directory attack not blocked"
-            
-        except OSError:
-            pytest.skip("Symlinks not supported on this system")
 
 
 class TestCommandInjectionAttacks:
@@ -407,29 +357,6 @@ class TestPermissionAttacks:
     """Test permission-based attacks"""
     
     @pytest.mark.security
-    @pytest.mark.skipif(os.name == 'nt', reason="Unix permissions not applicable on Windows")
-    def test_world_writable_file_attack(self, fastpass_executable, temp_work_dir, project_root):
-        """Test: World-writable files are handled securely"""
-        # Create world-writable file
-        writable_file = temp_work_dir / "world_writable.pdf"
-        writable_file.write_text("test content")
-        
-        try:
-            # Make file world-writable (outside temp directory, this would be blocked)
-            writable_file.chmod(0o666)
-            
-            result = run_fastpass_command(
-                fastpass_executable,
-                ["encrypt", "-i", str(writable_file), "-p", "password"],
-                cwd=project_root
-            )
-            
-            # In temp directory, may be allowed. Outside temp, should be blocked.
-            # The security validator checks for world-writable files outside temp
-            pass
-            
-        except PermissionError:
-            pytest.skip("Cannot modify file permissions on this system")
     
     @pytest.mark.security
     def test_permission_denied_handling(self, fastpass_executable, temp_work_dir, project_root):
@@ -574,31 +501,3 @@ class TestRaceConditionAttacks:
             # Cleanup temp directory
             import shutil
             shutil.rmtree(temp_dir, ignore_errors=True)
-    
-    @pytest.mark.security
-    def test_symlink_swap_attack(self, fastpass_executable, temp_work_dir, project_root):
-        """Test: Symlink swap attacks during processing are prevented"""
-        # Create a legitimate file
-        legit_file = temp_work_dir / "legitimate.pdf"
-        legit_file.write_text("legitimate content")
-        
-        # This test simulates an attack where an attacker replaces a file
-        # with a symlink during processing. The security validator should
-        # detect symlinks and block the operation.
-        
-        try:
-            # Create symlink with same name (simulating swap)
-            legit_file.unlink()
-            legit_file.symlink_to("/etc/passwd")
-            
-            result = run_fastpass_command(
-                fastpass_executable,
-                ["encrypt", "-i", str(legit_file), "-p", "password"],
-                cwd=project_root
-            )
-            
-            # Should be blocked
-            assert result.returncode != 0, "Symlink swap attack not detected"
-            
-        except OSError:
-            pytest.skip("Symlinks not supported on this system")

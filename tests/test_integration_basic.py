@@ -18,7 +18,7 @@ class TestPDFOperations:
         """Test: Complete encrypt→decrypt cycle preserves content"""
         
         # Use existing test PDF
-        source_pdf = Path(__file__).parent.parent / "dev" / "pdf" / "test1_docx.pdf"
+        source_pdf = Path(__file__).parent / "fixtures" / "sample_files" / "clean" / "sample.pdf"
         if not source_pdf.exists():
             pytest.skip("Test PDF not available")
         
@@ -100,7 +100,7 @@ class TestPDFOperations:
         """Test: Wrong password should fail gracefully"""
         
         # Use existing test PDF
-        source_pdf = Path(__file__).parent.parent / "dev" / "pdf" / "test1_docx.pdf"
+        source_pdf = Path(__file__).parent / "fixtures" / "sample_files" / "clean" / "sample.pdf"
         if not source_pdf.exists():
             pytest.skip("Test PDF not available")
         
@@ -141,7 +141,7 @@ class TestPDFOperations:
     def test_single_file_only(self, fastpass_executable, temp_work_dir):
         """Test: Only single file processing supported (multi-file removed)"""
         
-        source_pdf = Path(__file__).parent.parent / "dev" / "pdf" / "test1_docx.pdf"
+        source_pdf = Path(__file__).parent / "fixtures" / "sample_files" / "clean" / "sample.pdf"
         if not source_pdf.exists():
             pytest.skip("Test PDF not available")
         
@@ -187,7 +187,7 @@ class TestStdinPasswordFunctionality:
     def test_stdin_password_array_usage(self, fastpass_executable, temp_work_dir):
         """Test: stdin password with JSON array format works correctly"""
         
-        source_pdf = Path(__file__).parent.parent / "dev" / "pdf" / "test1_docx.pdf"
+        source_pdf = Path(__file__).parent / "fixtures" / "sample_files" / "clean" / "sample.pdf"
         if not source_pdf.exists():
             pytest.skip("Test PDF not available")
         
@@ -227,7 +227,7 @@ class TestStdinPasswordFunctionality:
     def test_mixed_cli_stdin_passwords(self, fastpass_executable, temp_work_dir):
         """Test: Mixed CLI and stdin passwords work correctly"""
         
-        source_pdf = Path(__file__).parent.parent / "dev" / "pdf" / "test1_docx.pdf"
+        source_pdf = Path(__file__).parent / "fixtures" / "sample_files" / "clean" / "sample.pdf"
         if not source_pdf.exists():
             pytest.skip("Test PDF not available")
         
@@ -270,7 +270,7 @@ class TestOutputDirectory:
     def test_output_directory_creation(self, fastpass_executable, temp_work_dir):
         """Test: Output directory is created and files are placed correctly"""
         
-        source_pdf = Path(__file__).parent.parent / "dev" / "pdf" / "test1_docx.pdf"
+        source_pdf = Path(__file__).parent / "fixtures" / "sample_files" / "clean" / "sample.pdf"
         if not source_pdf.exists():
             pytest.skip("Test PDF not available")
         

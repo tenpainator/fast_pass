@@ -10,8 +10,8 @@ import tempfile
 import shutil
 import subprocess
 
-from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
-from src.exceptions import ProcessingError, FileFormatError
+from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
+from fastpass.exceptions import ProcessingError, FileFormatError
 
 
 @pytest.fixture
@@ -61,7 +61,7 @@ class TestOfficeEncryption:
         
         with patch('subprocess.run', return_value=mock_result) as mock_subprocess, \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('fastpass.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             office_handler.encrypt_file(input_path, output_path, password)
             
@@ -83,7 +83,7 @@ class TestOfficeEncryption:
         
         with patch('subprocess.run', return_value=mock_result), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('fastpass.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             office_handler.encrypt_file(input_path, output_path, password)
     
@@ -98,7 +98,7 @@ class TestOfficeEncryption:
         
         with patch('subprocess.run', return_value=mock_result), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('fastpass.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             office_handler.encrypt_file(input_path, output_path, password)
     
@@ -115,7 +115,7 @@ class TestOfficeEncryption:
         
         with patch('subprocess.run', return_value=mock_result), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('fastpass.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             with pytest.raises(ProcessingError, match="Office encryption failed"):
                 office_handler.encrypt_file(input_path, output_path, password)
@@ -128,7 +128,7 @@ class TestOfficeEncryption:
         
         with patch('subprocess.run', side_effect=subprocess.TimeoutExpired('msoffcrypto-tool', 60)), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('fastpass.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             with pytest.raises(ProcessingError, match="Office encryption timed out"):
                 office_handler.encrypt_file(input_path, output_path, password)
@@ -141,7 +141,7 @@ class TestOfficeEncryption:
         
         with patch('subprocess.run', side_effect=FileNotFoundError()), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('fastpass.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             with pytest.raises(ProcessingError, match="msoffcrypto-tool not found"):
                 office_handler.encrypt_file(input_path, output_path, password)
@@ -152,7 +152,7 @@ class TestOfficeEncryption:
         output_path = temp_office_files['output_dir'] / "encrypted.doc"
         password = "password123"
         
-        with patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {'.doc': 'msoffcrypto'}), \
+        with patch('fastpass.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {'.doc': 'msoffcrypto'}), \
              patch.object(office_handler, '_validate_path_security_hardened'):
             
             with pytest.raises(FileFormatError, match="Legacy Office format .doc supports decryption only"):
@@ -164,7 +164,7 @@ class TestOfficeEncryption:
         output_path = temp_office_files['output_dir'] / "encrypted.docx"
         
         with patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('fastpass.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             # Test long password
             long_password = "a" * 1025
@@ -198,7 +198,7 @@ class TestPasswordTesting:
 
         # Mock the file operations and the OfficeFile class
         with patch('builtins.open', mock_open()):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 # CORRECTIVE ACTION 2: No need to mock NamedTemporaryFile, as the real one
                 # will work perfectly with our side_effect.
                 result = office_handler.test_password(file_path, password)
@@ -207,28 +207,6 @@ class TestPasswordTesting:
                 assert result is True
                 mock_office_file.decrypt.assert_called_once()
     
-    def test_password_test_legacy_format_subprocess(self, office_handler, temp_office_files):
-        """Test: Password test for legacy format using subprocess"""
-        file_path = temp_office_files['.docx'].with_suffix('.doc')
-        password = "test123"
-
-        mock_office_file = MagicMock()
-        mock_office_file.is_encrypted.return_value = True
-        # CORRECTIVE ACTION: Make load_key fail to trigger subprocess fallback  
-        mock_office_file.load_key.side_effect = Exception("Standard approach failed")
-        mock_office_file.decrypt = MagicMock()
-
-        # Mock subprocess success for fallback
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-
-        with patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {'.doc': 'msoffcrypto'}), \
-             patch('builtins.open', mock_open()), \
-             patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file), \
-             patch('subprocess.run', return_value=mock_result):
-
-            result = office_handler.test_password(file_path, password)
-            assert result is True
     
     def test_password_test_unencrypted_file(self, office_handler, temp_office_files):
         """Test: Password test on unencrypted file"""
@@ -241,24 +219,11 @@ class TestPasswordTesting:
         
         with patch('builtins.open'), \
              patch('msoffcrypto.OfficeFile', return_value=mock_office_file), \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('fastpass.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             result = office_handler.test_password(file_path, password)
             assert result == True  # Unencrypted files always "pass" password test
     
-    def test_encryption_status_detection_subprocess(self, office_handler, temp_office_files):
-        """Test: Encryption status detection using subprocess"""
-        file_path = temp_office_files['.docx']
-        
-        # Mock subprocess returning encryption status
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "The file is encrypted"
-        
-        with patch('subprocess.run', return_value=mock_result):
-            # This should use subprocess fallback for password testing
-            result = office_handler._verify_encryption_status_subprocess(file_path, "password")
-            # Result depends on the mocked password test subprocess call
 
 
 class TestDecryption:

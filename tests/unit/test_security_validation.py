@@ -12,8 +12,8 @@ from unittest.mock import patch, MagicMock
 import logging
 
 # Import modules under test
-from src.core.security import SecurityValidator
-from src.app import SecurityViolationError
+from fastpass.core.security import SecurityValidator
+from fastpass.exceptions import SecurityViolationError
 
 
 class TestSecurityValidatorInitialization:

@@ -11,8 +11,8 @@ from pathlib import Path
 from io import StringIO
 
 # Import modules under test
-import src.cli as cli_module
-from src.utils.config import FastPassConfig
+import fastpass.cli as cli_module
+from fastpass.utils.config import FastPassConfig
 
 
 class TestCLIArgumentParsing:
@@ -20,7 +20,7 @@ class TestCLIArgumentParsing:
     
     def test_parse_encrypt_single_file(self):
         """Test: Basic encrypt operation parsing for a single file"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', 'test.pdf', '-p', 'password']):
             args = cli_module.parse_command_line_arguments()
             assert args.operation == 'encrypt'
             assert args.input == Path('test.pdf')
@@ -28,7 +28,7 @@ class TestCLIArgumentParsing:
     
     def test_parse_decrypt_single_file(self):
         """Test: Basic decrypt operation parsing for a single file"""
-        with patch.object(sys, 'argv', ['fast_pass', 'decrypt', '-i', 'test.pdf', '-p', 'password']):
+        with patch.object(sys, 'argv', ['fastpass', 'decrypt', '-i', 'test.pdf', '-p', 'password']):
             args = cli_module.parse_command_line_arguments()
             assert args.operation == 'decrypt'
             assert args.input == Path('test.pdf')
@@ -36,93 +36,93 @@ class TestCLIArgumentParsing:
     
     def test_parse_check_single_file(self):
         """Test: Basic check operation parsing for a single file"""
-        with patch.object(sys, 'argv', ['fast_pass', 'check', '-i', 'test.pdf']):
+        with patch.object(sys, 'argv', ['fastpass', 'check', '-i', 'test.pdf']):
             args = cli_module.parse_command_line_arguments()
             assert args.operation == 'check'
             assert args.input == Path('test.pdf')
     
     def test_parse_multiple_files_fails(self):
         """Test: Providing multiple files to -i raises an error"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'file1.pdf', 'file2.pdf', '-p', 'password']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', 'file1.pdf', 'file2.pdf', '-p', 'password']):
             with pytest.raises(SystemExit):
                 # argparse will exit with an error for unrecognized arguments
                 cli_module.parse_command_line_arguments()
     
     def test_parse_files_with_spaces(self):
         """Test: Files with spaces in names"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'file with spaces.pdf', '-p', 'password']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', 'file with spaces.pdf', '-p', 'password']):
             args = cli_module.parse_command_line_arguments()
             assert args.input == Path('file with spaces.pdf')
     
     def test_parse_multiple_passwords(self):
         """Test: Multiple passwords parsing"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'pass1', 'pass2', 'pass3']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', 'test.pdf', '-p', 'pass1', 'pass2', 'pass3']):
             args = cli_module.parse_command_line_arguments()
             assert args.password == ['pass1', 'pass2', 'pass3']
     
     def test_parse_passwords_with_spaces(self):
         """Test: Passwords with spaces"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password with spaces', 'another password']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', 'test.pdf', '-p', 'password with spaces', 'another password']):
             args = cli_module.parse_command_line_arguments()
             assert args.password == ['password with spaces', 'another password']
     
     def test_parse_stdin_password(self):
         """Test: stdin password parsing"""
-        with patch.object(sys, 'argv', ['fast_pass', 'decrypt', '-i', 'test.pdf', '-p', 'stdin']):
+        with patch.object(sys, 'argv', ['fastpass', 'decrypt', '-i', 'test.pdf', '-p', 'stdin']):
             args = cli_module.parse_command_line_arguments()
             assert args.password == ['stdin']
     
     def test_parse_mixed_cli_stdin_passwords(self):
         """Test: Mixed CLI and stdin password parsing"""
-        with patch.object(sys, 'argv', ['fast_pass', 'decrypt', '-i', 'test.pdf', '-p', 'pwd1', 'stdin', 'pwd2']):
+        with patch.object(sys, 'argv', ['fastpass', 'decrypt', '-i', 'test.pdf', '-p', 'pwd1', 'stdin', 'pwd2']):
             args = cli_module.parse_command_line_arguments()
             assert args.password == ['pwd1', 'stdin', 'pwd2']
     
     def test_parse_output_directory(self):
         """Test: Output directory parsing"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '-o', '/output/dir']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '-o', '/output/dir']):
             args = cli_module.parse_command_line_arguments()
             assert args.output_dir == Path('/output/dir')
     
     def test_parse_removed_dry_run_flag_error(self):
         """Test: Removed dry-run flag raises error"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--dry-run']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--dry-run']):
             with pytest.raises(SystemExit):
                 cli_module.parse_command_line_arguments()
     
     def test_parse_removed_verify_flag_error(self):
         """Test: Removed verify flag raises error"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--verify']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--verify']):
             with pytest.raises(SystemExit):
                 cli_module.parse_command_line_arguments()
     
     def test_parse_debug_flag(self):
         """Test: Debug flag parsing"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--debug']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--debug']):
             args = cli_module.parse_command_line_arguments()
             assert args.debug is True
     
     def test_parse_removed_log_file_flag_error(self):
         """Test: Removed log-file flag raises error"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--log-file', 'app.log']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--log-file', 'app.log']):
             with pytest.raises(SystemExit):
                 cli_module.parse_command_line_arguments()
     
     def test_parse_debug_flag_only(self):
         """Test: Debug flag parsing (only valid flag remaining)"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--debug']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', 'test.pdf', '-p', 'password', '--debug']):
             args = cli_module.parse_command_line_arguments()
             assert args.debug is True
     
     def test_parse_removed_list_supported_flag_error(self):
         """Test: Removed list-supported flag raises error"""
-        with patch.object(sys, 'argv', ['fast_pass', '--list-supported']):
+        with patch.object(sys, 'argv', ['fastpass', '--list-supported']):
             with pytest.raises(SystemExit):
                 cli_module.parse_command_line_arguments()
     
     def test_parse_old_check_password_command_fails(self):
         """Test: The old 'check-password' command is no longer recognized"""
-        with patch.object(sys, 'argv', ['fast_pass', 'check-password', '-i', 'test.pdf']):
+        with patch.object(sys, 'argv', ['fastpass', 'check-password', '-i', 'test.pdf']):
             with pytest.raises(SystemExit):
                 cli_module.parse_command_line_arguments()
 
@@ -263,7 +263,7 @@ class TestCLIInformationDisplay:
     
     def test_help_shows_format_support_table(self, capsys):
         """Test: Help shows format support in EDC table format"""
-        with patch.object(sys, 'argv', ['fast_pass', '--help']):
+        with patch.object(sys, 'argv', ['fastpass', '--help']):
             with pytest.raises(SystemExit):
                 cli_module.parse_command_line_arguments()
         
@@ -272,7 +272,7 @@ class TestCLIInformationDisplay:
     
     def test_version_display_works(self, capsys):
         """Test: Version display works"""
-        with patch.object(sys, 'argv', ['fast_pass', '--version']):
+        with patch.object(sys, 'argv', ['fastpass', '--version']):
             with pytest.raises(SystemExit):
                 cli_module.parse_command_line_arguments()
 
@@ -282,28 +282,28 @@ class TestCLIMainFunction:
     
     def test_main_help_display(self, capsys):
         """Test: Help display works"""
-        with patch.object(sys, 'argv', ['fast_pass', '--help']):
+        with patch.object(sys, 'argv', ['fastpass', '--help']):
             with pytest.raises(SystemExit) as exc_info:
                 cli_module.main()
             assert exc_info.value.code == 0
     
     def test_main_version_display(self, capsys):
         """Test: Version display works"""
-        with patch.object(sys, 'argv', ['fast_pass', '--version']):
+        with patch.object(sys, 'argv', ['fastpass', '--version']):
             with pytest.raises(SystemExit) as exc_info:
                 cli_module.main()
             assert exc_info.value.code == 0
     
     def test_main_removed_list_supported_error(self, capsys):
         """Test: Removed list-supported flag causes error"""
-        with patch.object(sys, 'argv', ['fast_pass', '--list-supported']):
+        with patch.object(sys, 'argv', ['fastpass', '--list-supported']):
             result = cli_module.main()
             # Should return error code 2 for invalid arguments
             assert result == 2
     
     def test_main_invalid_arguments_error(self, capsys):
         """Test: Invalid arguments return error code 2"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt']):  # Missing required args
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt']):  # Missing required args
             result = cli_module.main()
             assert result == 2
             
@@ -312,8 +312,8 @@ class TestCLIMainFunction:
     
     def test_main_keyboard_interrupt(self, capsys):
         """Test: Keyboard interrupt handling"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password']):
-            with patch('src.cli.FastPassApplication') as mock_app:
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', 'test.pdf', '-p', 'password']):
+            with patch('fastpass.cli.FastPassApplication') as mock_app:
                 mock_app.return_value.run.side_effect = KeyboardInterrupt()
                 
                 result = cli_module.main()
@@ -324,8 +324,8 @@ class TestCLIMainFunction:
     
     def test_main_unexpected_error(self, capsys):
         """Test: Unexpected error handling"""
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', 'test.pdf', '-p', 'password']):
-            with patch('src.cli.FastPassApplication') as mock_app:
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', 'test.pdf', '-p', 'password']):
+            with patch('fastpass.cli.FastPassApplication') as mock_app:
                 mock_app.return_value.run.side_effect = RuntimeError("Unexpected error")
                 
                 result = cli_module.main()
@@ -340,7 +340,7 @@ class TestCLIEdgeCases:
     
     def test_empty_password_list(self):
         """Test: Empty password list handling"""
-        with patch.object(sys, 'argv', ['fast_pass', 'decrypt', '-i', 'test.pdf', '-p']):
+        with patch.object(sys, 'argv', ['fastpass', 'decrypt', '-i', 'test.pdf', '-p']):
             with pytest.raises(SystemExit):  # argparse should catch this
                 cli_module.parse_command_line_arguments()
     
@@ -349,7 +349,7 @@ class TestCLIEdgeCases:
         long_filename = "a" * 1000 + ".pdf"
         long_password = "p" * 1000
         
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', long_filename, '-p', long_password]):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', long_filename, '-p', long_password]):
             args = cli_module.parse_command_line_arguments()
             assert str(args.input) == long_filename
             assert args.password[0] == long_password
@@ -359,7 +359,7 @@ class TestCLIEdgeCases:
         unicode_filename = "тест_файл.pdf"
         unicode_password = "пароль123"
         
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', unicode_filename, '-p', unicode_password]):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', unicode_filename, '-p', unicode_password]):
             args = cli_module.parse_command_line_arguments()
             assert str(args.input) == unicode_filename
             assert args.password[0] == unicode_password
@@ -368,7 +368,7 @@ class TestCLIEdgeCases:
         """Test: Special characters in file paths"""
         special_filename = "file$with&special@chars!.pdf"
         
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', special_filename, '-p', 'password']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', special_filename, '-p', 'password']):
             args = cli_module.parse_command_line_arguments()
             assert str(args.input) == special_filename
     
@@ -385,13 +385,13 @@ class TestCLIEdgeCases:
             absolute_path = "/absolute/path/file.pdf"
         
         # Test relative path
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', relative_path, '-p', 'password']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', relative_path, '-p', 'password']):
             args = cli_module.parse_command_line_arguments()
             assert str(args.input).replace('/', os.sep) == relative_path
             assert args.input.is_absolute() is False
         
         # Test absolute path
-        with patch.object(sys, 'argv', ['fast_pass', 'encrypt', '-i', absolute_path, '-p', 'password']):
+        with patch.object(sys, 'argv', ['fastpass', 'encrypt', '-i', absolute_path, '-p', 'password']):
             args = cli_module.parse_command_line_arguments()
             assert str(args.input).replace('/', os.sep) == absolute_path
             assert args.input.is_absolute() is True

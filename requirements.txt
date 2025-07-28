@@ -1,4 +1,3 @@
-# A1a: Load System Tools - Required dependencies
 msoffcrypto-tool>=5.0.0    # Office document encryption/decryption
 PyPDF2>=3.0.0              # PDF processing and encryption
 filetype>=1.2.0            # File type detection (replaces python-magic)

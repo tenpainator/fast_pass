@@ -6,7 +6,7 @@ Tests the security validation functionality in office_handler.py
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch, mock_open
-from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
+from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
 
 
 class TestSecurityValidation:
@@ -16,7 +16,7 @@ class TestSecurityValidation:
     def handler(self):
         """Create OfficeDocumentHandler instance for testing"""
         logger = MagicMock()
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto'):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto'):
             handler = OfficeDocumentHandler(logger)
             return handler
     
@@ -37,7 +37,7 @@ class TestSecurityValidation:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'docx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security') as mock_validate:
                     mock_validate.return_value = None  # Security validation passes
                     
@@ -69,7 +69,7 @@ class TestSecurityValidation:
         mock_office_file.decrypt.side_effect = decrypt_side_effect
 
         with patch('builtins.open', mock_open(read_data=b'file_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 # CORRECTIVE ACTION 2: Mock the internal validation method to raise a security exception.
                 with patch.object(handler, '_validate_decrypted_file_security', side_effect=Exception("Security threat detected")):
 
@@ -100,7 +100,7 @@ class TestSecurityValidation:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'docx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security') as mock_validate:
                     mock_validate.side_effect = Exception("Security threat detected")
                     
@@ -118,7 +118,7 @@ class TestSecurityValidation:
         test_file.write_text("test content")
         
         # Test successful validation
-        with patch('src.core.crypto_handlers.office_handler.SecurityValidator') as mock_validator_class:
+        with patch('fastpass.core.crypto_handlers.office_handler.SecurityValidator') as mock_validator_class:
             mock_validator = MagicMock()
             mock_validator.validate_office_document_security.return_value = None
             mock_validator_class.return_value = mock_validator
@@ -136,7 +136,7 @@ class TestSecurityValidation:
         test_file.write_text("test content")
         
         # Test validation failure
-        with patch('src.core.crypto_handlers.office_handler.SecurityValidator') as mock_validator_class:
+        with patch('fastpass.core.crypto_handlers.office_handler.SecurityValidator') as mock_validator_class:
             mock_validator = MagicMock()
             mock_validator.validate_office_document_security.side_effect = Exception("Security threat")
             mock_validator_class.return_value = mock_validator
@@ -157,7 +157,7 @@ class TestSecurityValidation:
         test_file.write_text("test content")
         
         # Test validation failure with deletion failure
-        with patch('src.core.crypto_handlers.office_handler.SecurityValidator') as mock_validator_class:
+        with patch('fastpass.core.crypto_handlers.office_handler.SecurityValidator') as mock_validator_class:
             with patch('pathlib.Path.unlink') as mock_unlink:
                 mock_validator = MagicMock()
                 mock_validator.validate_office_document_security.side_effect = Exception("Security threat")

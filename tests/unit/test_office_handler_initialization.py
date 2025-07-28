@@ -9,7 +9,7 @@ from unittest.mock import patch, MagicMock, Mock
 from pathlib import Path
 
 # Import modules under test
-from src.exceptions import FileFormatError, ProcessingError, SecurityViolationError
+from fastpass.exceptions import FileFormatError, ProcessingError, SecurityViolationError
 
 
 class TestOfficeHandlerInitialization:
@@ -24,10 +24,10 @@ class TestOfficeHandlerInitialization:
         logger = MagicMock(spec=logging.Logger)
         
         # Mock msoffcrypto import as available
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', create=True) as mock_msoffcrypto:
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', create=True) as mock_msoffcrypto:
             mock_msoffcrypto.return_value = MagicMock()
             
-            from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
+            from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
             handler = OfficeDocumentHandler(logger)
             
             # Verify initialization
@@ -47,8 +47,8 @@ class TestOfficeHandlerInitialization:
         logger = MagicMock(spec=logging.Logger)
         
         # Mock msoffcrypto as None (import failed)
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', None):
-            from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', None):
+            from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
             
             with pytest.raises(ImportError, match="msoffcrypto-tool is required for Office document processing"):
                 OfficeDocumentHandler(logger)
@@ -61,8 +61,8 @@ class TestOfficeHandlerInitialization:
         """
         logger = MagicMock(spec=logging.Logger)
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', create=True):
-            from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', create=True):
+            from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
             handler = OfficeDocumentHandler(logger)
             
             # Verify default configuration is set properly
@@ -83,8 +83,8 @@ class TestOfficeHandlerInitialization:
         """
         logger = MagicMock(spec=logging.Logger)
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', create=True):
-            from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', create=True):
+            from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
             
             # Simulate memory constraint by limiting object creation
             handler = OfficeDocumentHandler(logger)
@@ -108,10 +108,10 @@ class TestOfficeHandlerConfiguration:
         self.logger = MagicMock(spec=logging.Logger)
         
         # Mock msoffcrypto for all tests
-        self.msoffcrypto_patcher = patch('src.core.crypto_handlers.office_handler.msoffcrypto', create=True)
+        self.msoffcrypto_patcher = patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', create=True)
         self.mock_msoffcrypto = self.msoffcrypto_patcher.start()
         
-        from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
+        from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
         self.handler = OfficeDocumentHandler(self.logger)
     
     def teardown_method(self):
@@ -228,8 +228,8 @@ class TestOfficeHandlerDependencyHandling:
         broken_msoffcrypto = MagicMock()
         broken_msoffcrypto.OfficeFile.side_effect = Exception("Broken msoffcrypto")
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', broken_msoffcrypto):
-            from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', broken_msoffcrypto):
+            from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
             
             # Initialization should succeed (errors are caught during usage, not init)
             handler = OfficeDocumentHandler(logger)
@@ -244,8 +244,8 @@ class TestOfficeHandlerDependencyHandling:
         
         Verifies that handler works with different logger types
         """
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', create=True):
-            from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', create=True):
+            from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
             
             # Test with proper logger
             real_logger = logging.getLogger('test')
@@ -275,8 +275,8 @@ class TestOfficeHandlerThreadSafety:
         """
         logger = MagicMock(spec=logging.Logger)
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', create=True):
-            from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', create=True):
+            from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
             
             # Create multiple handlers concurrently (simulated)
             handlers = []
@@ -302,8 +302,8 @@ class TestOfficeHandlerThreadSafety:
         """
         logger = MagicMock(spec=logging.Logger)
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto', create=True):
-            from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto', create=True):
+            from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
             
             handler1 = OfficeDocumentHandler(logger)
             handler2 = OfficeDocumentHandler(logger)

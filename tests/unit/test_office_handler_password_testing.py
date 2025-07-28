@@ -12,8 +12,8 @@ from unittest.mock import patch, MagicMock, mock_open, call
 import logging
 
 # Import modules under test
-from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
-from src.exceptions import FileFormatError, ProcessingError, SecurityViolationError
+from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
+from fastpass.exceptions import FileFormatError, ProcessingError, SecurityViolationError
 
 
 # Module-level fixtures that can be used by all test classes
@@ -26,7 +26,7 @@ def mock_logger():
 @pytest.fixture
 def office_handler(mock_logger):
     """Create OfficeDocumentHandler instance with mocked dependencies"""
-    with patch('src.core.crypto_handlers.office_handler.msoffcrypto') as mock_msoffcrypto:
+    with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto') as mock_msoffcrypto:
         handler = OfficeDocumentHandler(mock_logger)
         handler.msoffcrypto = mock_msoffcrypto
         return handler
@@ -95,7 +95,7 @@ class TestPasswordValidationEncryptedFiles:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.return_value = None  # Success
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 with patch('tempfile.NamedTemporaryFile') as mock_temp:
                     mock_temp_file = MagicMock()
@@ -119,7 +119,7 @@ class TestPasswordValidationEncryptedFiles:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.side_effect = Exception("Invalid password")
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 result = office_handler.test_password(temp_docx_path, "wrong_password")
                 
@@ -134,7 +134,7 @@ class TestPasswordValidationEncryptedFiles:
         # Mock unencrypted file
         mock_office_file.is_encrypted.return_value = False
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 result = office_handler.test_password(temp_docx_path, "any_password")
                 
@@ -151,7 +151,7 @@ class TestPasswordValidationEncryptedFiles:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.return_value = None
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 with patch('tempfile.NamedTemporaryFile') as mock_temp:
                     mock_temp_file = MagicMock()
@@ -174,7 +174,7 @@ class TestPasswordValidationEncryptedFiles:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.side_effect = Exception("Authentication failed")
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 result = office_handler.test_password(temp_xlsx_path, "wrong_xlsx_password")
                 
@@ -188,7 +188,7 @@ class TestPasswordValidationEncryptedFiles:
         # Mock unencrypted file
         mock_office_file.is_encrypted.return_value = False
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 result = office_handler.test_password(temp_xlsx_path, "any_password")
                 
@@ -203,7 +203,7 @@ class TestPasswordValidationEncryptedFiles:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.return_value = None
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 with patch('tempfile.NamedTemporaryFile') as mock_temp:
                     mock_temp_file = MagicMock()
@@ -225,7 +225,7 @@ class TestPasswordValidationEncryptedFiles:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.side_effect = Exception("Password verification failed")
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 result = office_handler.test_password(temp_pptx_path, "wrong_pptx_password")
                 
@@ -239,7 +239,7 @@ class TestPasswordValidationEncryptedFiles:
         # Mock unencrypted file
         mock_office_file.is_encrypted.return_value = False
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 result = office_handler.test_password(temp_pptx_path, "any_password")
                 
@@ -255,7 +255,7 @@ class TestPasswordValidationCorruptedFiles:
         temp_docx_path.write_bytes(b'CORRUPTED_DATA_NOT_ZIP')
         
         with patch('builtins.open', mock_open(read_data=b'CORRUPTED_DATA')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
                 mock_office_class.side_effect = Exception("Not a valid Office file")
                 
                 result = office_handler.test_password(temp_docx_path, "any_password")
@@ -268,7 +268,7 @@ class TestPasswordValidationCorruptedFiles:
         temp_xlsx_path.write_bytes(b'INVALID_XLSX_CONTENT')
         
         with patch('builtins.open', mock_open(read_data=b'INVALID_XLSX_CONTENT')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
                 mock_office_class.side_effect = Exception("Corrupted file structure")
                 
                 result = office_handler.test_password(temp_xlsx_path, "any_password")
@@ -281,7 +281,7 @@ class TestPasswordValidationCorruptedFiles:
         temp_pptx_path.write_bytes(b'NOT_A_VALID_PPTX_FILE')
         
         with patch('builtins.open', mock_open(read_data=b'NOT_A_VALID_PPTX_FILE')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
                 mock_office_class.side_effect = Exception("File format error")
                 
                 result = office_handler.test_password(temp_pptx_path, "any_password")
@@ -300,7 +300,7 @@ class TestPasswordValidationEdgeCases:
         
         try:
             with patch('builtins.open', mock_open(read_data=b'')):
-                with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
+                with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
                     mock_office_class.side_effect = Exception("Empty file")
                     
                     result = office_handler.test_password(empty_file_path, "password")
@@ -320,7 +320,7 @@ class TestPasswordValidationEdgeCases:
         
         try:
             with patch('builtins.open', mock_open(read_data=b'This is a text file')):
-                with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
+                with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
                     mock_office_class.side_effect = Exception("Not an Office file")
                     
                     result = office_handler.test_password(text_file_path, "password")
@@ -341,7 +341,7 @@ class TestPasswordValidationEdgeCases:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.return_value = None
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 with patch('tempfile.NamedTemporaryFile') as mock_temp:
                     mock_temp_file = MagicMock()
@@ -364,7 +364,7 @@ class TestPasswordValidationEdgeCases:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.return_value = None
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 with patch('tempfile.NamedTemporaryFile') as mock_temp:
                     mock_temp_file = MagicMock()
@@ -387,7 +387,7 @@ class TestPasswordValidationEdgeCases:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.return_value = None
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 with patch('tempfile.NamedTemporaryFile') as mock_temp:
                     mock_temp_file = MagicMock()
@@ -409,7 +409,7 @@ class TestPasswordValidationEdgeCases:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.side_effect = Exception("Empty password not allowed")
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 result = office_handler.test_password(temp_docx_path, "")
                 
@@ -424,7 +424,7 @@ class TestPasswordValidationEdgeCases:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.side_effect = Exception("None password not allowed")
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 result = office_handler.test_password(temp_docx_path, None)
                 
@@ -439,7 +439,7 @@ class TestPasswordValidationEdgeCases:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.side_effect = Exception("Binary password not supported")
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 result = office_handler.test_password(temp_docx_path, binary_password)
                 
@@ -481,7 +481,7 @@ class TestPasswordValidationFileSystemIssues:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.return_value = None
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 with patch('tempfile.NamedTemporaryFile') as mock_temp:
                     mock_temp_file = MagicMock()
@@ -505,7 +505,7 @@ class TestPasswordValidationFileSystemIssues:
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key.return_value = None
         
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
             with patch('builtins.open', mock_open(read_data=b'PK\x03\x04')):
                 with patch('tempfile.NamedTemporaryFile') as mock_temp:
                     mock_temp_file = MagicMock()

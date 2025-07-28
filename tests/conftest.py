@@ -40,7 +40,7 @@ def temp_work_dir():
 def fastpass_executable():
     """Fixture providing path to FastPass executable"""
     # Return the module path for running FastPass
-    return ["uv", "run", "python", "-m", "src"]
+    return ["uv", "run", "python", "-m", "fastpass"]
 
 @pytest.fixture
 def simple_test_pdf(temp_work_dir):

@@ -14,7 +14,7 @@ from pathlib import Path
 import io
 
 # Import the PDF handler class
-from src.core.crypto_handlers.pdf_handler import PDFHandler
+from fastpass.core.crypto_handlers.pdf_handler import PDFHandler
 
 
 class TestPDFPasswordValidation:
@@ -29,7 +29,7 @@ class TestPDFPasswordValidation:
     @pytest.fixture
     def mock_pdf_reader(self):
         """Create mock PDF reader"""
-        with patch('src.core.crypto_handlers.pdf_handler.PyPDF2.PdfReader') as mock:
+        with patch('fastpass.core.crypto_handlers.pdf_handler.PyPDF2.PdfReader') as mock:
             yield mock
 
     # Basic Password Testing (8 tests)

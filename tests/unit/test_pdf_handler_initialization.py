@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch, MagicMock, mock_open
 from pathlib import Path
 
 # Import the PDF handler class
-from src.core.crypto_handlers.pdf_handler import PDFHandler
+from fastpass.core.crypto_handlers.pdf_handler import PDFHandler
 
 
 class TestPDFHandlerInitialization:
@@ -38,7 +38,7 @@ class TestPDFHandlerInitialization:
         assert handler.encryption_method == 'AES-256'
         assert handler.user_password_length == 128
 
-    @patch('src.core.crypto_handlers.pdf_handler.PyPDF2', None)
+    @patch('fastpass.core.crypto_handlers.pdf_handler.PyPDF2', None)
     def test_pdf_handler_init_pypdf2_unavailable(self):
         """Test initialization when PyPDF2 is not available"""
         # Create logger

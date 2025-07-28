@@ -13,8 +13,8 @@ from unittest.mock import patch, MagicMock, mock_open, call
 import logging
 
 # Import modules under test
-from src.core.crypto_handlers.office_handler import OfficeDocumentHandler
-from src.exceptions import FileFormatError, ProcessingError, SecurityViolationError
+from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
+from fastpass.exceptions import FileFormatError, ProcessingError, SecurityViolationError
 
 
 class TestOfficeHandlerDecryption:
@@ -28,7 +28,7 @@ class TestOfficeHandlerDecryption:
     @pytest.fixture
     def handler(self, logger):
         """Create an OfficeDocumentHandler instance for testing"""
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto'):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto'):
             return OfficeDocumentHandler(logger)
     
     @pytest.fixture
@@ -48,7 +48,7 @@ class TestDecryptDocxFiles:
     
     @pytest.fixture
     def handler(self, logger):
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto'):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto'):
             return OfficeDocumentHandler(logger)
     
     @pytest.fixture
@@ -70,7 +70,7 @@ class TestDecryptDocxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'docx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -95,7 +95,7 @@ class TestDecryptDocxFiles:
         mock_office_file.load_key.side_effect = Exception("Invalid password")
         
         with patch('builtins.open', mock_open(read_data=b'docx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 
                 with pytest.raises(Exception) as exc_info:
                     handler.decrypt_file(input_path, output_path, password)
@@ -115,7 +115,7 @@ class TestDecryptDocxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'docx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -135,7 +135,7 @@ class TestDecryptDocxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'docx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -155,7 +155,7 @@ class TestDecryptDocxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'docx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -173,8 +173,8 @@ class TestDecryptDocxFiles:
         mock_office_file.is_encrypted.return_value = False
         
         with patch('builtins.open', mock_open(read_data=b'docx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
-                with patch('src.core.crypto_handlers.office_handler.shutil.copy2') as mock_copy:
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+                with patch('fastpass.core.crypto_handlers.office_handler.shutil.copy2') as mock_copy:
                     
                     handler.decrypt_file(input_path, output_path, password)
                     
@@ -202,7 +202,7 @@ class TestDecryptDocxFiles:
         mock_office_file.decrypt.side_effect = slow_decrypt
         
         with patch('builtins.open', mock_open(read_data=b'x' * (10 * 1024 * 1024))):  # 10MB data
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -222,7 +222,7 @@ class TestDecryptDocxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'x' * (100 * 1024 * 1024))):  # 100MB data
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -240,7 +240,7 @@ class TestDecryptXlsxFiles:
     
     @pytest.fixture
     def handler(self, logger):
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto'):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto'):
             return OfficeDocumentHandler(logger)
     
     @pytest.fixture
@@ -261,7 +261,7 @@ class TestDecryptXlsxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'xlsx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -282,7 +282,7 @@ class TestDecryptXlsxFiles:
         mock_office_file.load_key.side_effect = Exception("Invalid password")
         
         with patch('builtins.open', mock_open(read_data=b'xlsx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 
                 with pytest.raises(Exception) as exc_info:
                     handler.decrypt_file(input_path, output_path, password)
@@ -302,7 +302,7 @@ class TestDecryptXlsxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'xlsx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -322,7 +322,7 @@ class TestDecryptXlsxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'xlsx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -342,7 +342,7 @@ class TestDecryptXlsxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'xlsx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -360,8 +360,8 @@ class TestDecryptXlsxFiles:
         mock_office_file.is_encrypted.return_value = False
         
         with patch('builtins.open', mock_open(read_data=b'xlsx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
-                with patch('src.core.crypto_handlers.office_handler.shutil.copy2') as mock_copy:
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+                with patch('fastpass.core.crypto_handlers.office_handler.shutil.copy2') as mock_copy:
                     
                     handler.decrypt_file(input_path, output_path, password)
                     
@@ -380,7 +380,7 @@ class TestDecryptXlsxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'x' * (10 * 1024 * 1024))):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -400,7 +400,7 @@ class TestDecryptXlsxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'x' * (100 * 1024 * 1024))):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -418,7 +418,7 @@ class TestDecryptPptxFiles:
     
     @pytest.fixture
     def handler(self, logger):
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto'):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto'):
             return OfficeDocumentHandler(logger)
     
     @pytest.fixture
@@ -439,7 +439,7 @@ class TestDecryptPptxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'pptx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -460,7 +460,7 @@ class TestDecryptPptxFiles:
         mock_office_file.load_key.side_effect = Exception("Invalid password")
         
         with patch('builtins.open', mock_open(read_data=b'pptx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 
                 with pytest.raises(Exception) as exc_info:
                     handler.decrypt_file(input_path, output_path, password)
@@ -480,7 +480,7 @@ class TestDecryptPptxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'pptx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -500,7 +500,7 @@ class TestDecryptPptxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'pptx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -520,7 +520,7 @@ class TestDecryptPptxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'pptx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -538,8 +538,8 @@ class TestDecryptPptxFiles:
         mock_office_file.is_encrypted.return_value = False
         
         with patch('builtins.open', mock_open(read_data=b'pptx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
-                with patch('src.core.crypto_handlers.office_handler.shutil.copy2') as mock_copy:
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+                with patch('fastpass.core.crypto_handlers.office_handler.shutil.copy2') as mock_copy:
                     
                     handler.decrypt_file(input_path, output_path, password)
                     
@@ -558,7 +558,7 @@ class TestDecryptPptxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'x' * (10 * 1024 * 1024))):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -578,7 +578,7 @@ class TestDecryptPptxFiles:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'x' * (100 * 1024 * 1024))):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -596,7 +596,7 @@ class TestDecryptionEdgeCases:
     
     @pytest.fixture
     def handler(self, logger):
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto'):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto'):
             return OfficeDocumentHandler(logger)
     
     @pytest.fixture
@@ -617,7 +617,7 @@ class TestDecryptionEdgeCases:
         mock_office_file.decrypt.side_effect = Exception("File structure corrupted")
         
         with patch('builtins.open', mock_open(read_data=b'corrupted_data')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 
                 with pytest.raises(Exception) as exc_info:
                     handler.decrypt_file(input_path, output_path, password)
@@ -632,7 +632,7 @@ class TestDecryptionEdgeCases:
         password = "password"
         
         with patch('builtins.open', mock_open(read_data=b'')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
                 mock_office_class.side_effect = Exception("Empty file or invalid format")
                 
                 with pytest.raises(Exception) as exc_info:
@@ -648,7 +648,7 @@ class TestDecryptionEdgeCases:
         password = "password"
         
         with patch('builtins.open', mock_open(read_data=b'This is not an Office file')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile') as mock_office_class:
                 mock_office_class.side_effect = Exception("Not a valid Office file")
                 
                 with pytest.raises(Exception) as exc_info:
@@ -672,7 +672,7 @@ class TestDecryptionEdgeCases:
         mock_open_obj = mock_open(read_data=b'docx_content')
         
         with patch('builtins.open', mock_open_obj):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -693,7 +693,7 @@ class TestDecryptionEdgeCases:
         mock_office_file.decrypt = MagicMock()
         
         with patch('builtins.open', mock_open(read_data=b'docx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security'):
                     
                     handler.decrypt_file(input_path, output_path, password)
@@ -713,7 +713,7 @@ class TestDecryptionEdgeCases:
         mock_office_file.decrypt.side_effect = OSError("No space left on device")
         
         with patch('builtins.open', mock_open(read_data=b'docx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 
                 with pytest.raises(Exception) as exc_info:
                     handler.decrypt_file(input_path, output_path, password)
@@ -739,7 +739,7 @@ class TestDecryptionEdgeCases:
                 PermissionError("Permission denied")  # Second call (write) fails
             ]
             
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 
                 with pytest.raises(Exception) as exc_info:
                     handler.decrypt_file(input_path, output_path, password)
@@ -759,7 +759,7 @@ class TestDecryptionEdgeCases:
         mock_office_file.decrypt.side_effect = MemoryError("Not enough memory")
         
         with patch('builtins.open', mock_open(read_data=b'docx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 
                 with pytest.raises(Exception) as exc_info:
                     handler.decrypt_file(input_path, output_path, password)
@@ -778,7 +778,7 @@ class TestSecurityValidation:
     
     @pytest.fixture
     def handler(self, logger):
-        with patch('src.core.crypto_handlers.office_handler.msoffcrypto'):
+        with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto'):
             return OfficeDocumentHandler(logger)
     
     @pytest.fixture
@@ -800,7 +800,7 @@ class TestSecurityValidation:
 
         # Mock builtins.open and the OfficeFile class
         with patch('builtins.open', mock_open(read_data=b'docx_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 # CORRECTIVE ACTION: Mock the internal validation method directly on the handler instance.
                 # This is more robust than patching the SecurityValidator class.
                 with patch.object(handler, '_validate_decrypted_file_security') as mock_validate:
@@ -836,7 +836,7 @@ class TestSecurityValidation:
         mock_office_file.decrypt.side_effect = decrypt_side_effect
 
         with patch('builtins.open', mock_open(read_data=b'file_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 # CORRECTIVE ACTION 2: Mock the internal validation method to raise a security exception.
                 with patch.object(handler, '_validate_decrypted_file_security', side_effect=Exception("Security threat detected")):
 
@@ -876,7 +876,7 @@ class TestSecurityValidation:
         mock_office_file.decrypt.side_effect = decrypt_side_effect
 
         with patch('builtins.open', mock_open(read_data=b'file_content')):
-            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+            with patch('fastpass.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 # Create a custom validation method that creates the file and then fails, and mock unlink to fail
                 def failing_validation_with_unlink_failure(file_path):
                     # Create the file to simulate successful decryption

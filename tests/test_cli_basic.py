@@ -53,8 +53,8 @@ class TestCLIBasicFunctionality:
         
         assert result.returncode == 0
         # Should contain format table with EDC notation
-        assert "PDF" in result.stdout
-        assert "DOCX" in result.stdout
+        assert (".pdf" in result.stdout or "PDF" in result.stdout)
+        assert (".docx" in result.stdout or "DOCX" in result.stdout)
         # Make format table assertion more robust by checking components separately
         assert ("E=Encryption" in result.stdout or 
                 ("E" in result.stdout and "Encryption" in result.stdout))

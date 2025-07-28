@@ -136,11 +136,11 @@ flowchart TD
     
     DETECT_ENC --> ENC_STATUS{Encryption Status Result}
     
-    ENC_STATUS -->|Not Encrypted| REPORT_CLEAR[📋 Report: "not encrypted"]
-    ENC_STATUS -->|Encrypted| TEST_PASSWORDS[🔍 Test All Provided Passwords<br/>find_working_password()]
+    ENC_STATUS -->|Not Encrypted| REPORT_CLEAR[📋 Report: not encrypted]
+    ENC_STATUS -->|Encrypted| TEST_PASSWORDS[🔍 Test All Provided Passwords<br/>find_working_password]
     
-    TEST_PASSWORDS -->|Password Works| REPORT_WORKS[📋 Report: "encrypted - provided password works"]
-    TEST_PASSWORDS -->|No Working Password| REPORT_INCORRECT[📋 Report: "encrypted - provided password is incorrect"]
+    TEST_PASSWORDS -->|Password Works| REPORT_WORKS[📋 Report: encrypted - provided password works]
+    TEST_PASSWORDS -->|No Working Password| REPORT_INCORRECT[📋 Report: encrypted - provided password is incorrect]
     
     REPORT_CLEAR --> OUTPUT[💬 Print Status Message to Console<br/>Log completion]
     REPORT_WORKS --> OUTPUT
@@ -174,7 +174,7 @@ flowchart TD
     SELECT_HANDLER -->|.docx/.xlsx/.pptx| MSO_HANDLER[📄 MSOffice Handler<br/>msoffcrypto Library]
     
     PDF_HANDLER --> PDF_CHECK[📖 Read PDF Headers<br/>Check encryption flag<br/>reader.is_encrypted]
-    MSO_HANDLER --> MSO_CHECK[📖 Read OLE Structure<br/>Check for encryption<br/>office_file.is_encrypted()]
+    MSO_HANDLER --> MSO_CHECK[📖 Read OLE Structure<br/>Check for encryption<br/>office_file.is_encrypted]
     
     PDF_CHECK --> RESULT_PDF{PDF Result}
     MSO_CHECK --> RESULT_MSO{MSOffice Result}
@@ -262,7 +262,7 @@ flowchart TD
 flowchart TD
     INPUT[User Provides Passwords<br/>CLI: -p pwd1 pwd2<br/>Interactive: getpass<br/>Stdin: JSON array] --> COLLECT[Password Manager<br/>Collect All Sources]
     
-    COLLECT --> CANDIDATES[Password Candidates List<br/>🔑 [pwd1, pwd2, pwd3, ...]]
+    COLLECT --> CANDIDATES[Password Candidates List<br/>🔑 pwd1, pwd2, pwd3, ...]
     
     CANDIDATES --> OPERATION{Operation Type}
     

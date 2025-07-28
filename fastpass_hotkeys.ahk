@@ -18,7 +18,7 @@ WriteLog("Time: " . A_Now)
 {
     selectedFile := GetSelectedFile()
     if (!selectedFile) {
-        MsgBox("No file selected in File Explorer.", "FastPass - Error", "OK Icon!")
+        MsgBox("No file selected in File Explorer.", "FastPass - Error")
         return
     }
     
@@ -26,29 +26,29 @@ WriteLog("Time: " . A_Now)
     encryptionStatus := CheckFileEncryption(selectedFile)
     
     if (encryptionStatus == "error") {
-        MsgBox("Error checking file encryption status.", "FastPass - Error", "OK Icon!")
+        MsgBox("Error checking file encryption status.", "FastPass - Error")
         return
     }
     
     if (encryptionStatus == "not_encrypted") {
-        MsgBox("File is not encrypted.", "FastPass - Info", "OK Info")
+        MsgBox("File is not encrypted.", "FastPass - Info")
         return
     }
     
     if (encryptionStatus == "encrypted") {
         ; Prompt for password
-        password := InputBox("Enter password to decrypt the file:", "FastPass - Decrypt", "Password").Text
+        password := InputBox("Enter password to decrypt the file:", "FastPass - Decrypt", "Password").Value
         if (password == "") {
-            MsgBox("Operation cancelled - no password provided.", "FastPass - Cancelled", "OK Info")
+            MsgBox("Operation cancelled - no password provided.", "FastPass - Cancelled")
             return
         }
         
         ; Decrypt the file in-place
         result := DecryptFile(selectedFile, password)
         if (result == "success") {
-            MsgBox("File decrypted successfully!", "FastPass - Success", "OK Icon64")
+            MsgBox("File decrypted successfully!", "FastPass - Success")
         } else {
-            MsgBox("Failed to decrypt file. Please check the password and try again.", "FastPass - Error", "OK Icon!")
+            MsgBox("Failed to decrypt file. Please check the password and try again.", "FastPass - Error")
         }
     }
 }
@@ -58,7 +58,7 @@ WriteLog("Time: " . A_Now)
 {
     selectedFile := GetSelectedFile()
     if (!selectedFile) {
-        MsgBox("No file selected in File Explorer.", "FastPass - Error", "OK Icon!")
+        MsgBox("No file selected in File Explorer.", "FastPass - Error")
         return
     }
     
@@ -66,29 +66,36 @@ WriteLog("Time: " . A_Now)
     encryptionStatus := CheckFileEncryption(selectedFile)
     
     if (encryptionStatus == "error") {
-        MsgBox("Error checking file encryption status.", "FastPass - Error", "OK Icon!")
+        MsgBox("Error checking file encryption status.", "FastPass - Error")
         return
     }
     
     if (encryptionStatus == "encrypted") {
-        MsgBox("File is already encrypted.", "FastPass - Info", "OK Info")
+        MsgBox("File is already encrypted.", "FastPass - Info")
         return
     }
     
     if (encryptionStatus == "not_encrypted") {
+        ; Check if file format is supported before prompting for password
+        if (!IsFileFormatSupported(selectedFile)) {
+            SplitPath(selectedFile, &fileName, , &ext)
+            MsgBox("File format '" . ext . "' is not supported for encryption.`n`nSupported formats: .pdf, .docx, .xlsx, .pptx, .potx, .docm, .xlsm, .pptm, .dotx, .xltx", "FastPass - Unsupported Format")
+            return
+        }
+        
         ; Prompt for password
-        password := InputBox("Enter password to encrypt the file:", "FastPass - Encrypt", "Password").Text
+        password := InputBox("Enter password to encrypt the file:", "FastPass - Encrypt", "Password").Value
         if (password == "") {
-            MsgBox("Operation cancelled - no password provided.", "FastPass - Cancelled", "OK Info")
+            MsgBox("Operation cancelled - no password provided.", "FastPass - Cancelled")
             return
         }
         
         ; Encrypt the file in-place
         result := EncryptFile(selectedFile, password)
         if (result == "success") {
-            MsgBox("File encrypted successfully!", "FastPass - Success", "OK Icon64")
+            MsgBox("File encrypted successfully!", "FastPass - Success")
         } else {
-            MsgBox("Failed to encrypt file. Please check the file format and try again.", "FastPass - Error", "OK Icon!")
+            MsgBox("Failed to encrypt file. Please check the file format and try again.", "FastPass - Error")
         }
     }
 }
@@ -268,17 +275,18 @@ CheckFileEncryption(filePath) {
             ; Parse the output to determine encryption status
             WriteLog("Parsing output for encryption status...")
             
-            if (InStr(output, "encrypted - ") || InStr(output, "encrypted.")) {
-                WriteLog("Detected as ENCRYPTED")
-                WriteLog("--- CheckFileEncryption() completed - ENCRYPTED ---")
-                return "encrypted"
-            } else if (InStr(output, "not encrypted") || InStr(output, "Status for")) {
+            ; Check for "not encrypted" first to avoid false positives
+            if (InStr(output, "not encrypted")) {
                 WriteLog("Detected as NOT ENCRYPTED")
                 WriteLog("--- CheckFileEncryption() completed - NOT ENCRYPTED ---")
                 return "not_encrypted"
+            } else if (InStr(output, "encrypted - ")) {
+                WriteLog("Detected as ENCRYPTED")
+                WriteLog("--- CheckFileEncryption() completed - ENCRYPTED ---")
+                return "encrypted"
             } else {
                 WriteLog("Could not parse output for encryption status")
-                WriteLog("Searched for: 'encrypted - ', 'encrypted.', 'not encrypted', 'Status for'")
+                WriteLog("Searched for: 'not encrypted', 'encrypted - '")
                 WriteLog("--- CheckFileEncryption() completed - PARSE ERROR ---")
             }
         } else {
@@ -305,29 +313,29 @@ DecryptFile(filePath, password) {
         ; Change to FastPass directory
         fastPassDir := A_ScriptDir
         
-        ; Create output filename (remove .encrypted extension or add .decrypted)
-        outputPath := filePath
-        if (SubStr(filePath, -10) == ".encrypted") {
-            outputPath := SubStr(filePath, 1, -11)  ; Remove .encrypted
-        } else {
-            ; Add .decrypted before the file extension
-            SplitPath(filePath, &name, &dir, &ext, &nameNoExt)
-            outputPath := dir . "\" . nameNoExt . ".decrypted." . ext
-        }
-        
-        ; Build the command with password using main.py
-        cmd := 'cmd /c "cd /d "' . fastPassDir . '" && python main.py decrypt -p "' . password . '" -i "' . filePath . '" -o "' . outputPath . '""'
+        ; Use in-place decryption - let FastPass handle the output directly
+        ; Capture output to verify success since exit codes are unreliable
+        tempFile := A_Temp . "\fastpass_decrypt_" . A_TickCount . ".txt"
+        cmd := 'cmd /c "cd /d "' . fastPassDir . '" && python main.py decrypt -p "' . password . '" -i "' . filePath . '" > "' . tempFile . '" 2>&1"'
         
         ; Run the command
         result := RunWait(cmd, fastPassDir, "Hide")
         
-        ; Check if decryption was successful (return code 0)
-        if (result == 0 && FileExist(outputPath)) {
-            ; For in-place decryption, replace the original file
-            if (outputPath != filePath) {
-                FileMove(outputPath, filePath, true)
+        ; Check output for success/failure indicators
+        if (FileExist(tempFile)) {
+            output := FileRead(tempFile)
+            
+            ; Clean up temp file
+            try {
+                FileDelete(tempFile)
+            } catch {
+                ; Ignore cleanup errors
             }
-            return "success"
+            
+            ; Check for success indicators in output
+            if (InStr(output, "All operations successful") || InStr(output, "Successful: 1")) {
+                return "success"
+            }
         }
         
         return "error"
@@ -342,21 +350,29 @@ EncryptFile(filePath, password) {
         ; Change to FastPass directory
         fastPassDir := A_ScriptDir
         
-        ; Create output filename
-        SplitPath(filePath, &name, &dir, &ext, &nameNoExt)
-        outputPath := dir . "\" . nameNoExt . ".encrypted." . ext
-        
-        ; Build the command with password using main.py
-        cmd := 'cmd /c "cd /d "' . fastPassDir . '" && python main.py encrypt -p "' . password . '" -i "' . filePath . '" -o "' . outputPath . '""'
+        ; Use in-place encryption - let FastPass handle the output directly  
+        ; Capture output to verify success since exit codes are unreliable
+        tempFile := A_Temp . "\fastpass_encrypt_" . A_TickCount . ".txt"
+        cmd := 'cmd /c "cd /d "' . fastPassDir . '" && python main.py encrypt -p "' . password . '" -i "' . filePath . '" > "' . tempFile . '" 2>&1"'
         
         ; Run the command
         result := RunWait(cmd, fastPassDir, "Hide")
         
-        ; Check if encryption was successful (return code 0)
-        if (result == 0 && FileExist(outputPath)) {
-            ; For in-place encryption, replace the original file
-            FileMove(outputPath, filePath, true)
-            return "success"
+        ; Check output for success/failure indicators
+        if (FileExist(tempFile)) {
+            output := FileRead(tempFile)
+            
+            ; Clean up temp file
+            try {
+                FileDelete(tempFile)
+            } catch {
+                ; Ignore cleanup errors
+            }
+            
+            ; Check for success indicators in output
+            if (InStr(output, "All operations successful") || InStr(output, "Successful: 1")) {
+                return "success"
+            }
         }
         
         return "error"
@@ -376,6 +392,27 @@ WriteLog(message) {
         ; If logging fails, show a message (but don't crash)
         MsgBox("Failed to write to log file: " . err.Message, "Log Error")
     }
+}
+
+; Function to check if file format is supported by FastPass
+IsFileFormatSupported(filePath) {
+    ; Extract file extension
+    SplitPath(filePath, , , &ext)
+    
+    ; Convert to lowercase for comparison
+    ext := StrLower(ext)
+    
+    ; List of supported formats from FastPass CLI help
+    supportedFormats := [".pdf", ".docx", ".xlsx", ".pptx", ".potx", ".docm", ".xlsm", ".pptm", ".dotx", ".xltx"]
+    
+    ; Check if extension is in supported list
+    for format in supportedFormats {
+        if (ext == format) {
+            return true
+        }
+    }
+    
+    return false
 }
 
 ; Show startup message

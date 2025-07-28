@@ -376,9 +376,9 @@ class FileProcessor:
                     # Use find_working_password to test all available passwords
                     working_password = self.password_manager.find_working_password(temp_input, handler)
                     if working_password:
-                        status_message += "encrypted - a working password was found."
+                        status_message += "encrypted - provided password works."
                     else:
-                        status_message += "encrypted - no working password found."
+                        status_message += "encrypted - provided password is incorrect."
                 else:
                     status_message += "not encrypted."
                 

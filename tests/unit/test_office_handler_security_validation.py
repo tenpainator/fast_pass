@@ -111,7 +111,7 @@ class TestSecurityValidation:
         test_file.write_text("test content")
         
         # Test successful validation
-        with patch('src.core.security.SecurityValidator') as mock_validator_class:
+        with patch('src.core.crypto_handlers.office_handler.SecurityValidator') as mock_validator_class:
             mock_validator = MagicMock()
             mock_validator.validate_office_document_security.return_value = None
             mock_validator_class.return_value = mock_validator
@@ -129,7 +129,7 @@ class TestSecurityValidation:
         test_file.write_text("test content")
         
         # Test validation failure
-        with patch('src.core.security.SecurityValidator') as mock_validator_class:
+        with patch('src.core.crypto_handlers.office_handler.SecurityValidator') as mock_validator_class:
             mock_validator = MagicMock()
             mock_validator.validate_office_document_security.side_effect = Exception("Security threat")
             mock_validator_class.return_value = mock_validator
@@ -150,7 +150,7 @@ class TestSecurityValidation:
         test_file.write_text("test content")
         
         # Test validation failure with deletion failure
-        with patch('src.core.security.SecurityValidator') as mock_validator_class:
+        with patch('src.core.crypto_handlers.office_handler.SecurityValidator') as mock_validator_class:
             with patch('pathlib.Path.unlink') as mock_unlink:
                 mock_validator = MagicMock()
                 mock_validator.validate_office_document_security.side_effect = Exception("Security threat")

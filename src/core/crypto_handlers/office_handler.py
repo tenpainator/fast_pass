@@ -9,16 +9,22 @@ from pathlib import Path
 from typing import Dict, Any
 import tempfile
 import shutil
+import subprocess
+import os
+import atexit
 
 try:
     import msoffcrypto
 except ImportError:
     msoffcrypto = None
 
+# Move imports to the module level for proper mocking in tests
+from src.exceptions import FileFormatError, ProcessingError, SecurityViolationError
+from src.utils.config import FastPassConfig
+from src.core.security import SecurityValidator
+
 # COM automation removed - using subprocess-only approach
 # No longer dependent on Microsoft Office installation
-
-from src.exceptions import FileFormatError, ProcessingError, SecurityViolationError
 
 
 class OfficeDocumentHandler:
@@ -63,7 +69,6 @@ class OfficeDocumentHandler:
         """
         # Check if this is a legacy format that may have edge cases
         file_ext = file_path.suffix.lower()
-        from src.utils.config import FastPassConfig
         
         if file_ext in FastPassConfig.LEGACY_FORMATS:
             return self._test_password_legacy_safe(file_path, password)
@@ -197,7 +202,6 @@ class OfficeDocumentHandler:
         
         # B2-SEC-1: Legacy format validation
         file_extension = input_path.suffix.lower()
-        from src.utils.config import FastPassConfig
         if file_extension in FastPassConfig.LEGACY_FORMATS:
             raise FileFormatError(f"Legacy Office format {file_extension} supports decryption only, not encryption")
         
@@ -222,8 +226,6 @@ class OfficeDocumentHandler:
         B2-SEC-2: Path validation using SecurityValidator
         """
         # Import SecurityValidator for path validation
-        from src.core.security import SecurityValidator
-        
         # Create validator with default settings
         validator = SecurityValidator(self.logger)
         
@@ -311,7 +313,6 @@ class OfficeDocumentHandler:
         """
         # Check if this is a legacy format that may have edge cases
         file_ext = input_path.suffix.lower()
-        from src.utils.config import FastPassConfig
         
         if file_ext in FastPassConfig.LEGACY_FORMATS:
             return self._decrypt_file_legacy_safe(input_path, output_path, password)
@@ -440,8 +441,6 @@ class OfficeDocumentHandler:
         Validate the decrypted Office file for security threats
         This runs after decryption when the file is in readable ZIP format
         """
-        from src.core.security import SecurityValidator
-        
         try:
             # Create security validator and validate the decrypted file
             security_validator = SecurityValidator(self.logger)

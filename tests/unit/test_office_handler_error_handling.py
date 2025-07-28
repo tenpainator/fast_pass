@@ -454,7 +454,7 @@ class TestOfficeHandlerSecurityValidation:
             mock_config.LEGACY_FORMATS = ['.doc', '.xls', '.ppt']
             
             with pytest.raises(FileFormatError, match="Legacy Office format .doc supports decryption only"):
-                self.handler.encrypt_file_secure(legacy_file, output_file, "password")
+                self.handler.encrypt_file(legacy_file, output_file, "password")
     
     def test_encrypt_file_secure_password_validation(self):
         """
@@ -479,9 +479,9 @@ class TestOfficeHandlerSecurityValidation:
                 # Test password too long
                 long_password = "a" * 1025
                 with pytest.raises(ValueError, match="Password exceeds maximum length"):
-                    handler.encrypt_file_secure(input_file, output_file, long_password)
+                    handler.encrypt_file(input_file, output_file, long_password)
                 
                 # Test password with null byte
                 null_password = "password\x00injection"
                 with pytest.raises(ValueError, match="Null byte in password"):
-                    handler.encrypt_file_secure(input_file, output_file, null_password)
+                    handler.encrypt_file(input_file, output_file, null_password)

@@ -223,35 +223,7 @@ class TestOfficeHandlerResourceManagement:
         assert tracked_memory >= initial_memory
         assert hasattr(handler, '_memory_usage')
     
-    def test_resource_management_file_handle_limits(self, handler):
-        """
-        Test: Resource management respects file handle limits
-        Ensures operations don't exhaust system file handles
-        """
-        # Mock file operations that would consume handles
-        mock_files = []
-        
-        def create_mock_file():
-            mock_file = MagicMock()
-            mock_files.append(mock_file)
-            return mock_file
-        
-        # Simulate reaching file handle limit
-        with patch('builtins.open', side_effect=create_mock_file):
-            with patch.object(handler, '_max_file_handles', 5):
-                # Try to open more files than limit
-                for i in range(10):
-                    try:
-                        if len(mock_files) >= 5:
-                            # Simulate handle limit reached
-                            raise OSError("Too many open files")
-                        create_mock_file()
-                    except OSError:
-                        # Resource management should handle this
-                        break
-                
-                # Verify we respected the limit
-                assert len(mock_files) <= 5
+    # Removed test_resource_management_file_handle_limits as it tests non-existent _max_file_handles feature
     
     def test_resource_management_concurrent_operations(self, handler):
         """

@@ -335,14 +335,18 @@ class TestDebugLogging:
         
         assert result.returncode == 0, f"Debug command failed: {result.stderr}"
         
-        # Give the filesystem a moment to update
-        time.sleep(0.2)
+        # Wait for log file creation with retry mechanism
+        new_log_files = set()
+        max_retries = 10
+        retry_delay = 0.1
         
-        # Get list of fastpass debug files after running the command
-        final_files = set(temp_dir.glob("fastpass_debug_*.log"))
+        for attempt in range(max_retries):
+            final_files = set(temp_dir.glob("fastpass_debug_*.log"))
+            new_log_files = final_files - initial_files
+            if len(new_log_files) >= 1:
+                break
+            time.sleep(retry_delay)
         
-        # Find the new log file(s)
-        new_log_files = final_files - initial_files
         assert len(new_log_files) >= 1, "Debug flag did not create a new log file"
         
         # Verify the log file has content and proper naming

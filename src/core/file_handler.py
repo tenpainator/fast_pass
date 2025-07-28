@@ -355,17 +355,22 @@ class FileProcessor:
             elif operation == 'decrypt':
                 handler.decrypt_file(temp_input, temp_output, password)
             elif operation == 'check-password':
-                # For check-password, verify file status and password if available
+                # For check-password, print status directly to stdout for user feedback
+                status_message = f"Status for {file_manifest.path.name}: "
                 if file_manifest.is_encrypted:
                     if password:
-                        if not handler.test_password(temp_input, password):
-                            raise ProcessingError(f"Password verification failed for {file_manifest.path}")
-                        self.logger.info(f"Password check: {file_manifest.path.name} - password works")
+                        if handler.test_password(temp_input, password):
+                            status_message += "encrypted - provided password works."
+                        else:
+                            # Do not raise an error, just report the status
+                            status_message += "encrypted - provided password is incorrect."
                     else:
-                        self.logger.info(f"Password check: {file_manifest.path.name} - encrypted, no password provided")
+                        status_message += "encrypted - no password provided to test."
                 else:
-                    self.logger.info(f"Password check: {file_manifest.path.name} - not encrypted")
-                # No output file needed for check-password
+                    status_message += "not encrypted."
+                
+                print(status_message)  # Explicitly print status for the user
+                self.logger.info(f"Check operation complete for {file_manifest.path.name}")
                 temp_output = None
         
         # D3a-D3d: Output Validation (if output file was created)

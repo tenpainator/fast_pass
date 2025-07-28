@@ -55,9 +55,13 @@ class TestCLIBasicFunctionality:
         # Should contain format table with EDC notation
         assert "PDF" in result.stdout
         assert "DOCX" in result.stdout
-        assert "E=Encryption" in result.stdout or "Encryption" in result.stdout
-        assert "D=Decryption" in result.stdout or "Decryption" in result.stdout
-        assert "C=Check" in result.stdout or "Check" in result.stdout
+        # Make format table assertion more robust by checking components separately
+        assert ("E=Encryption" in result.stdout or 
+                ("E" in result.stdout and "Encryption" in result.stdout))
+        assert ("D=Decryption" in result.stdout or 
+                ("D" in result.stdout and "Decryption" in result.stdout))
+        assert ("C=Check" in result.stdout or 
+                ("C" in result.stdout and "Check" in result.stdout))
     
     def test_no_operation_error(self, fastpass_executable):
         """Test: Missing operation should trigger error"""
@@ -256,7 +260,8 @@ class TestFileFormatValidation:
         )
         
         assert result.returncode == 1
-        assert "Unsupported file format" in result.stderr
+        assert ("Unsupported file format" in result.stderr or 
+                "[ERROR] File format error: Unsupported file format" in result.stderr)
         assert ".txt" in result.stderr
     
     def test_nonexistent_file(self, fastpass_executable):

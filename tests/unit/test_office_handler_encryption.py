@@ -61,7 +61,7 @@ class TestOfficeEncryption:
         
         with patch('subprocess.run', return_value=mock_result) as mock_subprocess, \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.utils.config.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             office_handler.encrypt_file(input_path, output_path, password)
             
@@ -83,7 +83,7 @@ class TestOfficeEncryption:
         
         with patch('subprocess.run', return_value=mock_result), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.utils.config.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             office_handler.encrypt_file(input_path, output_path, password)
     
@@ -98,7 +98,7 @@ class TestOfficeEncryption:
         
         with patch('subprocess.run', return_value=mock_result), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.utils.config.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             office_handler.encrypt_file(input_path, output_path, password)
     
@@ -115,7 +115,7 @@ class TestOfficeEncryption:
         
         with patch('subprocess.run', return_value=mock_result), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.utils.config.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             with pytest.raises(ProcessingError, match="Office encryption failed"):
                 office_handler.encrypt_file(input_path, output_path, password)
@@ -128,7 +128,7 @@ class TestOfficeEncryption:
         
         with patch('subprocess.run', side_effect=subprocess.TimeoutExpired('msoffcrypto-tool', 60)), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.utils.config.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             with pytest.raises(ProcessingError, match="Office encryption timed out"):
                 office_handler.encrypt_file(input_path, output_path, password)
@@ -141,7 +141,7 @@ class TestOfficeEncryption:
         
         with patch('subprocess.run', side_effect=FileNotFoundError()), \
              patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.utils.config.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             with pytest.raises(ProcessingError, match="msoffcrypto-tool not found"):
                 office_handler.encrypt_file(input_path, output_path, password)
@@ -152,7 +152,7 @@ class TestOfficeEncryption:
         output_path = temp_office_files['output_dir'] / "encrypted.doc"
         password = "password123"
         
-        with patch('src.utils.config.FastPassConfig.LEGACY_FORMATS', {'.doc': 'msoffcrypto'}), \
+        with patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {'.doc': 'msoffcrypto'}), \
              patch.object(office_handler, '_validate_path_security_hardened'):
             
             with pytest.raises(FileFormatError, match="Legacy Office format .doc supports decryption only"):
@@ -164,7 +164,7 @@ class TestOfficeEncryption:
         output_path = temp_office_files['output_dir'] / "encrypted.docx"
         
         with patch.object(office_handler, '_validate_path_security_hardened'), \
-             patch('src.utils.config.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             # Test long password
             long_password = "a" * 1025
@@ -193,7 +193,7 @@ class TestPasswordTesting:
         with patch('builtins.open'), \
              patch('msoffcrypto.OfficeFile', return_value=mock_office_file), \
              patch('tempfile.NamedTemporaryFile') as mock_temp, \
-             patch('src.utils.config.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             mock_temp_file = MagicMock()
             mock_temp_file.read.return_value = b"test data"
@@ -211,7 +211,7 @@ class TestPasswordTesting:
         mock_result = MagicMock()
         mock_result.returncode = 0
         
-        with patch('src.utils.config.FastPassConfig.LEGACY_FORMATS', {'.doc': 'msoffcrypto'}), \
+        with patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {'.doc': 'msoffcrypto'}), \
              patch('subprocess.run', return_value=mock_result), \
              patch('tempfile.NamedTemporaryFile'):
             
@@ -229,7 +229,7 @@ class TestPasswordTesting:
         
         with patch('builtins.open'), \
              patch('msoffcrypto.OfficeFile', return_value=mock_office_file), \
-             patch('src.utils.config.FastPassConfig.LEGACY_FORMATS', {}):
+             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
             
             result = office_handler.test_password(file_path, password)
             assert result == True  # Unencrypted files always "pass" password test

@@ -135,6 +135,14 @@ def project_root():
 @pytest.fixture
 def sample_pdf_file(temp_work_dir, project_root):
     """Fixture providing a sample PDF file for testing"""
+    # First try the fixture files directory
+    fixture_pdf = project_root / "tests" / "fixtures" / "sample_files" / "decrypted" / "sample.pdf"
+    if fixture_pdf.exists():
+        test_pdf = temp_work_dir / "test_sample.pdf"
+        shutil.copy2(fixture_pdf, test_pdf)
+        return test_pdf
+    
+    # Fallback to old location
     source_pdf = project_root / "dev" / "pdf" / "test1_docx.pdf"
     if source_pdf.exists():
         test_pdf = temp_work_dir / "test_sample.pdf"

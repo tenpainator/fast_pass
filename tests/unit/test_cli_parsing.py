@@ -236,7 +236,7 @@ class TestCLIPasswordHandling:
         json_input = '["invalid": json]'
         
         with patch('sys.stdin.read', return_value=json_input):
-            with pytest.raises(ValueError, match="Invalid JSON in stdin"):
+            with pytest.raises(ValueError, match="Invalid JSON array in stdin"):
                 cli_module.handle_stdin_passwords(args)
     
     def test_handle_stdin_passwords_non_array_json(self):
@@ -297,8 +297,9 @@ class TestCLIMainFunction:
     def test_main_removed_list_supported_error(self, capsys):
         """Test: Removed list-supported flag causes error"""
         with patch.object(sys, 'argv', ['fast_pass', '--list-supported']):
-            with pytest.raises(SystemExit):
-                cli_module.main()
+            result = cli_module.main()
+            # Should return error code 2 for invalid arguments
+            assert result == 2
     
     def test_main_invalid_arguments_error(self, capsys):
         """Test: Invalid arguments return error code 2"""

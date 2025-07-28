@@ -91,7 +91,11 @@ class OfficeDocumentHandler:
                     temp_file.seek(0)
                     # If we can read some data, password is correct
                     data = temp_file.read(100)
-                    return len(data) > 0
+                    # Ensure decrypted file contains actual data (not empty)
+                    if len(data) == 0:
+                        self.logger.debug(f"Password test failed - empty decrypted file for {file_path}")
+                        return False
+                    return True
                     
         except Exception as e:
             self.logger.debug(f"Standard password test failed for {file_path}: {e}")

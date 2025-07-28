@@ -47,18 +47,26 @@ class TestSecurityValidation:
                     mock_validate.assert_called_once_with(output_path)
                     handler.logger.info.assert_called_with(f"Successfully decrypted {input_path.name}")
     
-    def test_security_validation_fails_file_deleted(self, handler, temp_dir):
+    def test_security_validation_fails_file_deleted(self, handler, tmp_path):
         """Test: Security validation fails, decrypted file is deleted"""
-        input_path = temp_dir / "encrypted.docx"
-        output_path = temp_dir / "decrypted.docx"
+        input_path = tmp_path / "encrypted.docx"
+        output_path = tmp_path / "decrypted.docx"
         password = "password"
+        
+        # Create real input file
+        input_path.write_bytes(b'fake_docx_content')
         
         mock_office_file = MagicMock()
         mock_office_file.is_encrypted.return_value = True
         mock_office_file.load_key = MagicMock()
         mock_office_file.decrypt = MagicMock()
         
-        with patch('builtins.open', mock_open(read_data=b'docx_content')):
+        # Create the output file to simulate successful decryption before validation
+        def side_effect(*args, **kwargs):
+            output_path.write_bytes(b'decrypted_content')
+            return mock_open(read_data=b'docx_content')()
+        
+        with patch('builtins.open', side_effect=side_effect):
             with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
                 with patch.object(handler, '_validate_decrypted_file_security') as mock_validate:
                     mock_validate.side_effect = Exception("Security threat detected")
@@ -68,6 +76,8 @@ class TestSecurityValidation:
                     
                     # Verify security validation was called
                     mock_validate.assert_called_once_with(output_path)
+                    # Verify the output file was deleted due to security failure
+                    assert not output_path.exists(), "Output file should have been deleted after security validation failure"
                     # Verify exception message
                     assert "Failed to decrypt Office document" in str(exc_info.value)
     

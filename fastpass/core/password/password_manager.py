@@ -1,43 +1,29 @@
-"""
-FastPass Password Management System
-"""
+"""FastPass password management with multiple sources and priority handling."""
 
-# A1a: Load System Tools
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 import logging
 
 
 class PasswordManager:
-    """
-    Password handling with multiple sources and priority algorithm
-    """
+    """Password handling with multiple sources and priority algorithm."""
     
     def __init__(self, cli_passwords: List[str] = None):
-        """
-        Set up password storage and management
-        """
+        """Initialize password manager with CLI passwords."""
         
-        # C3b: Remember User's Passwords
         self.cli_passwords = cli_passwords or []
-        
-        # C3c: Prepare Password Storage
         self.password_list = []
         self.stdin_mapping = {}
     
     def get_password_candidates(self, file_path: Path) -> List[str]:
-        """
-        Build password list with priority ordering
-        """
+        """Build password list with priority ordering."""
         
-        # C4a: Start Building Password List
         candidates = []
         
-        # C4b: Add Command-Line Passwords (includes any from stdin)
-        # Put passwords user typed in command (and any loaded from stdin)
+        # Add command-line passwords (includes any from stdin)
         candidates.extend(self.cli_passwords)
         
-        # C4d: Remove Duplicate Passwords
+        # Remove duplicate passwords
         # Eliminate passwords that appear multiple times
         seen = set()
         unique_candidates = []

@@ -1,9 +1,5 @@
-"""
-FastPass Main Application
-Maps to: A5a-A5g FastPass Application Initialization and main processing flow
-"""
+"""FastPass main application class."""
 
-# A1a: Load System Tools
 import sys
 import atexit
 from datetime import datetime
@@ -16,51 +12,53 @@ from fastpass.utils.logger import sanitize_error_message
 
 
 class FastPassApplication:
+    """Main FastPass application orchestrating the complete processing workflow."""
+    
     def __init__(self, args, logger: logging.Logger, config: Dict[str, Any]):
         self.args = args
         self.logger = logger
         self.config = config
         
-        # A5c: Initialize Tracking Lists
+        # Initialize tracking lists
         self.temp_files_created = []
         self.processing_results = {}
         
-        # A5d: Record Operation Start Time
+        # Record operation start time
         self.operation_start_time = datetime.now()
         
-        # A5e: Initialize Password Manager
+        # Initialize password manager
         from fastpass.core.password.password_manager import PasswordManager
         self.password_manager = PasswordManager(
             cli_passwords=getattr(args, 'password', []) or []
         )
         
-        # A5f: Set Application State Flags
+        # Set application state flags
         self.ready_for_processing = True
         self.cleanup_required = True
         
-        # A5g: Log Application Initialized
         self.logger.debug('FastPass application initialized')
         
         # Register cleanup handler
         atexit.register(self._emergency_cleanup)
     
     def run(self) -> int:
+        """Execute the main processing workflow."""
         try:
-            # A4a-A4e: Crypto Tool Detection
+            # Check crypto tool availability
             self._check_crypto_tools()
             
-            # Section B: Security & File Validation
+            # Security and file validation
             validated_files = self._perform_security_and_file_validation()
             
-            # Section C: Crypto Tool Setup & Configuration
+            # Setup crypto handlers
             crypto_handlers = self._setup_crypto_tools_and_configuration(validated_files)
             
-            # Section D: File Processing & Operations
+            # Process files
             processing_results = self._process_files_with_crypto_operations(
                 validated_files, crypto_handlers
             )
             
-            # Section E: Cleanup & Results Reporting
+            # Cleanup and report results
             exit_code = self._cleanup_and_generate_final_report(processing_results)
             
             return exit_code
@@ -87,6 +85,7 @@ class FastPassApplication:
             return 2
     
     def _check_crypto_tools(self) -> None:
+        """Verify required crypto tools are available."""
         crypto_tools = {}
         missing_tools = []
         
@@ -112,10 +111,7 @@ class FastPassApplication:
         self.crypto_tools = crypto_tools
     
     def _perform_security_and_file_validation(self) -> List:
-        """
-        Section B: Security & File Validation
-        Perform comprehensive security checks and file validation
-        """
+        """Perform security checks and file validation."""
         from fastpass.core.security import SecurityValidator
         from fastpass.core.file_handler import FileValidator
         
@@ -125,12 +121,11 @@ class FastPassApplication:
         # Validate output directory if specified
         if hasattr(self.args, 'output_dir') and self.args.output_dir:
             validated_output_dir = security_validator.validate_output_directory(self.args.output_dir)
-            # Update args with validated output directory
             self.args.output_dir = validated_output_dir
         
         # Determine input file
         if hasattr(self.args, 'input') and self.args.input:
-            files_to_process = [self.args.input]  # Convert single file to list for processing
+            files_to_process = [self.args.input]
         else:
             raise ValueError("No input file specified")
         
@@ -140,17 +135,13 @@ class FastPassApplication:
         for file_path in files_to_process:
             try:
                 security_validator.validate_file_path(file_path)
-                
                 file_manifest = file_validator.validate_file(file_path, allow_unsupported=True)
-                
                 validated_files.append(file_manifest)
                 
             except SecurityViolationError as e:
                 self.logger.error(f"Security validation failed for {file_path}: {e}")
-                # Continue with other files
             except FileFormatError as e:
                 self.logger.error(f"File format validation failed for {file_path}: {e}")
-                # Continue with other files
         
         if not validated_files:
             raise FileFormatError("No valid files found to process")
@@ -158,16 +149,12 @@ class FastPassApplication:
         self.logger.info(f"Validated {len(validated_files)} files for processing")
         return validated_files
     
-    
     def _setup_crypto_tools_and_configuration(self, validated_files: List) -> Dict:
-        """
-        Section C: Crypto Tool Setup & Configuration
-        Initialize and configure crypto handlers
-        """
+        """Initialize and configure crypto handlers."""
         from fastpass.core.crypto_handlers.office_handler import OfficeDocumentHandler
         from fastpass.core.crypto_handlers.pdf_handler import PDFHandler
         
-        # C1a-C1d: Analyze required tools and initialize handlers
+        # Determine required tools and initialize handlers
         required_tools = set(manifest.crypto_tool for manifest in validated_files)
         crypto_handlers = {}
         
@@ -177,7 +164,7 @@ class FastPassApplication:
         if 'PyPDF2' in required_tools:
             crypto_handlers['PyPDF2'] = PDFHandler(self.logger)
         
-        # C2a-C2b: Configure handlers
+        # Configure handlers
         for handler in crypto_handlers.values():
             handler.configure(self.config)
         
@@ -185,6 +172,7 @@ class FastPassApplication:
         return crypto_handlers
     
     def _process_files_with_crypto_operations(self, validated_files: List, crypto_handlers: Dict) -> Dict:
+        """Process files using appropriate crypto handlers."""
         from fastpass.core.file_handler import FileProcessor
         
         processor = FileProcessor(
@@ -195,27 +183,28 @@ class FastPassApplication:
             temp_files_created=self.temp_files_created
         )
         
-        # Use operation directly - no deprecated mapping needed
         operation = self.args.operation
         
         return processor.process_files(validated_files, operation, self.args.output_dir)
     
     def _cleanup_and_generate_final_report(self, processing_results: Dict) -> int:
+        """Clean up resources and generate final report."""
         from fastpass.core.file_handler import ResultsReporter
         
-        # E1a-E1e: Calculate processing metrics
+        # Calculate processing metrics and generate report
         reporter = ResultsReporter(self.logger, self.operation_start_time)
         
-        # E2a-E2f: Enhanced cleanup
+        # Cleanup resources
         self._perform_cleanup()
         
-        # E3a-E3d: Sensitive data clearing
+        # Clear sensitive data
         self._clear_sensitive_data()
         
-        # E4a-E5d: Report generation and exit code determination
+        # Generate report and determine exit code
         return reporter.generate_report(processing_results)
     
     def _perform_cleanup(self) -> None:
+        """Clean up temporary files."""
         for temp_file in self.temp_files_created:
             try:
                 if temp_file.exists():
@@ -225,12 +214,11 @@ class FastPassApplication:
                 self.logger.warning(f"Failed to remove temp file {temp_file}: {e}")
     
     def _clear_sensitive_data(self) -> None:
-        # Clear password manager
+        """Clear sensitive data from memory."""
         if hasattr(self, 'password_manager'):
             self.password_manager.clear_passwords()
             del self.password_manager
         
-        # Clear CLI arguments containing passwords
         if hasattr(self.args, 'password'):
             self.args.password = None
         
@@ -239,18 +227,17 @@ class FastPassApplication:
         gc.collect()
     
     def _cleanup_partial_processing_on_failure(self) -> None:
-        """Cleanup when processing fails partway through"""
+        """Cleanup when processing fails partway through."""
         self._perform_cleanup()
     
     def _emergency_cleanup(self) -> None:
-        """Emergency cleanup for unexpected termination"""
+        """Emergency cleanup for unexpected termination."""
         try:
             self._perform_cleanup()
         except Exception:
-            pass  # Ignore errors during emergency cleanup
+            pass
 
-
-# Import exception classes from centralized module
+# Import exception classes
 from fastpass.exceptions import (
     SecurityViolationError, FileFormatError, CryptoToolError, 
     PasswordError, FileProcessingError, ProcessingError

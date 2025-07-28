@@ -82,7 +82,6 @@ class OfficeDocumentHandler:
                 office_file = msoffcrypto.OfficeFile(f)
                 
                 if not office_file.is_encrypted():
-                    # File is not encrypted, so any password "works" for decryption
                     return True
                 
                 # Try to load with password
@@ -92,9 +91,7 @@ class OfficeDocumentHandler:
                 with tempfile.NamedTemporaryFile() as temp_file:
                     office_file.decrypt(temp_file)
                     temp_file.seek(0)
-                    # If we can read some data, password is correct
                     data = temp_file.read(100)
-                    # Ensure decrypted file contains actual data (not empty)
                     if len(data) == 0:
                         self.logger.debug(f"Password test failed - empty decrypted file for {file_path}")
                         return False

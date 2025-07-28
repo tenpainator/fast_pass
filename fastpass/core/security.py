@@ -1,9 +1,5 @@
-"""
-FastPass Security Validation Module
-Maps to: Section B2a-B2e Enhanced Security Validation from flowchart
-"""
+"""FastPass security validation and path checking functionality."""
 
-# A1a: Load System Tools
 import os
 import stat
 from pathlib import Path
@@ -14,16 +10,12 @@ from fastpass.exceptions import SecurityViolationError, FileFormatError
 
 
 class SecurityValidator:
-    """
-    Security validation and path checking
-    Implements comprehensive security hardening
-    """
+    """Security validation and path checking with comprehensive hardening."""
     
     def __init__(self, logger: logging.Logger):
         self.logger = logger
         
-        # B2d: Set Security Boundaries
-        # Define which folders the program is allowed to access
+        # Define allowed directories for security boundaries
         self.allowed_directories = self._get_allowed_directories()
     
     def _get_allowed_directories(self) -> Set[Path]:

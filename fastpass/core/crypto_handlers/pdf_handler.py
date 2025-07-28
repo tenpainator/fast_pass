@@ -1,8 +1,5 @@
-"""
-FastPass PDF Handler
-"""
+"""PDF document encryption/decryption handler using PyPDF2."""
 
-# A1a: Load System Tools
 import logging
 from pathlib import Path
 from typing import Dict, Any
@@ -14,6 +11,8 @@ except ImportError:
 
 
 class PDFHandler:
+    """PDF document encryption/decryption handler using PyPDF2."""
+    
     def __init__(self, logger: logging.Logger):
         self.logger = logger
         
@@ -26,25 +25,23 @@ class PDFHandler:
         self.logger.debug("PDF handler initialized")
     
     def configure(self, config: Dict[str, Any]) -> None:
+        """Configure PDF handler settings."""
         self.encryption_method = config.get('pdf_encryption_method', self.encryption_method)
         self.user_password_length = config.get('pdf_password_length', self.user_password_length)
     
     def test_password(self, file_path: Path, password: str) -> bool:
+        """Test if password works for PDF document."""
         try:
             with open(file_path, 'rb') as f:
                 pdf_reader = PyPDF2.PdfReader(f)
                 
                 if not pdf_reader.is_encrypted:
-                    # PDF is not encrypted, so any password "works" for decryption
                     return True
                 
                 # Try to decrypt with password
                 result = pdf_reader.decrypt(password)
                 
-                # PyPDF2 returns:
-                # 0: Failed
-                # 1: Succeeded with user password
-                # 2: Succeeded with owner password
+                # PyPDF2 returns: 0=Failed, 1=User password, 2=Owner password
                 return result > 0
                 
         except Exception as e:
@@ -52,6 +49,7 @@ class PDFHandler:
             return False
     
     def encrypt_file(self, input_path: Path, output_path: Path, password: str) -> None:
+        """Encrypt PDF file with password."""
         try:
             with open(input_path, 'rb') as input_file:
                 pdf_reader = PyPDF2.PdfReader(input_file)

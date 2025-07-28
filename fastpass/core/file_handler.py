@@ -1,9 +1,5 @@
-"""
-FastPass File Handler Module
-Maps to: Section B3a-B6h File Validation and Section D File Processing
-"""
+"""FastPass file handling, validation, and processing functionality."""
 
-# A1a: Load System Tools
 import filetype
 import tempfile
 import shutil
@@ -21,10 +17,7 @@ from fastpass.exceptions import FileFormatError, ProcessingError
 
 @dataclass
 class FileManifest:
-    """
-    B6a: Create FileManifest Object
-    Data structure to hold file metadata and processing information
-    """
+    """Data structure to hold file metadata and processing information."""
     path: Path
     format: str
     size: int
@@ -35,10 +28,7 @@ class FileManifest:
 
 
 class FileValidator:
-    """
-    File format validation and detection
-    Maps to B3a-B6h from flowchart
-    """
+    """File format validation and detection."""
     
     def __init__(self, logger: logging.Logger, config: Dict[str, Any]):
         self.logger = logger
@@ -46,8 +36,7 @@ class FileValidator:
         self.max_file_size = config.get('max_file_size', FastPassConfig.MAX_FILE_SIZE)
     
     def validate_file(self, file_path: Path, allow_unsupported: bool = False) -> FileManifest:
-        """
-        B3a-B6e: Complete file validation pipeline
+        """Complete file validation pipeline.
         Validate file format, content, and create manifest
         """
         

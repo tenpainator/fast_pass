@@ -316,15 +316,15 @@ class FileProcessor:
             password = self.password_manager.find_working_password(file_manifest.path, handler)
             if not password:
                 raise ProcessingError(f"No working password found for {file_manifest.path}")
-        elif operation == 'check-password' and file_manifest.is_encrypted:
-            # For check-password, get password candidates and test them
+        elif operation == 'check' and file_manifest.is_encrypted:
+            # For check, get password candidates and test them
             password_candidates = self.password_manager.get_password_candidates(file_manifest.path)
             if password_candidates:
                 # Test the first password candidate
                 password = password_candidates[0]
             else:
                 password = None
-            # Note: password may be None, which is handled in the check-password logic
+            # Note: password may be None, which is handled in the check logic
         elif operation == 'encrypt':
             # For encryption, use first available password
             passwords = self.password_manager.get_password_candidates(file_manifest.path)
@@ -348,10 +348,10 @@ class FileProcessor:
                 self.logger.info(f"DRY RUN: Would encrypt {file_manifest.path.name}")
             elif operation == 'decrypt':
                 self.logger.info(f"DRY RUN: Would decrypt {file_manifest.path.name}")
-            elif operation == 'check-password':
+            elif operation == 'check':
                 self.logger.info(f"DRY RUN: Would check password for {file_manifest.path.name}")
             # In dry-run, create a dummy output file if needed for validation
-            if operation != 'check-password':
+            if operation != 'check':
                 temp_output.touch()
         else:
             # Real operations
@@ -359,8 +359,8 @@ class FileProcessor:
                 handler.encrypt_file(temp_input, temp_output, password)
             elif operation == 'decrypt':
                 handler.decrypt_file(temp_input, temp_output, password)
-            elif operation == 'check-password':
-                # For check-password, print status directly to stdout for user feedback
+            elif operation == 'check':
+                # For check, print status directly to stdout for user feedback
                 status_message = f"Status for {file_manifest.path.name}: "
                 if file_manifest.is_encrypted:
                     if password:
@@ -379,22 +379,22 @@ class FileProcessor:
                 temp_output = None
         
         # D3a-D3d: Output Validation (if output file was created)
-        if not dry_run and temp_output and operation != 'check-password':
+        if not dry_run and temp_output and operation != 'check':
             self._validate_output_file_with_retry(temp_output, file_manifest, operation)
         
         # D4a-D4g: File Movement and Final Result
         if dry_run:
             # In dry-run mode, no file changes are made
             final_path = file_manifest.path
-        elif operation != 'check-password':
+        elif operation != 'check':
             final_path = self._move_to_final_location(
                 temp_output, file_manifest.path, output_dir
             )
         else:
-            final_path = file_manifest.path  # No file movement for check-password
+            final_path = file_manifest.path  # No file movement for check
         
         # Deep verification if verify mode is enabled
-        if verify and not dry_run and operation != 'check-password':
+        if verify and not dry_run and operation != 'check':
             self._perform_deep_verification(final_path, file_manifest, operation, password)
         
         # D4f-D4g: Create Processing Result

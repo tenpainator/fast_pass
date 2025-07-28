@@ -223,10 +223,8 @@ class FastPassApplication:
             temp_files_created=self.temp_files_created
         )
         
-        # Map CLI operation to internal operation names
+        # Use operation directly - no deprecated mapping needed
         operation = self.args.operation
-        if operation == 'check':
-            operation = 'check-password'
         
         return processor.process_files(validated_files, operation, self.args.output_dir)
     

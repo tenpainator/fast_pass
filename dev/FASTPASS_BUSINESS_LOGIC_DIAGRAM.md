@@ -2,8 +2,11 @@
 
 This document contains Mermaid diagrams showing the exact business logic flow for each FastPass operation, including file movements, processing steps, and decision points.
 
+**Note**: These flows apply to both CLI and Library interfaces - they share the same core processing pipeline through the file handler layer.
+
 ## Overall Application Flow
 
+### CLI Interface Flow
 ```mermaid
 flowchart TD
     A[CLI Command Input] --> B[Parse Arguments & Config]
@@ -24,11 +27,38 @@ flowchart TD
     end
 ```
 
+### Library Interface Flow
+```mermaid
+flowchart TD
+    A[DocumentProcessor Method Call] --> B[Validate Arguments]
+    B --> C[Security & File Validation]
+    C --> D[Setup Crypto Handlers]
+    D --> E[Process Files via FileProcessor]
+    E --> F[Return ProcessingResult]
+    F --> G[Context Manager Cleanup]
+
+    subgraph "Shared Core Processing"
+        E --> E1[Format Detection]
+        E --> E2[Encryption Status Check]
+        E --> E3[Password Management]
+        E --> E4[File Operations]
+        E --> E5[Output Validation]
+    end
+
+    style A fill:#e8f5e8
+    style F fill:#e8f5e8
+    style G fill:#f0f4c3
+```
+
 ## Encryption Operation Business Logic
+
+**Applies to both CLI and Library interfaces:**
+- CLI: `fastpass encrypt -i file.docx -p password123`
+- Library: `processor.encrypt_file("file.docx", "password123")`
 
 ```mermaid
 flowchart TD
-    START([User: encrypt -i file.docx -p password123]) --> VALIDATE[Validate File Format & Security]
+    START([Input: encrypt -i file.docx -p password123]) --> VALIDATE[Validate File Format & Security]
     VALIDATE --> RUN_CHECK[🔍 INTERNAL CHECK OPERATION<br/>Run same logic as 'check' command<br/>Direct file access - no copying]
     
     RUN_CHECK --> GET_HANDLER_CHECK[Get Crypto Handler for Check<br/>📄 MSOffice/PDF Handler]
@@ -71,9 +101,13 @@ flowchart TD
 
 ## Decryption Operation Business Logic
 
+**Applies to both CLI and Library interfaces:**
+- CLI: `fastpass decrypt -i file.docx -p password123`  
+- Library: `processor.decrypt_file("file.docx", ["password123"])`
+
 ```mermaid
 flowchart TD
-    START([User: decrypt -i file.docx -p password123]) --> VALIDATE[Validate File Format & Security]
+    START([Input: decrypt -i file.docx -p password123]) --> VALIDATE[Validate File Format & Security]
     VALIDATE --> RUN_CHECK[🔍 INTERNAL CHECK OPERATION<br/>Run same logic as 'check' command<br/>Direct file access - no copying]
     
     RUN_CHECK --> GET_HANDLER_CHECK[Get Crypto Handler for Check<br/>📄 MSOffice/PDF Handler]
@@ -120,9 +154,13 @@ flowchart TD
 
 ## Check Operation Business Logic (Hybrid Approach)
 
+**Applies to both CLI and Library interfaces:**
+- CLI: `fastpass check -i file.docx -p password123`
+- Library: `processor.is_password_protected("file.docx")` or check operation
+
 ```mermaid
 flowchart TD
-    START([User: check -i file.docx -p password123]) --> VALIDATE[Validate File Format & Security]
+    START([Input: check -i file.docx -p password123]) --> VALIDATE[Validate File Format & Security]
     VALIDATE --> CHECK_WRITE{Is Write Operation?<br/>encrypt/decrypt vs check}
     
     CHECK_WRITE -->|Write Operation| CREATE_TEMP[Create Temp Directory<br/>Copy File to Temp]

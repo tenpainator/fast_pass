@@ -214,13 +214,9 @@ class TestPasswordTesting:
 
         mock_office_file = MagicMock()
         mock_office_file.is_encrypted.return_value = True
-        mock_office_file.load_key = MagicMock()  # Mock the load_key method
-
-        # CORRECTIVE ACTION: Define a side effect for the decrypt method similar to standard format
-        def mock_decrypt_side_effect(file_handle):
-            file_handle.write(b"mock decrypted content")
-
-        mock_office_file.decrypt.side_effect = mock_decrypt_side_effect
+        # CORRECTIVE ACTION: Make load_key fail to trigger subprocess fallback  
+        mock_office_file.load_key.side_effect = Exception("Standard approach failed")
+        mock_office_file.decrypt = MagicMock()
 
         # Mock subprocess success for fallback
         mock_result = MagicMock()
@@ -229,8 +225,7 @@ class TestPasswordTesting:
         with patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {'.doc': 'msoffcrypto'}), \
              patch('builtins.open', mock_open()), \
              patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file), \
-             patch('subprocess.run', return_value=mock_result), \
-             patch('tempfile.NamedTemporaryFile'):
+             patch('subprocess.run', return_value=mock_result):
 
             result = office_handler.test_password(file_path, password)
             assert result is True

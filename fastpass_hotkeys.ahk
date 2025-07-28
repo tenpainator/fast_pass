@@ -233,15 +233,15 @@ CheckFileEncryption(filePath) {
         WriteLog("FastPass Dir: " . fastPassDir)
         WriteLog("File Exists: " . (FileExist(filePath) ? "YES" : "NO"))
         
-        ; Build the command with correct FastPass CLI syntax (using -i flag)
-        cmd := 'cmd /c "cd /d "' . fastPassDir . '" && python -m src.app check -i "' . filePath . '""'
+        ; Build the command using main.py (the working entry point)
+        cmd := 'cmd /c "cd /d "' . fastPassDir . '" && python main.py check -i "' . filePath . '""'
         WriteLog("Initial command: " . cmd)
         
-        ; Capture the output by redirecting to temp file with enhanced error capture
+        ; Capture the output by redirecting to temp file
         tempFile := A_Temp . "\fastpass_check_" . A_TickCount . ".txt"
         
-        ; Try a different approach - capture both stdout and stderr, and also test if Python can import the module
-        cmd := 'cmd /c "cd /d "' . fastPassDir . '" && echo Testing Python import... && python -c "import src.app; print(`'Import successful`')" && echo Running check command... && python -m src.app check -i "' . filePath . '" && echo Command completed." > "' . tempFile . '" 2>&1'
+        ; Use the working main.py entry point
+        cmd := 'cmd /c "cd /d "' . fastPassDir . '" && python main.py check -i "' . filePath . '" > "' . tempFile . '" 2>&1"'
         WriteLog("Command with redirect: " . cmd)
         WriteLog("Temp file: " . tempFile)
         
@@ -315,8 +315,8 @@ DecryptFile(filePath, password) {
             outputPath := dir . "\" . nameNoExt . ".decrypted." . ext
         }
         
-        ; Build the command with password
-        cmd := 'cmd /c "cd /d "' . fastPassDir . '" && python -m src.app decrypt -p "' . password . '" "' . filePath . '" "' . outputPath . '""'
+        ; Build the command with password using main.py
+        cmd := 'cmd /c "cd /d "' . fastPassDir . '" && python main.py decrypt -p "' . password . '" -i "' . filePath . '" -o "' . outputPath . '""'
         
         ; Run the command
         result := RunWait(cmd, fastPassDir, "Hide")
@@ -346,8 +346,8 @@ EncryptFile(filePath, password) {
         SplitPath(filePath, &name, &dir, &ext, &nameNoExt)
         outputPath := dir . "\" . nameNoExt . ".encrypted." . ext
         
-        ; Build the command with password
-        cmd := 'cmd /c "cd /d "' . fastPassDir . '" && python -m src.app encrypt -p "' . password . '" "' . filePath . '" "' . outputPath . '""'
+        ; Build the command with password using main.py
+        cmd := 'cmd /c "cd /d "' . fastPassDir . '" && python main.py encrypt -p "' . password . '" -i "' . filePath . '" -o "' . outputPath . '""'
         
         ; Run the command
         result := RunWait(cmd, fastPassDir, "Hide")

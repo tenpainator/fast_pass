@@ -11,8 +11,11 @@ import sys
 import os
 from pathlib import Path
 
-# Add src directory to path for imports
+# Add both src directory and parent directory to path for imports
 src_path = Path(__file__).parent
+parent_path = src_path.parent
+if str(parent_path) not in sys.path:
+    sys.path.insert(0, str(parent_path))
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 

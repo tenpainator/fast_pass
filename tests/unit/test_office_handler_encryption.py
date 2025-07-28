@@ -4,7 +4,7 @@ Tests the office handler encryption functionality using subprocess-only approach
 """
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 from pathlib import Path
 import tempfile
 import shutil
@@ -184,39 +184,56 @@ class TestPasswordTesting:
         """Test: Password test for standard format"""
         file_path = temp_office_files['.docx']
         password = "test123"
-        
-        # Mock successful password test
+
         mock_office_file = MagicMock()
         mock_office_file.is_encrypted.return_value = True
-        mock_office_file.decrypt.return_value = None
-        
-        with patch('builtins.open'), \
-             patch('msoffcrypto.OfficeFile', return_value=mock_office_file), \
-             patch('tempfile.NamedTemporaryFile') as mock_temp, \
-             patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {}):
-            
-            mock_temp_file = MagicMock()
-            mock_temp_file.read.return_value = b"test data"
-            mock_temp.__enter__.return_value = mock_temp_file
-            
-            result = office_handler.test_password(file_path, password)
-            assert result == True
+
+        # CORRECTIVE ACTION 1: Define a side effect for the decrypt method.
+        # This function will be called instead of the mock, and it simulates
+        # writing data to the temporary file handle passed to it.
+        def mock_decrypt_side_effect(file_handle):
+            file_handle.write(b"mock decrypted content")
+
+        mock_office_file.decrypt.side_effect = mock_decrypt_side_effect
+
+        # Mock the file operations and the OfficeFile class
+        with patch('builtins.open', mock_open()):
+            with patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file):
+                # CORRECTIVE ACTION 2: No need to mock NamedTemporaryFile, as the real one
+                # will work perfectly with our side_effect.
+                result = office_handler.test_password(file_path, password)
+
+                # Verify the result is True and the decrypt method was called
+                assert result is True
+                mock_office_file.decrypt.assert_called_once()
     
     def test_password_test_legacy_format_subprocess(self, office_handler, temp_office_files):
         """Test: Password test for legacy format using subprocess"""
         file_path = temp_office_files['.docx'].with_suffix('.doc')
         password = "test123"
-        
-        # Mock subprocess success for password test
+
+        mock_office_file = MagicMock()
+        mock_office_file.is_encrypted.return_value = True
+        mock_office_file.load_key = MagicMock()  # Mock the load_key method
+
+        # CORRECTIVE ACTION: Define a side effect for the decrypt method similar to standard format
+        def mock_decrypt_side_effect(file_handle):
+            file_handle.write(b"mock decrypted content")
+
+        mock_office_file.decrypt.side_effect = mock_decrypt_side_effect
+
+        # Mock subprocess success for fallback
         mock_result = MagicMock()
         mock_result.returncode = 0
-        
+
         with patch('src.core.crypto_handlers.office_handler.FastPassConfig.LEGACY_FORMATS', {'.doc': 'msoffcrypto'}), \
+             patch('builtins.open', mock_open()), \
+             patch('src.core.crypto_handlers.office_handler.msoffcrypto.OfficeFile', return_value=mock_office_file), \
              patch('subprocess.run', return_value=mock_result), \
              patch('tempfile.NamedTemporaryFile'):
-            
+
             result = office_handler.test_password(file_path, password)
-            assert result == True
+            assert result is True
     
     def test_password_test_unencrypted_file(self, office_handler, temp_office_files):
         """Test: Password test on unencrypted file"""
